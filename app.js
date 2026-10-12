@@ -12,6 +12,8 @@
   let livePoints = 0;
   let renderedWidth = 0;
   let renderedHeight = 0;
+  const touches = new Map();
+  let pinch = null;
   const emptyDiagnostics = () => ({ pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-", recent: [] });
   let diagnostics = emptyDiagnostics();
 
@@ -202,22 +204,8 @@
       remember(active().strokes.slice());
       active().strokes.push(old.stroke);
       drawStroke(worldContext("saved-drawing"), old.stroke);
-    } else if (old.tool === "eraser" && old.before.length !== active().strokes.length) {
+    } else if (old.tool === "eraser" && old.changed) {
       remember(old.before);
-    }
-
-    function remember(before) {
-      undo.push(before);
-      if (undo.length > 50) undo.shift();
-      redo = [];
-    }
-
-    function eraseAt(point) {
-      const before = active().strokes.length;
-      active().strokes = active().strokes.filter(stroke =>
-        !M.hitStroke(stroke, gesture.lastPoint, point, 12 / active().view.scale));
-      gesture.lastPoint = point;
-      if (before !== active().strokes.length) render();
     }
     gesture = null;
     clear("drawing");
@@ -227,8 +215,26 @@
     updateControls();
   }
 
+  function remember(before) {
+    undo.push(before);
+    if (undo.length > 50) undo.shift();
+    redo = [];
+  }
+
+  function eraseAt(point) {
+    const result = M.erase(active().strokes, gesture.lastPoint, point, 12 / active().view.scale);
+    gesture.lastPoint = point;
+    if (result.changed) {
+      gesture.changed = true;
+      active().strokes = result.strokes;
+      render();
+    }
+  }
+
   function tab(name) {
     finish();
+    pinch = null;
+    touches.clear();
     document.body.classList.remove("writing-focus");
     $("focus").setAttribute("aria-pressed", "false");
     $("focus").textContent = "Brede schrijfmodus";
@@ -341,6 +347,14 @@
       render();
     });
     $("finger").addEventListener("change", () => { finish(); });
+    $("clear-page").addEventListener("click", () => {
+      finish();
+      const doc = active();
+      const page = Math.min((doc.pages || 1) - 1, Math.max(0, Math.floor((doc.view.y + 24) / 1144)));
+      if (!window.confirm(doc.kind === "board" ? "Alle penstreken op dit whiteboard verwijderen? Ongedaan kan dit herstellen." : `Alle inkt op pagina ${page + 1} verwijderen? Andere pagina's en getypte tekst blijven bewaard.`)) return;
+      const result = doc.kind === "board" ? { changed: !!doc.strokes.length, strokes: [] } : M.clearPage(doc.strokes, page);
+      if (result.changed) { remember(doc.strokes.slice()); doc.strokes = result.strokes; persist(); render(); }
+    });
     for (const [id, step] of [["previous-page", -1], ["next-page", 1], ["add-page", 0]]) $(id).addEventListener("click", () => {
       finish();
       const doc = active();
@@ -355,6 +369,18 @@
       render();
     });
     const canvas = $("drawing");
+    const touchPair = () => [...touches.values()].slice(0, 2);
+    const startPinch = () => {
+      const [a, b] = touchPair();
+      if (gesture && gesture.type === "pen") return;
+      if (gesture) {
+        endDiagnostics(gesture, "tweevingerzoom");
+        gesture = null;
+        clear("drawing");
+        livePoints = 0;
+      }
+      pinch = { a, b, view: { ...active().view } };
+    };
     $("writing").addEventListener("selectstart", event => {
       if (event.target instanceof Element && !event.target.closest("input, textarea, select")) event.preventDefault();
     });
@@ -369,6 +395,16 @@
       const kind = ["pen", "touch", "mouse"].includes(event.pointerType) ? event.pointerType : "other";
       diagnostics[kind]++;
       diagnostics.last = kind;
+      if (kind === "pen") { pinch = null; touches.clear(); }
+      if (kind === "touch") {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touches.size >= 2 && (!gesture || gesture.type !== "pen")) {
+          canvas.setPointerCapture(event.pointerId);
+          startPinch();
+          updateDiagnostics();
+          return;
+        }
+      }
       if (gesture && event.pointerType === "pen" && gesture.type === "touch") {
         // A classified pen replaces an uncommitted touch stroke, not a stored note.
         const old = gesture;
@@ -404,6 +440,15 @@
       drawLive();
     });
     canvas.addEventListener("pointermove", event => {
+      if (event.pointerType === "touch" && touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pinch && touches.size >= 2) {
+        event.preventDefault();
+        const [a, b] = touchPair();
+        const rect = canvas.getBoundingClientRect();
+        active().view = M.pinch(pinch.view, pinch.a, pinch.b, a, b, rect);
+        render();
+        return;
+      }
       if (!gesture || gesture.id !== event.pointerId) return;
       event.preventDefault();
       const now = performance.now();
@@ -439,7 +484,17 @@
       persist();
       render();
     }, { passive: false });
-    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, finish);
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, event => {
+      if (event.pointerType === "touch") {
+        touches.delete(event.pointerId);
+        if (pinch) {
+          if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+          if (touches.size < 2) { pinch = null; touches.clear(); persist(); }
+          return;
+        }
+      }
+      finish(event);
+    });
     new ResizeObserver(() => {
       const rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height || (rect.width === renderedWidth && rect.height === renderedHeight)) return;

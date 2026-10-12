@@ -79,5 +79,98 @@
     });
   }
 
-  window.IpadModel = { KEY, createDocument, validate, load, save, point, zoom, hitStroke };
+  function splitStroke(stroke, intervals) {
+    const fragments = [];
+    let current = [];
+    let changed = false;
+    const flush = () => { if (current.length) fragments.push({ ...stroke, points: current }); current = []; };
+    if (stroke.points.length === 1) return intervals(stroke.points[0], stroke.points[0]).length ? { changed: true, strokes: [] } : { changed: false, strokes: [stroke] };
+    for (let i = 1; i < stroke.points.length; i++) {
+      const a = stroke.points[i - 1], b = stroke.points[i];
+      const ranges = intervals(a, b).sort((x, y) => x[0] - y[0]);
+      let cursor = 0;
+      const at = t => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+      const append = (start, end) => {
+        if (end <= start) return;
+        const p = at(start);
+        if (!current.length) current.push(p);
+        current.push(at(end));
+      };
+      for (const [start, end] of ranges) {
+        if (end <= cursor) continue;
+        changed = true;
+        append(cursor, start);
+        flush();
+        cursor = Math.max(cursor, end);
+      }
+      append(cursor, 1);
+    }
+    flush();
+    return changed ? { changed, strokes: fragments } : { changed: false, strokes: [stroke] };
+  }
+
+  function rectangleInterval(a, b, left, top, right, bottom) {
+    let low = 0, high = 1;
+    for (const [start, delta, min, max] of [[a.x, b.x - a.x, left, right], [a.y, b.y - a.y, top, bottom]]) {
+      if (delta === 0) { if (start < min || start > max) return []; }
+      else {
+        const t1 = (min - start) / delta, t2 = (max - start) / delta;
+        low = Math.max(low, Math.min(t1, t2));
+        high = Math.min(high, Math.max(t1, t2));
+      }
+    }
+    return high > low ? [[low, high]] : [];
+  }
+
+  function circleInterval(a, b, center, radius) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const x = a.x - center.x, y = a.y - center.y;
+    const length = dx * dx + dy * dy;
+    if (!length) return x * x + y * y <= radius * radius ? [[0, 1]] : [];
+    const dot = x * dx + y * dy;
+    const discriminant = dot * dot - length * (x * x + y * y - radius * radius);
+    if (discriminant <= 0) return [];
+    const low = Math.max(0, (-dot - Math.sqrt(discriminant)) / length);
+    const high = Math.min(1, (-dot + Math.sqrt(discriminant)) / length);
+    return high > low ? [[low, high]] : [];
+  }
+
+  function transformStrokes(strokes, intervals) {
+    let changed = false;
+    const result = strokes.flatMap(stroke => {
+      const clipped = splitStroke(stroke, (a, b) => intervals(a, b, stroke));
+      changed = changed || clipped.changed;
+      return clipped.strokes;
+    });
+    return { changed, strokes: changed ? result : strokes };
+  }
+
+  function erase(strokes, from, to, radius) {
+    const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
+    const local = p => ({ x: length ? ((p.x - from.x) * dx + (p.y - from.y) * dy) / length : 0,
+      y: length ? (-(p.x - from.x) * dy + (p.y - from.y) * dx) / length : 0 });
+    return transformStrokes(strokes, (a, b, stroke) => {
+      const r = radius + stroke.width / 2;
+      return [...circleInterval(a, b, from, r), ...circleInterval(a, b, to, r),
+        ...(length ? rectangleInterval(local(a), local(b), 0, -r, length, r) : [])];
+    });
+  }
+
+  function clearPage(strokes, page) {
+    return transformStrokes(strokes, (a, b) => {
+      const top = page * 1144;
+      if (a.x === b.x && a.y === b.y) return a.x >= 0 && a.x <= 800 && a.y >= top && a.y <= top + 1120 ? [[0, 1]] : [];
+      return rectangleInterval(a, b, 0, top, 800, top + 1120);
+    });
+  }
+
+  function pinch(view, a, b, nextA, nextB, rect) {
+    const distance = Math.hypot(b.x - a.x, b.y - a.y);
+    const scale = Math.max(.2, Math.min(4, view.scale * Math.hypot(nextB.x - nextA.x, nextB.y - nextA.y) / Math.max(1, distance)));
+    const center = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+    const next = { x: (nextA.x + nextB.x) / 2 - rect.left, y: (nextA.y + nextB.y) / 2 - rect.top };
+    return { x: view.x + center.x / view.scale - next.x / scale, y: view.y + center.y / view.scale - next.y / scale, scale };
+  }
+
+  window.IpadModel = { KEY, createDocument, validate, load, save, point, zoom, hitStroke, erase, clearPage, pinch };
 })();

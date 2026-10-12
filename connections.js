@@ -5,11 +5,12 @@
 
   function session(storage) {
     const raw = storage.getItem("werkhub_auth");
-    if (!raw) throw new Error("Geen WerkHub-login in deze browser. Open WerkHub in dezelfde Safari-browser, log daar in en probeer opnieuw. Een beginscherm-app kan aparte opslag hebben.");
-    const value = JSON.parse(raw);
+    if (!raw) throw new Error("Geen WerkHub-login in deze browser. Gebruik Log in bij WerkHub binnen deze app, log daar in en klik daarna Laad open taken. Een beginscherm-app kan aparte opslag hebben.");
+    let value;
+    try { value = JSON.parse(raw); } catch (error) { throw new Error("WerkHub-login is ongeldig. Log opnieuw in via het WerkHub-paneel."); }
     if (!value || typeof value.access_token !== "string" || !value.access_token ||
         typeof value.expires_at !== "number" || value.expires_at * 1000 <= Date.now() + 30000) {
-      throw new Error("WerkHub-login ontbreekt of is verlopen. Open WerkHub om je login te vernieuwen.");
+      throw new Error("WerkHub-login ontbreekt of is verlopen. Gebruik Log in bij WerkHub binnen deze app, daarna Laad open taken.");
     }
     return value.access_token;
   }
@@ -70,6 +71,16 @@
     status.textContent = "Taken verborgen. Klik opnieuw op laden om actuele taken te zien.";
   };
   document.getElementById("hide-tasks").addEventListener("click", clear);
+  const workhubFrame = document.getElementById("workhub-frame");
+  document.getElementById("login-workhub").addEventListener("click", () => {
+    workhubFrame.hidden = false;
+    workhubFrame.src = HUB;
+    status.textContent = "Log in bij WerkHub in het paneel hieronder. Klik daarna Laad open taken. Ook bij een verlopen login gebruik je dit paneel.";
+  });
+  document.getElementById("close-workhub").addEventListener("click", () => {
+    workhubFrame.hidden = true;
+    workhubFrame.removeAttribute("src");
+  });
   window.addEventListener("pagehide", clear);
   window.addEventListener("storage", event => {
     if (event.key === "werkhub_auth" || event.key === null) clear();
@@ -114,5 +125,28 @@
     frame.hidden = true;
     frame.removeAttribute("src");
     document.getElementById("hub-panel-status").textContent = "Ingebouwde AI Hub gesloten.";
+  });
+
+  function calendarUrl(id, second = "") {
+    for (const value of [id, ...(second ? [second] : [])]) {
+      if (!value || value.length > 300 || !/^[a-zA-Z0-9_.@+-]+$/.test(value) || !value.includes("@")) throw new Error("Vul een geldige agenda-ID in, geen URL of geheime link.");
+    }
+    const url = new URL("https://calendar.google.com/calendar/embed");
+    url.search = new URLSearchParams({ src: id, ctz: "Europe/Amsterdam", mode: "AGENDA", showTitle: "0", showPrint: "0" }).toString();
+    if (second) url.searchParams.append("src", second);
+    return url.href;
+  }
+  window.WorkplaceConnections.calendarUrl = calendarUrl;
+  const calendar = document.getElementById("calendar-frame");
+  document.getElementById("show-calendar").addEventListener("click", () => {
+    try {
+      calendar.src = calendarUrl(document.getElementById("calendar-id").value.trim(), document.getElementById("calendar-id-private").value.trim());
+      calendar.hidden = false;
+      document.getElementById("calendar-status").textContent = "Google agendaweergave geopend. Een leeg of geblokkeerd paneel vraagt om Google-login/toestemming; geen bewezen agendasynchronisatie.";
+    } catch (error) { document.getElementById("calendar-status").textContent = error.message; }
+  });
+  document.getElementById("hide-calendar").addEventListener("click", () => {
+    calendar.hidden = true;
+    calendar.removeAttribute("src");
   });
 })();

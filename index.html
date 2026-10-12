@@ -46,14 +46,28 @@
           <h3>Werk en priveagenda</h3>
           <p>Beide via Google Calendar. Nog niet gekoppeld: afspraken staan alleen in Google, niet in deze proef.</p>
           <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar</a>
+          <details>
+            <summary>Agenda-widget instellen</summary>
+            <label for="calendar-id">Google agenda-ID (geen geheime ICS-link)</label>
+            <input id="calendar-id" placeholder="Agenda-ID uit Google Calendar instellingen">
+            <label for="calendar-id-private">Tweede agenda-ID (optioneel, bijvoorbeeld prive)</label>
+            <input id="calendar-id-private" placeholder="Optionele tweede agenda-ID">
+            <button id="show-calendar">Toon agenda-widget</button>
+            <button id="hide-calendar">Verberg widget</button>
+            <p id="calendar-status" role="status">Alleen weergave. Privetoegang hangt af van je Google-login in Safari; maak je agenda niet openbaar.</p>
+          </details>
+          <iframe id="calendar-frame" title="Google Agenda widget" hidden referrerpolicy="no-referrer"></iframe>
         </article>
       </div>
       <article class="task-panel">
         <h3>Je WerkHub-taken</h3>
         <button id="load-tasks">Laad open taken</button>
         <button id="hide-tasks">Verberg taken</button>
+        <button id="login-workhub">Log in bij WerkHub binnen deze app</button>
+        <button id="close-workhub">Sluit WerkHub-paneel</button>
         <p id="task-status" role="status">Nog niet geladen. Alleen lezen; geen offline opslag van taken.</p>
         <ul id="task-list"></ul>
+        <iframe id="workhub-frame" title="WerkHub login en taken" hidden referrerpolicy="no-referrer"></iframe>
       </article>
       <aside>Notities blijven lokaal, zonder cloudback-up. Taken worden alleen na jouw klik geladen. Exporteer je notities voordat je browsergegevens wist.</aside>
     </section>
@@ -66,8 +80,6 @@
           <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
           <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Bladen &amp; back-up</button>
         </div>
-        <p id="hub-panel-status" role="status">Je bestaande hub kan hier worden geopend. Dit is geen nieuwe gedeelde project-API.</p>
-        <iframe id="hub-frame" title="Remy AI Hub" hidden referrerpolicy="no-referrer"></iframe>
       </div>
       <div class="workspace">
         <aside class="document-list" id="document-panel" hidden>
@@ -81,7 +93,8 @@
           <input id="title" maxlength="120" autocomplete="off">
           <div class="tools" aria-label="Tekengereedschap">
             <button id="pen" aria-pressed="true">Pen</button>
-            <button id="eraser" aria-pressed="false" title="Verwijdert de hele geraakte penstreek">Gum (hele streek)</button>
+            <button id="eraser" aria-pressed="false" title="Wist alleen het geraakte stukje inkt">Gum</button>
+            <button id="clear-page">Pagina leegmaken</button>
             <button id="move" aria-pressed="false">Verplaatsen</button>
             <label>Lijndikte <select id="width"><option value="2">Fijn</option><option value="4" selected>Normaal</option><option value="7">Dik</option></select></label>
             <label>Kleur <input id="color" type="color" value="#173c39"></label>
@@ -105,7 +118,7 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger omhoog/omlaag: schuiven als aanraking tekenen uit staat. Gum verwijdert hele streken; herstel met Ongedaan. Versie 6: WerkHub lezen &amp; ingebouwde AI Hub.</p>
+          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Gum wist stukjes; Ongedaan herstelt. Versie 7.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
@@ -120,6 +133,8 @@
     </section>
     <section id="hubs" hidden>
       <h2>Je bestaande AI Hub</h2>
+      <p id="hub-panel-status" role="status">Open je bestaande hub hieronder; dit is geen nieuwe project-API.</p>
+      <iframe id="hub-frame" title="Remy AI Hub" hidden referrerpolicy="no-referrer"></iframe>
       <div class="cards">
         <article>
           <h3>Agents en projecten</h3>
