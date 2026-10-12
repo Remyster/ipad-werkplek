@@ -26,6 +26,12 @@
         throw new Error("Een opgeslagen document is ongeldig; de opslag is niet overschreven.");
       }
       ids.add(doc.id);
+      if (doc.textBlocks !== undefined && (!Array.isArray(doc.textBlocks) ||
+          doc.textBlocks.length > 100 || doc.textBlocks.some(block => !block ||
+            !finite(block.x) || !finite(block.y) || typeof block.text !== "string" ||
+            !block.text.trim() || block.text.length > 20000))) {
+        throw new Error("Opgeslagen tekstblokken zijn ongeldig; de opslag is niet overschreven.");
+      }
       if (doc.pdf && (doc.kind !== "board" || typeof doc.pdf.id !== "string" || !doc.pdf.id ||
           typeof doc.pdf.name !== "string" || !Array.isArray(doc.pdf.pages) || !doc.pdf.pages.length ||
           doc.pdf.pages.length > 50 || doc.pdf.pages.some(p => !p || !finite(p.top) || p.top < 0 ||

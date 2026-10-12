@@ -26,13 +26,15 @@
   }
 
   function persist() {
-    if (blocked) return;
+    if (blocked) return false;
     try {
       M.save(localStorage, data);
       $("save-status").textContent = "Lokaal opgeslagen. Geen cloudback-up.";
+      return true;
     } catch (error) {
       $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
       report(error);
+      return false;
     }
   }
 
@@ -91,6 +93,41 @@
       drawStroke(worldContext("drawing"), gesture.stroke, livePoints);
       livePoints = gesture.stroke.points.length;
     }
+  }
+
+  function textLines(ctx, text) {
+    const lines = [];
+    for (const paragraph of text.split("\n")) {
+      let line = "";
+      for (const char of paragraph) {
+        if (line && ctx.measureText(line + char).width > 600) {
+          lines.push(line);
+          line = "";
+        }
+        line += char;
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+
+  function drawTextBlock(ctx, block) {
+    ctx.font = "18px system-ui, sans-serif";
+    ctx.textBaseline = "top";
+    const lines = textLines(ctx, block.text);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(block.x - 8, block.y - 8, 616, lines.length * 24 + 16);
+    ctx.fillStyle = "#173c39";
+    lines.forEach((line, index) => ctx.fillText(line, block.x, block.y + index * 24));
+  }
+
+  function snapshot(strokes = active().strokes) {
+    return { strokes: strokes.slice(), textBlocks: (active().textBlocks || []).slice() };
+  }
+
+  function restore(state) {
+    active().strokes = state.strokes;
+    active().textBlocks = state.textBlocks;
   }
 
   function updateControls() {
@@ -166,6 +203,7 @@
     }
     for (const page of pdfImages) ctx.drawImage(page.image, 0, page.top, page.width, page.height);
     for (const stroke of doc.strokes) drawStroke(ctx, stroke);
+    for (const block of doc.textBlocks || []) drawTextBlock(ctx, block);
     livePoints = 0;
     drawLive();
     updateControls();
@@ -247,7 +285,7 @@
   }
 
   function remember(before) {
-    undo.push(before);
+    undo.push(snapshot(before));
     if (undo.length > 50) undo.shift();
     redo = [];
   }
@@ -292,6 +330,36 @@
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => tab(button.dataset.tab)));
 
   if (!blocked) {
+    window.WorkplaceWriting = {
+      currentId() { finish(); return active().id; },
+      insertAnswer(documentId, text) {
+        finish();
+        if (active().id !== documentId) throw new Error("Het oorspronkelijke blad is niet meer geopend. Open dat blad en probeer opnieuw.");
+        if (typeof text !== "string" || !text.trim() || text.length > 20000) throw new Error("AI-antwoord is leeg of te groot om toe te voegen (maximaal 20.000 tekens).");
+        const doc = active();
+        if ((doc.textBlocks || []).length >= 100) throw new Error("Maximaal 100 tekstblokken per document. Maak een nieuw blad of bord.");
+        const block = { text, x: doc.view.x + 24, y: doc.view.y + 24 };
+        const ctx = worldContext("saved-drawing");
+        ctx.font = "18px system-ui, sans-serif";
+        for (const previous of doc.textBlocks || []) {
+          if (Math.abs(previous.x - block.x) < 616) {
+            const bottom = previous.y + textLines(ctx, previous.text).length * 24 + 24;
+            if (block.y >= previous.y - 24 && block.y < bottom) block.y = bottom;
+          }
+        }
+        const before = snapshot();
+        doc.textBlocks = [...(doc.textBlocks || []), block];
+        if (!persist()) {
+          restore(before);
+          render();
+          throw new Error("AI-antwoord niet toegevoegd: lokale opslag mislukt. Download een back-up.");
+        }
+        undo.push(before);
+        if (undo.length > 50) undo.shift();
+        redo = [];
+        render();
+      }
+    };
     $("pdf-file").addEventListener("change", async () => {
       finish();
       const file = $("pdf-file").files[0];
@@ -372,10 +440,10 @@
     $("undo").addEventListener("click", () => {
       finish();
       if (undo.length) {
-        redo.push(active().strokes.slice());
-        active().strokes = undo.pop();
+        redo.push(snapshot());
+        restore(undo.pop());
       } else if (active().strokes.length) {
-        redo.push(active().strokes.slice());
+        redo.push(snapshot());
         active().strokes = active().strokes.slice(0, -1);
       }
       persist();
@@ -384,8 +452,8 @@
     $("redo").addEventListener("click", () => {
       finish();
       if (redo.length) {
-        undo.push(active().strokes.slice());
-        active().strokes = redo.pop();
+        undo.push(snapshot());
+        restore(redo.pop());
       }
       persist();
       render();

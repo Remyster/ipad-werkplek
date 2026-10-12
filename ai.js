@@ -93,6 +93,73 @@
     sessionToken, sendPrompt
   };
 
+  const dialog = document.getElementById("writing-ai-dialog");
+  if (dialog) {
+    const quickForm = document.getElementById("writing-ai-form");
+    const quickPrompt = document.getElementById("writing-ai-prompt");
+    const quickConsent = document.getElementById("writing-ai-consent");
+    const quickSend = document.getElementById("writing-ai-send");
+    const quickStatus = document.getElementById("writing-ai-status");
+    const quickAnswer = document.getElementById("writing-ai-answer");
+    const insertButton = document.getElementById("writing-ai-insert");
+    const openButton = document.getElementById("writing-ai-open");
+    let documentId;
+    let generation = 0;
+    let result = "";
+    openButton.addEventListener("click", () => {
+      if (!window.WorkplaceWriting) return;
+      documentId = window.WorkplaceWriting.currentId();
+      generation++;
+      result = "";
+      quickForm.reset();
+      quickSend.disabled = false;
+      insertButton.disabled = true;
+      quickAnswer.textContent = "";
+      quickStatus.textContent = "Alleen je getypte vraag wordt verstuurd, niet je handschrift of PDF.";
+      dialog.showModal();
+      quickPrompt.focus();
+    });
+    document.getElementById("writing-ai-close").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => {
+      if (dialog.open) return;
+      generation++;
+      result = "";
+      quickForm.reset();
+      quickAnswer.textContent = "";
+      insertButton.disabled = true;
+      openButton.focus();
+    });
+    quickForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const requestGeneration = ++generation;
+      result = "";
+      quickAnswer.textContent = "";
+      insertButton.disabled = true;
+      try {
+        requireConsent(quickConsent.checked);
+        quickSend.disabled = true;
+        quickStatus.textContent = "Claude denkt na. Je kunt het venster sluiten en verder schrijven.";
+        const answer = await sendPrompt("anthropic", quickPrompt.value);
+        if (requestGeneration !== generation || !dialog.open) return;
+        result = answer;
+        quickAnswer.textContent = answer;
+        insertButton.disabled = false;
+        quickStatus.textContent = "Antwoord ontvangen. Toevoegen is optioneel.";
+      } catch (error) {
+        if (requestGeneration === generation && dialog.open) quickStatus.textContent = error.message || String(error);
+      } finally {
+        if (requestGeneration === generation) quickSend.disabled = false;
+      }
+    });
+    insertButton.addEventListener("click", () => {
+      try {
+        window.WorkplaceWriting.insertAnswer(documentId, result);
+        insertButton.disabled = true;
+        quickStatus.textContent = "Antwoord lokaal toegevoegd. Ongedaan kan dit verwijderen.";
+      } catch (error) { quickStatus.textContent = error.message || String(error); }
+    });
+  }
+
   const form = document.getElementById("ai-form");
   if (!form) return;
   const providerField = document.getElementById("ai-provider");

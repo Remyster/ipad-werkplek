@@ -71,6 +71,7 @@
           <button id="new-page">Nieuw schriftblad</button>
           <button id="new-board">Nieuw whiteboard</button>
           <button id="save-document">Bewaar schrift / bord</button>
+          <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
           <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
           <button id="pdf-original" disabled>Download originele PDF</button>
           <span id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</span>
@@ -120,7 +121,7 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Klap het gereedschap dicht voor meer schrijfruimte. Versie 10: groter werkvlak en PDF tot 50 pagina's.</p>
+          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Klap het gereedschap dicht voor meer schrijfruimte. Versie 11: snel AI-venster bij schrift en whiteboard.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
@@ -171,5 +172,21 @@
       <aside>Geen automatische verzending van schriften, PDF's of taken. Vragen en antwoorden worden niet door deze app bewaard. De AI-dienst kan eigen bewaartermijnen hanteren. Handschriftherkenning is nog niet aangesloten.</aside>
     </section>
   </main>
+  <dialog id="writing-ai-dialog" aria-labelledby="writing-ai-heading">
+    <div class="section-heading">
+      <h2 id="writing-ai-heading">Vraag aan Claude</h2>
+      <button id="writing-ai-close" type="button">Verder schrijven</button>
+    </div>
+    <form id="writing-ai-form">
+      <label for="writing-ai-prompt">Je vraag</label>
+      <textarea id="writing-ai-prompt" rows="3" maxlength="6000" required placeholder="Typ een korte vraag." autofocus></textarea>
+      <label class="finger-option"><input id="writing-ai-consent" type="checkbox" required> Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag naar Claude te sturen.</label>
+      <button id="writing-ai-send" type="submit">Stel vraag</button>
+    </form>
+    <p id="writing-ai-status" role="status">Alleen je getypte vraag wordt verstuurd, niet je handschrift of PDF.</p>
+    <pre id="writing-ai-answer" aria-live="polite"></pre>
+    <button id="writing-ai-insert" type="button" disabled>Voeg antwoord toe op blad / bord</button>
+    <p class="dialog-help">AI-voorstel: controleer het antwoord. Toevoegen bewaart tekst lokaal; Ongedaan verwijdert de toevoeging.</p>
+  </dialog>
 </body>
 </html>
