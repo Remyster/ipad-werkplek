@@ -39,7 +39,7 @@
     let pdf;
     try {
       pdf = await task.promise;
-      if (pdf.numPages > 10) throw new Error("Deze eerste PDF-versie ondersteunt maximaal 10 pagina's per bestand.");
+      if (pdf.numPages > 50) throw new Error("Deze PDF-versie ondersteunt maximaal 50 pagina's per bestand.");
       const pages = [];
       let top = 0;
       for (let number = 1; number <= pdf.numPages; number++) {

@@ -18,10 +18,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 #task-list { padding-left: 24px; }
 #task-list li { padding: 12px 0; border-bottom: 1px solid #d6ded4; overflow-wrap: anywhere; }
 #task-list p { margin-bottom: 0; font-size: .85rem; }
-#hub-frame { width: 100%; height: 75vh; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
-#workhub-frame { width: 100%; height: 65vh; border: 1px solid #b4c4b9; margin-top: 12px; }
-#calendar-frame { width: 100%; height: 380px; border: 0; margin-top: 12px; }
+#hub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
+#workhub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; margin-top: 12px; }
+#calendar-frame { width: 100%; height: 75dvh; min-height: 520px; border: 0; margin-top: 12px; }
 #calendar-id, #calendar-id-private { width: 100%; padding: 10px; }
+.ai-panel { min-height: 75dvh; }
+#ai-provider { min-height: 44px; padding: 8px; }
+#ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; min-height: 180px; }
 article, aside { background: #fff; border: 1px solid #d6ded4; border-radius: 16px; padding: 22px; }
 section > aside { margin-top: 22px; background: #e9efdf; }
 #save-status { font-size: .85rem; max-width: 320px; }
@@ -41,7 +44,7 @@ input[type="color"] { width: 44px; height: 44px; border: 0; background: transpar
 input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
 .finger-option { margin: 12px 0; }
 #drawing-help { color: #50645c; font-size: .85rem; }
-#surface { position: relative; height: 65vh; min-height: 300px; border: 1px solid #b4c4b9; border-radius: 12px; overflow: hidden; background: white; margin-bottom: 16px; }
+#surface { position: relative; height: 85dvh; min-height: 450px; border: 1px solid #b4c4b9; border-radius: 12px; overflow: hidden; background: white; margin-bottom: 16px; }
 #drawing, #saved-drawing { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 #saved-drawing { pointer-events: none; }
 #drawing { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -68,5 +71,5 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   .workspace, .workspace.documents-open { grid-template-columns: 1fr; }
   .document-list select { min-height: 90px; height: 90px; }
   .document-list { padding: 12px; }
-  #surface { height: 55vh; }
+  #surface { height: 85dvh; }
 }

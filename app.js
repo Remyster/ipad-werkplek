@@ -205,7 +205,7 @@
     pdfImages = [];
     const doc = active();
     $("pdf-original").disabled = !doc.pdf;
-    $("pdf-status").textContent = doc.pdf ? `PDF laden: ${doc.pdf.name}` : "PDF blijft lokaal. Maximaal 20 MB / 10 pagina's; een PDF per whiteboard.";
+    $("pdf-status").textContent = doc.pdf ? `PDF laden: ${doc.pdf.name}` : "PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.";
     if (!doc.pdf) return;
     try {
       const images = await window.WorkplacePdf.images(doc.pdf.id);
@@ -269,7 +269,7 @@
     document.body.classList.remove("writing-focus");
     $("focus").setAttribute("aria-pressed", "false");
     $("focus").textContent = "Brede schrijfmodus";
-    for (const section of ["today", "writing", "hubs"]) $(section).hidden = section !== name;
+    for (const section of ["today", "writing", "hubs", "ai"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
   }
@@ -290,7 +290,6 @@
 
   $("today-date").textContent = new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => tab(button.dataset.tab)));
-  $("start-writing").addEventListener("click", () => tab("writing"));
 
   if (!blocked) {
     $("pdf-file").addEventListener("change", async () => {
@@ -335,6 +334,7 @@
     $("focus").addEventListener("click", () => {
       finish();
       const on = document.body.classList.toggle("writing-focus");
+      $("drawing-tools").open = !on;
       $("focus").setAttribute("aria-pressed", String(on));
       $("focus").textContent = on ? "Terug naar overzicht" : "Brede schrijfmodus";
       $("document-panel").hidden = true;

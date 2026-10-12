@@ -1,7 +1,7 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v9";
+const CACHE = "remy-ipad-werkplek-shell-v10";
 const PREFIX = "remy-ipad-werkplek-shell-";
-const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./app.js", "./pdf.js", "./connections.js", "./manifest.json", "./icon.svg",
+const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./app.js", "./pdf.js", "./connections.js", "./ai.js", "./manifest.json", "./icon.svg",
   "./vendor/package/legacy/build/pdf.mjs", "./vendor/package/legacy/build/pdf.worker.mjs"];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 
