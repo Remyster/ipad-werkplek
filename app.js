@@ -332,6 +332,24 @@
   if (!blocked) {
     window.WorkplaceWriting = {
       currentId() { finish(); return active().id; },
+      captureInk() {
+        finish();
+        render();
+        const source = $("saved-drawing");
+        const canvas = document.createElement("canvas");
+        canvas.width = source.width;
+        canvas.height = source.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || !canvas.width || !canvas.height) throw new Error("Open eerst een zichtbaar schrijfvlak om handschrift te selecteren.");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const rect = $("drawing").getBoundingClientRect();
+        const ratio = canvas.width / rect.width;
+        const { x, y, scale } = active().view;
+        ctx.setTransform(ratio * scale, 0, 0, ratio * scale, -x * ratio * scale, -y * ratio * scale);
+        for (const stroke of active().strokes) drawStroke(ctx, stroke);
+        return canvas;
+      },
       insertAnswer(documentId, text) {
         finish();
         if (active().id !== documentId) throw new Error("Het oorspronkelijke blad is niet meer geopend. Open dat blad en probeer opnieuw.");
@@ -341,16 +359,28 @@
         const block = { text, x: doc.view.x + 24, y: doc.view.y + 24 };
         const ctx = worldContext("saved-drawing");
         ctx.font = "18px system-ui, sans-serif";
+        const before = snapshot();
+        const beforeView = { ...doc.view };
+        for (const stroke of doc.strokes) {
+          let left = Infinity, right = -Infinity, bottom = -Infinity;
+          for (const point of stroke.points) {
+            left = Math.min(left, point.x - stroke.width / 2);
+            right = Math.max(right, point.x + stroke.width / 2);
+            bottom = Math.max(bottom, point.y + stroke.width / 2);
+          }
+          if (right >= block.x - 8 && left <= block.x + 608) block.y = Math.max(block.y, bottom + 24);
+        }
         for (const previous of doc.textBlocks || []) {
           if (Math.abs(previous.x - block.x) < 616) {
-            const bottom = previous.y + textLines(ctx, previous.text).length * 24 + 24;
-            if (block.y >= previous.y - 24 && block.y < bottom) block.y = bottom;
+            block.y = Math.max(block.y, previous.y + textLines(ctx, previous.text).length * 24 + 24);
           }
         }
-        const before = snapshot();
         doc.textBlocks = [...(doc.textBlocks || []), block];
+        const rect = $("drawing").getBoundingClientRect();
+        if (block.y > doc.view.y + rect.height / doc.view.scale - 48) doc.view.y = block.y - 24;
         if (!persist()) {
           restore(before);
+          doc.view = beforeView;
           render();
           throw new Error("AI-antwoord niet toegevoegd: lokale opslag mislukt. Download een back-up.");
         }

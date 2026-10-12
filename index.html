@@ -72,6 +72,7 @@
           <button id="new-board">Nieuw whiteboard</button>
           <button id="save-document">Bewaar schrift / bord</button>
           <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
+          <button id="writing-ai-recognize" aria-haspopup="dialog">Herken handschrift</button>
           <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
           <button id="pdf-original" disabled>Download originele PDF</button>
           <span id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</span>
@@ -121,7 +122,7 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Klap het gereedschap dicht voor meer schrijfruimte. Versie 11: snel AI-venster bij schrift en whiteboard.</p>
+          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Klap het gereedschap dicht voor meer schrijfruimte. Versie 12: Gemini herkent geselecteerd handschrift.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
@@ -129,7 +130,7 @@
           <details id="typed-notes">
             <summary>Getypte notities naast je handschrift</summary>
             <label for="text">Notities</label>
-            <textarea id="text" rows="4" placeholder="Typ hier je notities. AI-herkenning volgt na de backendkoppeling."></textarea>
+            <textarea id="text" rows="4" placeholder="Typ hier je notities. Gebruik Herken handschrift om peninkt via Gemini om te zetten."></textarea>
           </details>
         </div>
       </div>
@@ -169,7 +170,7 @@
         <h3>AI-voorstel</h3>
         <pre id="ai-answer" aria-live="polite"></pre>
       </article>
-      <aside>Geen automatische verzending van schriften, PDF's of taken. Vragen en antwoorden worden niet door deze app bewaard. De AI-dienst kan eigen bewaartermijnen hanteren. Handschriftherkenning is nog niet aangesloten.</aside>
+      <aside>Geen automatische verzending van schriften, PDF's of taken. Deze chat wordt niet bewaard. Bij Schrijven kun je bewust peninkt selecteren voor Gemini-herkenning en gecontroleerde tekst lokaal toevoegen. De AI-dienst kan eigen bewaartermijnen hanteren.</aside>
     </section>
   </main>
   <dialog id="writing-ai-dialog" aria-labelledby="writing-ai-heading">
@@ -177,14 +178,25 @@
       <h2 id="writing-ai-heading">Vraag aan Claude</h2>
       <button id="writing-ai-close" type="button">Verder schrijven</button>
     </div>
+    <div id="writing-ai-image-panel" hidden>
+      <p>Trek met pen of vinger een rechthoek om je handschrift. Alleen zichtbare peninkt, geen PDF-achtergrond of getypte tekst.</p>
+      <canvas id="writing-ai-selection" aria-label="Selecteer handschrift met een rechthoek"></canvas>
+      <button id="writing-ai-select-all" type="button">Selecteer alle zichtbare inkt</button>
+      <p>Dit geselecteerde stukje wordt verstuurd:</p>
+      <img id="writing-ai-preview" alt="Geselecteerd handschrift voor Gemini" hidden>
+    </div>
     <form id="writing-ai-form">
-      <label for="writing-ai-prompt">Je vraag</label>
+      <label id="writing-ai-prompt-label" for="writing-ai-prompt">Je vraag</label>
       <textarea id="writing-ai-prompt" rows="3" maxlength="6000" required placeholder="Typ een korte vraag." autofocus></textarea>
-      <label class="finger-option"><input id="writing-ai-consent" type="checkbox" required> Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag naar Claude te sturen.</label>
+      <label class="finger-option"><input id="writing-ai-consent" type="checkbox" required> <span id="writing-ai-consent-label">Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag naar Claude te sturen.</span></label>
       <button id="writing-ai-send" type="submit">Stel vraag</button>
     </form>
     <p id="writing-ai-status" role="status">Alleen je getypte vraag wordt verstuurd, niet je handschrift of PDF.</p>
     <pre id="writing-ai-answer" aria-live="polite"></pre>
+    <div id="writing-ai-transcript-panel" hidden>
+      <label for="writing-ai-transcript">Herkende tekst: controleer en verbeter voordat je toevoegt</label>
+      <textarea id="writing-ai-transcript" rows="4" maxlength="20000"></textarea>
+    </div>
     <button id="writing-ai-insert" type="button" disabled>Voeg antwoord toe op blad / bord</button>
     <p class="dialog-help">AI-voorstel: controleer het antwoord. Toevoegen bewaart tekst lokaal; Ongedaan verwijdert de toevoeging.</p>
   </dialog>
