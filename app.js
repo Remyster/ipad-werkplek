@@ -301,9 +301,17 @@
     });
     $("finger").addEventListener("change", () => { finish(); });
     const canvas = $("drawing");
+    $("writing").addEventListener("selectstart", event => {
+      if (event.target instanceof Element && !event.target.closest("input, textarea, select")) event.preventDefault();
+    });
+    canvas.addEventListener("touchstart", event => event.preventDefault(), { passive: false });
+    canvas.addEventListener("touchmove", event => event.preventDefault(), { passive: false });
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     canvas.addEventListener("pointerdown", event => {
       event.preventDefault();
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) selection.removeAllRanges();
+      if (document.activeElement instanceof HTMLElement && document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
       const kind = ["pen", "touch", "mouse"].includes(event.pointerType) ? event.pointerType : "other";
       diagnostics[kind]++;
       diagnostics.last = kind;
@@ -341,12 +349,15 @@
       if (gesture.stroke) {
         const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
         addSamples(events.length ? events : [event]);
+        const lastSample = events[events.length - 1];
+        if (lastSample && (lastSample.clientX !== event.clientX || lastSample.clientY !== event.clientY)) addSamples([event]);
+        drawLive();
       } else {
         gesture.metrics.samples++;
         active().view.x = gesture.view.x - (event.clientX - gesture.clientX) / gesture.view.scale;
         active().view.y = gesture.view.y - (event.clientY - gesture.clientY) / gesture.view.scale;
+        scheduleRender();
       }
-      scheduleRender();
     });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, finish);
     new ResizeObserver(() => {
@@ -377,7 +388,7 @@
       gesture.metrics.samples++;
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
-      if (Math.hypot(point.x - last.x, point.y - last.y) >= .3 / active().view.scale) gesture.stroke.points.push(point);
+      if (point.x !== last.x || point.y !== last.y) gesture.stroke.points.push(point);
     }
   }
 

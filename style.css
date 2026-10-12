@@ -37,6 +37,8 @@ input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
 #drawing, #saved-drawing { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 #saved-drawing { pointer-events: none; }
 #drawing { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#writing { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#writing input, #writing textarea, #writing select { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
 #input-diagnostics { display: block; padding: 10px; background: #e9efdf; font-size: .85rem; }
 #stroke-diagnostics { white-space: pre-wrap; overflow-wrap: anywhere; font: .85rem/1.5 system-ui, sans-serif; }
