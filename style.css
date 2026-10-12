@@ -54,6 +54,7 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus > header, .writing-focus > nav { display: none; }
 .writing-focus #writing { height: calc(100dvh - 24px); display: flex; flex-direction: column; }
 .writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title, .writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
+.writing-focus .section-heading label, .writing-focus #pdf-original, .writing-focus #pdf-status, .writing-focus #save-document { display: none; }
 .writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }

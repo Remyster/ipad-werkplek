@@ -26,8 +26,15 @@
         throw new Error("Een opgeslagen document is ongeldig; de opslag is niet overschreven.");
       }
       ids.add(doc.id);
+      if (doc.pdf && (doc.kind !== "board" || typeof doc.pdf.id !== "string" || !doc.pdf.id ||
+          typeof doc.pdf.name !== "string" || !Array.isArray(doc.pdf.pages) || !doc.pdf.pages.length ||
+          doc.pdf.pages.length > 10 || doc.pdf.pages.some(p => !p || !finite(p.top) || p.top < 0 ||
+            !finite(p.width) || p.width <= 0 || !finite(p.height) || p.height <= 0))) {
+        throw new Error("PDF-verwijzing in de notitie is ongeldig.");
+      }
       for (const stroke of doc.strokes) {
         if (!stroke || !/^#[0-9a-f]{6}$/i.test(stroke.color) || !finite(stroke.width) ||
+            (stroke.brush !== undefined && !["pen", "fineliner", "dashed"].includes(stroke.brush)) ||
             stroke.width <= 0 || stroke.width > 20 || !Array.isArray(stroke.points) ||
             !stroke.points.length || stroke.points.some(p => !p || !finite(p.x) || !finite(p.y))) {
           throw new Error("Opgeslagen penstreken zijn ongeldig; de opslag is niet overschreven.");

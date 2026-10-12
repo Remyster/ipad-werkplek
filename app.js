@@ -14,6 +14,8 @@
   let renderedHeight = 0;
   const touches = new Map();
   let pinch = null;
+  let pdfImages = [];
+  let pdfGeneration = 0;
   const emptyDiagnostics = () => ({ pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-", recent: [] });
   let diagnostics = emptyDiagnostics();
 
@@ -61,10 +63,15 @@
     ctx.strokeStyle = stroke.color;
     ctx.fillStyle = stroke.color;
     ctx.lineWidth = stroke.width;
-    ctx.lineCap = "round";
+    const brush = stroke.brush || "pen";
+    ctx.lineCap = brush === "pen" ? "round" : "butt";
     ctx.lineJoin = "round";
+    ctx.setLineDash(brush === "dashed" ? [stroke.width * 3, stroke.width * 2] : []);
+    let distance = 0;
+    for (let i = 1; i < from; i++) distance += Math.hypot(stroke.points[i].x - stroke.points[i - 1].x, stroke.points[i].y - stroke.points[i - 1].y);
+    ctx.lineDashOffset = -distance;
     const points = stroke.points;
-    if (from === 0) {
+    if (from === 0 && (brush === "pen" || points.length === 1)) {
       ctx.beginPath();
       ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -138,6 +145,8 @@
       clear(id);
     }
     const ctx = worldContext("saved-drawing");
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
     if (doc.kind === "page") {
       const first = Math.max(0, Math.floor(doc.view.y / 1144));
       const last = Math.min((doc.pages || 1) - 1, Math.floor((doc.view.y + rect.height / doc.view.scale) / 1144));
@@ -155,6 +164,7 @@
         ctx.stroke();
       }
     }
+    for (const page of pdfImages) ctx.drawImage(page.image, 0, page.top, page.width, page.height);
     for (const stroke of doc.strokes) drawStroke(ctx, stroke);
     livePoints = 0;
     drawLive();
@@ -180,6 +190,7 @@
   }
 
   function selectDocument() {
+    loadPdf();
     const doc = active();
     $("title").value = doc.title;
     $("text").value = doc.text;
@@ -187,6 +198,26 @@
     undo = [];
     list();
     render();
+  }
+
+  async function loadPdf() {
+    const generation = ++pdfGeneration;
+    pdfImages = [];
+    const doc = active();
+    $("pdf-original").disabled = !doc.pdf;
+    $("pdf-status").textContent = doc.pdf ? `PDF laden: ${doc.pdf.name}` : "PDF blijft lokaal. Maximaal 20 MB / 10 pagina's; een PDF per whiteboard.";
+    if (!doc.pdf) return;
+    try {
+      const images = await window.WorkplacePdf.images(doc.pdf.id);
+      if (generation !== pdfGeneration) return;
+      pdfImages = images;
+      $("pdf-status").textContent = `${doc.pdf.name}: ${images.length} pagina's. Schrijf erop of ernaast; PDF-achtergrond blijft intact.`;
+      render();
+    } catch (error) {
+      if (generation !== pdfGeneration) return;
+      $("pdf-status").textContent = error.message;
+      report(error);
+    }
   }
 
   function finish(event, reason = "bediening") {
@@ -222,7 +253,7 @@
   }
 
   function eraseAt(point) {
-    const result = M.erase(active().strokes, gesture.lastPoint, point, 12 / active().view.scale);
+    const result = M.erase(active().strokes, gesture.lastPoint, point, gesture.eraserRadius / active().view.scale);
     gesture.lastPoint = point;
     if (result.changed) {
       gesture.changed = true;
@@ -262,6 +293,32 @@
   $("start-writing").addEventListener("click", () => tab("writing"));
 
   if (!blocked) {
+    $("pdf-file").addEventListener("change", async () => {
+      finish();
+      const file = $("pdf-file").files[0];
+      if (!file) return;
+      const doc = active();
+      if (doc.kind !== "board" || doc.pdf) {
+        $("pdf-status").textContent = "Maak of open een whiteboard zonder PDF om dit bestand toe te voegen.";
+        $("pdf-file").value = "";
+        return;
+      }
+      $("pdf-file").disabled = true;
+      $("pdf-status").textContent = "PDF lokaal verwerken...";
+      try {
+        const reference = await window.WorkplacePdf.importFile(file);
+        doc.pdf = reference;
+        persist();
+        if (active().id === doc.id) await loadPdf();
+      } catch (error) { report(error); $("pdf-status").textContent = error.message; }
+      finally { $("pdf-file").disabled = false; $("pdf-file").value = ""; }
+    });
+    $("pdf-original").addEventListener("click", async () => {
+      try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
+      catch (error) { report(error); }
+    });
+    $("save-document").addEventListener("click", () => { finish(); persist(); });
+    $("width").addEventListener("input", () => { $("width-value").textContent = $("width").value; });
     $("reset-diagnostics").addEventListener("click", () => {
       finish();
       diagnostics = emptyDiagnostics();
@@ -430,8 +487,9 @@
       const inputTool = kind === "touch" && !$("finger").checked ? "move" : tool;
       gesture = { id: event.pointerId, type: event.pointerType, tool: inputTool, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
         metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
-      if (inputTool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), points: [point] };
+      if (inputTool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), brush: $("brush").value, points: [point] };
       if (inputTool === "eraser") {
+        gesture.eraserRadius = Number($("eraser-size").value);
         gesture.before = active().strokes.slice();
         gesture.lastPoint = point;
         eraseAt(point);
@@ -505,15 +563,16 @@
       if (document.visibilityState === "hidden") { finish(null, "pagina verborgen"); persist(); }
     });
     window.addEventListener("pagehide", () => { finish(null, "pagina verlaten"); persist(); });
-    $("export").addEventListener("click", () => {
+    $("export").addEventListener("click", async () => {
       finish();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `werkplek-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      $("export").disabled = true;
+      try {
+        const snapshot = JSON.parse(JSON.stringify(data));
+        const backup = await window.WorkplacePdf.backup(snapshot);
+        window.WorkplacePdf.download(new Blob([JSON.stringify(backup)], { type: "application/json" }),
+          `werkplek-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      } catch (error) { report(error); }
+      finally { $("export").disabled = false; }
     });
   }
 

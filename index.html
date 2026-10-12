@@ -12,6 +12,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
   <script src="./model.js" defer></script>
+  <script src="./pdf.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./connections.js" defer></script>
 </head>
@@ -77,6 +78,10 @@
         <div class="tools">
           <button id="new-page">Nieuw schriftblad</button>
           <button id="new-board">Nieuw whiteboard</button>
+          <button id="save-document">Bewaar schrift / bord</button>
+          <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
+          <button id="pdf-original" disabled>Download originele PDF</button>
+          <span id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 10 pagina's; een PDF per whiteboard.</span>
           <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
           <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Bladen &amp; back-up</button>
         </div>
@@ -86,7 +91,7 @@
           <label for="documents">Je bladen en borden</label>
           <select id="documents" size="6" aria-label="Je bladen en borden"></select>
           <button id="export">Download back-up</button>
-          <p>Alleen opgeslagen in deze browser. De back-up bevat je tekst en penstreken.</p>
+          <p>Elk nieuw schrift of bord blijft apart bewaard in deze browser. Kies hierboven een oud document om verder te gaan. Geen cloudback-up.</p>
         </aside>
         <div class="editor">
           <label for="title" class="title-label">Titel</label>
@@ -96,7 +101,9 @@
             <button id="eraser" aria-pressed="false" title="Wist alleen het geraakte stukje inkt">Gum</button>
             <button id="clear-page">Pagina leegmaken</button>
             <button id="move" aria-pressed="false">Verplaatsen</button>
-            <label>Lijndikte <select id="width"><option value="2">Fijn</option><option value="4" selected>Normaal</option><option value="7">Dik</option></select></label>
+            <label>Pensoort <select id="brush"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option></select></label>
+            <label>Pendikte <input id="width" type="range" min="1" max="20" step="1" value="4"><output id="width-value">4</output></label>
+            <label>Gumgrootte <select id="eraser-size"><option value="6">Klein (12 px)</option><option value="12" selected>Normaal (24 px)</option><option value="24">Groot (48 px)</option><option value="40">Extra groot (80 px)</option></select></label>
             <label>Kleur <input id="color" type="color" value="#173c39"></label>
             <button id="undo">Ongedaan</button>
             <button id="redo">Opnieuw</button>
@@ -118,7 +125,7 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Gum wist stukjes; Ongedaan herstelt. Versie 7.</p>
+          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Elk nieuw schrift blijft apart bewaard onder Bladen &amp; back-up. Versie 9: PDF-achtergrond.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
