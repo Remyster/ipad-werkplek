@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v4";
+const CACHE = "remy-ipad-werkplek-shell-v5";
 const PREFIX = "remy-ipad-werkplek-shell-";
 const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./app.js", "./manifest.json", "./icon.svg"];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));

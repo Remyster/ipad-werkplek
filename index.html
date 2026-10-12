@@ -71,6 +71,7 @@
           <input id="title" maxlength="120" autocomplete="off">
           <div class="tools" aria-label="Tekengereedschap">
             <button id="pen" aria-pressed="true">Pen</button>
+            <button id="eraser" aria-pressed="false" title="Verwijdert de hele geraakte penstreek">Gum (hele streek)</button>
             <button id="move" aria-pressed="false">Verplaatsen</button>
             <label>Lijndikte <select id="width"><option value="2">Fijn</option><option value="4" selected>Normaal</option><option value="7">Dik</option></select></label>
             <label>Kleur <input id="color" type="color" value="#173c39"></label>
@@ -80,17 +81,21 @@
             <output id="zoom">100%</output>
             <button id="zoom-in" aria-label="Inzoomen">+</button>
             <button id="reset">Beginweergave</button>
+            <button id="previous-page">Vorige pagina</button>
+            <output id="page-number"></output>
+            <button id="next-page">Volgende pagina</button>
+            <button id="add-page">Pagina erbij</button>
           </div>
           <details id="input-options">
             <summary>Peninstellingen &amp; invoermeter</summary>
-            <label class="finger-option"><input id="finger" type="checkbox" checked> Tekenen met aanraking toestaan (nodig als ESR als touch binnenkomt)</label>
+            <label class="finger-option"><input id="finger" type="checkbox"> Tekenen met aanraking toestaan (uit: vinger schuift, pen schrijft)</label>
             <p>Herkende peninvoer krijgt voorrang op touch. Als pen en hand beide touch zijn, is betrouwbare handpalmherkenning niet mogelijk in deze proef.</p>
             <output id="input-diagnostics" aria-label="Lokale invoermeter">Nog geen invoer. Deze meter verstuurt en bewaart geen gegevens.</output>
             <button id="reset-diagnostics">Start nieuwe meting</button>
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Pen: schrijven. Verplaatsen: schuiven. Zoom met + en -. Schrijfproef v4: selectieblokkering &amp; directe inkt.</p>
+          <p id="drawing-help">Vinger omhoog/omlaag: schuiven als aanraking tekenen uit staat. Gum verwijdert hele streken; herstel met Ongedaan. Versie 5: gum &amp; schriftpagina's.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>

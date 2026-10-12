@@ -7,7 +7,7 @@
   function createDocument(kind, id) {
     if (!["page", "board"].includes(kind)) throw new Error("Onbekend documenttype.");
     return { id, kind, title: kind === "page" ? "Nieuw schriftblad" : "Nieuw whiteboard",
-      text: "", strokes: [], view: { x: 0, y: 0, scale: 1 } };
+      text: "", strokes: [], pages: 1, view: { x: 0, y: 0, scale: 1 } };
   }
 
   function validate(data) {
@@ -20,6 +20,7 @@
       if (!doc || typeof doc.id !== "string" || !doc.id || ids.has(doc.id) ||
           !["page", "board"].includes(doc.kind) || typeof doc.title !== "string" ||
           doc.title.length > 120 || typeof doc.text !== "string" || !Array.isArray(doc.strokes) ||
+          (doc.pages !== undefined && (!Number.isInteger(doc.pages) || doc.pages < 1 || doc.pages > 200)) ||
           !doc.view || !finite(doc.view.x) || !finite(doc.view.y) ||
           !finite(doc.view.scale) || doc.view.scale < .2 || doc.view.scale > 4) {
         throw new Error("Een opgeslagen document is ongeldig; de opslag is niet overschreven.");
@@ -59,5 +60,24 @@
       y: view.y + height / (2 * view.scale) - height / (2 * scale), scale };
   }
 
-  window.IpadModel = { KEY, createDocument, validate, load, save, point, zoom };
+  function distanceToSegment(p, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = dx * dx + dy * dy;
+    const t = length ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / length)) : 0;
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  }
+
+  function hitStroke(stroke, a, b, radius) {
+    const limit = radius + stroke.width / 2;
+    const cross = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    return stroke.points.some((d, i) => {
+      const c = stroke.points[Math.max(0, i - 1)];
+      const intersects = cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0;
+      return intersects || Math.min(distanceToSegment(c, a, b), distanceToSegment(d, a, b),
+        distanceToSegment(a, c, d), distanceToSegment(b, c, d)) <= limit;
+    });
+  }
+
+  window.IpadModel = { KEY, createDocument, validate, load, save, point, zoom, hitStroke };
 })();

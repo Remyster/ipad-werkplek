@@ -7,6 +7,7 @@
   let tool = "pen";
   let gesture = null;
   let redo = [];
+  let undo = [];
   let frame = null;
   let livePoints = 0;
   let renderedWidth = 0;
@@ -85,8 +86,15 @@
 
   function updateControls() {
     $("zoom").textContent = `${Math.round(active().view.scale * 100)}%`;
-    $("undo").disabled = !active().strokes.length;
+    $("undo").disabled = !undo.length && !active().strokes.length;
     $("redo").disabled = !redo.length;
+    const doc = active();
+    const pages = doc.pages || 1;
+    const page = Math.min(pages, Math.max(1, Math.floor((doc.view.y + 24) / 1144) + 1));
+    $("page-number").textContent = doc.kind === "page" ? `${page} / ${pages}` : "Whiteboard";
+    $("previous-page").disabled = doc.kind !== "page" || page === 1;
+    $("next-page").disabled = doc.kind !== "page" || page === pages;
+    $("add-page").disabled = doc.kind !== "page" || pages >= 200;
   }
 
   function updateDiagnostics() {
@@ -99,7 +107,7 @@
   function endDiagnostics(old, reason) {
     const now = performance.now();
     diagnostics.recent.unshift({
-      type: old.type || "onbekend", tool: old.stroke ? "pen" : "verplaatsen",
+      type: old.type || "onbekend", tool: old.tool,
       moves: old.metrics.moves, samples: old.metrics.samples,
       points: old.stroke ? old.stroke.points.length : 0,
       duration: Math.round(now - old.metrics.start),
@@ -129,16 +137,21 @@
     }
     const ctx = worldContext("saved-drawing");
     if (doc.kind === "page") {
-      ctx.strokeStyle = "#bbc9c5";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, 0, 800, 1120);
-      ctx.strokeStyle = "#d9e1e5";
-      ctx.beginPath();
-      for (let y = 31; y < 1120; y += 32) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(800, y);
+      const first = Math.max(0, Math.floor(doc.view.y / 1144));
+      const last = Math.min((doc.pages || 1) - 1, Math.floor((doc.view.y + rect.height / doc.view.scale) / 1144));
+      for (let page = first; page <= last; page++) {
+        const top = page * 1144;
+        ctx.strokeStyle = "#bbc9c5";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, top, 800, 1120);
+        ctx.strokeStyle = "#d9e1e5";
+        ctx.beginPath();
+        for (let y = 31; y < 1120; y += 32) {
+          ctx.moveTo(0, top + y);
+          ctx.lineTo(800, top + y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
     for (const stroke of doc.strokes) drawStroke(ctx, stroke);
     livePoints = 0;
@@ -169,6 +182,7 @@
     $("title").value = doc.title;
     $("text").value = doc.text;
     redo = [];
+    undo = [];
     list();
     render();
   }
@@ -177,14 +191,33 @@
     if (!gesture || (event && gesture.id !== event.pointerId)) return;
     const old = gesture;
     if (event && event.type === "pointerup" && old.stroke) addSamples([event]);
+    if (event && event.type === "pointerup" && old.tool === "eraser") {
+      eraseAt(M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view));
+    }
     if (event && event.type === "pointercancel") {
       diagnostics.cancelled++;
     }
     endDiagnostics(old, event ? event.type : reason);
     if (old.stroke) {
+      remember(active().strokes.slice());
       active().strokes.push(old.stroke);
-      redo = [];
       drawStroke(worldContext("saved-drawing"), old.stroke);
+    } else if (old.tool === "eraser" && old.before.length !== active().strokes.length) {
+      remember(old.before);
+    }
+
+    function remember(before) {
+      undo.push(before);
+      if (undo.length > 50) undo.shift();
+      redo = [];
+    }
+
+    function eraseAt(point) {
+      const before = active().strokes.length;
+      active().strokes = active().strokes.filter(stroke =>
+        !M.hitStroke(stroke, gesture.lastPoint, point, 12 / active().view.scale));
+      gesture.lastPoint = point;
+      if (before !== active().strokes.length) render();
     }
     gesture = null;
     clear("drawing");
@@ -268,21 +301,29 @@
       if (field === "title") list();
       persist();
     });
-    for (const name of ["pen", "move"]) $(name).addEventListener("click", () => {
+    for (const name of ["pen", "move", "eraser"]) $(name).addEventListener("click", () => {
       finish();
       tool = name;
-      $("pen").setAttribute("aria-pressed", String(name === "pen"));
-      $("move").setAttribute("aria-pressed", String(name === "move"));
+      for (const id of ["pen", "move", "eraser"]) $(id).setAttribute("aria-pressed", String(name === id));
     });
     $("undo").addEventListener("click", () => {
       finish();
-      if (active().strokes.length) redo.push(active().strokes.pop());
+      if (undo.length) {
+        redo.push(active().strokes.slice());
+        active().strokes = undo.pop();
+      } else if (active().strokes.length) {
+        redo.push(active().strokes.slice());
+        active().strokes = active().strokes.slice(0, -1);
+      }
       persist();
       render();
     });
     $("redo").addEventListener("click", () => {
       finish();
-      if (redo.length) active().strokes.push(redo.pop());
+      if (redo.length) {
+        undo.push(active().strokes.slice());
+        active().strokes = redo.pop();
+      }
       persist();
       render();
     });
@@ -300,6 +341,19 @@
       render();
     });
     $("finger").addEventListener("change", () => { finish(); });
+    for (const [id, step] of [["previous-page", -1], ["next-page", 1], ["add-page", 0]]) $(id).addEventListener("click", () => {
+      finish();
+      const doc = active();
+      if (doc.kind !== "page") return;
+      const pages = doc.pages || 1;
+      if (step === 0 && pages >= 200) { report(new Error("Maximaal 200 pagina's per schrift. Maak een nieuw schrift.")); return; }
+      const current = Math.min(pages - 1, Math.max(0, Math.floor((doc.view.y + 24) / 1144)));
+      if (step === 0) doc.pages = pages + 1;
+      const page = step === 0 ? pages : Math.min(pages - 1, Math.max(0, current + step));
+      doc.view.y = page * 1144;
+      persist();
+      render();
+    });
     const canvas = $("drawing");
     $("writing").addEventListener("selectstart", event => {
       if (event.target instanceof Element && !event.target.closest("input, textarea, select")) event.preventDefault();
@@ -320,11 +374,15 @@
         const old = gesture;
         endDiagnostics(old, "vervangen door pen");
         gesture = null;
+        if (old.tool === "move") {
+          active().view = old.view;
+          render();
+        }
         if (canvas.hasPointerCapture(old.id)) canvas.releasePointerCapture(old.id);
         clear("drawing");
         livePoints = 0;
       }
-      if (gesture || event.button !== 0 || (tool === "pen" && kind !== "pen" && kind !== "mouse" && !$("finger").checked)) {
+      if (gesture || event.button !== 0 || kind === "other") {
         diagnostics.ignored++;
         updateDiagnostics();
         return;
@@ -333,9 +391,15 @@
       canvas.setPointerCapture(event.pointerId);
       const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
       const now = performance.now();
-      gesture = { id: event.pointerId, type: event.pointerType, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
+      const inputTool = kind === "touch" && !$("finger").checked ? "move" : tool;
+      gesture = { id: event.pointerId, type: event.pointerType, tool: inputTool, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
         metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
-      if (tool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), points: [point] };
+      if (inputTool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), points: [point] };
+      if (inputTool === "eraser") {
+        gesture.before = active().strokes.slice();
+        gesture.lastPoint = point;
+        eraseAt(point);
+      }
       livePoints = 0;
       drawLive();
     });
@@ -352,6 +416,12 @@
         const lastSample = events[events.length - 1];
         if (lastSample && (lastSample.clientX !== event.clientX || lastSample.clientY !== event.clientY)) addSamples([event]);
         drawLive();
+      } else if (gesture.tool === "eraser") {
+        const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [];
+        for (const sample of [...events, event]) {
+          gesture.metrics.samples++;
+          eraseAt(M.point(sample.clientX, sample.clientY, canvas.getBoundingClientRect(), active().view));
+        }
       } else {
         gesture.metrics.samples++;
         active().view.x = gesture.view.x - (event.clientX - gesture.clientX) / gesture.view.scale;
@@ -359,6 +429,16 @@
         scheduleRender();
       }
     });
+    canvas.addEventListener("wheel", event => {
+      event.preventDefault();
+      if (gesture) return;
+      const rect = canvas.getBoundingClientRect();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1;
+      active().view.x += event.deltaX * unit / active().view.scale;
+      active().view.y += event.deltaY * unit / active().view.scale;
+      persist();
+      render();
+    }, { passive: false });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, finish);
     new ResizeObserver(() => {
       const rect = canvas.getBoundingClientRect();
