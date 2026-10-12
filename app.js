@@ -11,7 +11,8 @@
   let livePoints = 0;
   let renderedWidth = 0;
   let renderedHeight = 0;
-  const diagnostics = { pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-" };
+  const emptyDiagnostics = () => ({ pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-", recent: [] });
+  let diagnostics = emptyDiagnostics();
 
   function report(error) {
     console.error("iPad Werkplek:", error);
@@ -90,6 +91,23 @@
 
   function updateDiagnostics() {
     $("input-diagnostics").textContent = `Laatste invoer: ${diagnostics.last}. Pen: ${diagnostics.pen}; touch: ${diagnostics.touch}; muis: ${diagnostics.mouse}; onbekend: ${diagnostics.other}; genegeerd: ${diagnostics.ignored}; onderbroken: ${diagnostics.cancelled}. Alleen lokaal, niet opgeslagen.`;
+    $("stroke-diagnostics").textContent = diagnostics.recent.length
+      ? diagnostics.recent.map(item => `${item.type} / ${item.tool}: ${item.moves} bewegingen, ${item.samples} samples, ${item.points} tekenpunten; duur ${item.duration} ms; grootste ontvangstgat ${item.gap} ms; einde ${item.reason}.`).join("\n")
+      : "Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.";
+  }
+
+  function endDiagnostics(old, reason) {
+    const now = performance.now();
+    diagnostics.recent.unshift({
+      type: old.type || "onbekend", tool: old.stroke ? "pen" : "verplaatsen",
+      moves: old.metrics.moves, samples: old.metrics.samples,
+      points: old.stroke ? old.stroke.points.length : 0,
+      duration: Math.round(now - old.metrics.start),
+      gap: Math.round(Math.max(old.metrics.gap, now - old.metrics.last)),
+      reason
+    });
+    diagnostics.recent.length = Math.min(diagnostics.recent.length, 5);
+    updateDiagnostics();
   }
 
   function render() {
@@ -155,14 +173,14 @@
     render();
   }
 
-  function finish(event) {
+  function finish(event, reason = "bediening") {
     if (!gesture || (event && gesture.id !== event.pointerId)) return;
     const old = gesture;
     if (event && event.type === "pointerup" && old.stroke) addSamples([event]);
     if (event && event.type === "pointercancel") {
       diagnostics.cancelled++;
-      updateDiagnostics();
     }
+    endDiagnostics(old, event ? event.type : reason);
     if (old.stroke) {
       active().strokes.push(old.stroke);
       redo = [];
@@ -205,6 +223,11 @@
   $("start-writing").addEventListener("click", () => tab("writing"));
 
   if (!blocked) {
+    $("reset-diagnostics").addEventListener("click", () => {
+      finish();
+      diagnostics = emptyDiagnostics();
+      updateDiagnostics();
+    });
     $("toggle-documents").addEventListener("click", () => {
       finish();
       const open = $("document-panel").hidden;
@@ -287,6 +310,7 @@
       if (gesture && event.pointerType === "pen" && gesture.type === "touch") {
         // A classified pen replaces an uncommitted touch stroke, not a stored note.
         const old = gesture;
+        endDiagnostics(old, "vervangen door pen");
         gesture = null;
         if (canvas.hasPointerCapture(old.id)) canvas.releasePointerCapture(old.id);
         clear("drawing");
@@ -300,7 +324,9 @@
       updateDiagnostics();
       canvas.setPointerCapture(event.pointerId);
       const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
-      gesture = { id: event.pointerId, type: event.pointerType, clientX: event.clientX, clientY: event.clientY, view: { ...active().view } };
+      const now = performance.now();
+      gesture = { id: event.pointerId, type: event.pointerType, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
+        metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
       if (tool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), points: [point] };
       livePoints = 0;
       drawLive();
@@ -308,10 +334,15 @@
     canvas.addEventListener("pointermove", event => {
       if (!gesture || gesture.id !== event.pointerId) return;
       event.preventDefault();
+      const now = performance.now();
+      gesture.metrics.moves++;
+      gesture.metrics.gap = Math.max(gesture.metrics.gap, now - gesture.metrics.last);
+      gesture.metrics.last = now;
       if (gesture.stroke) {
         const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
         addSamples(events.length ? events : [event]);
       } else {
+        gesture.metrics.samples++;
         active().view.x = gesture.view.x - (event.clientX - gesture.clientX) / gesture.view.scale;
         active().view.y = gesture.view.y - (event.clientY - gesture.clientY) / gesture.view.scale;
       }
@@ -321,13 +352,13 @@
     new ResizeObserver(() => {
       const rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height || (rect.width === renderedWidth && rect.height === renderedHeight)) return;
-      finish();
+      finish(null, "formaatwijziging");
       render();
     }).observe(canvas);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") { finish(); persist(); }
+      if (document.visibilityState === "hidden") { finish(null, "pagina verborgen"); persist(); }
     });
-    window.addEventListener("pagehide", () => { finish(); persist(); });
+    window.addEventListener("pagehide", () => { finish(null, "pagina verlaten"); persist(); });
     $("export").addEventListener("click", () => {
       finish();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -343,6 +374,7 @@
   function addSamples(events) {
     const rect = $("drawing").getBoundingClientRect();
     for (const sample of events) {
+      gesture.metrics.samples++;
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
       if (Math.hypot(point.x - last.x, point.y - last.y) >= .3 / active().view.scale) gesture.stroke.points.push(point);

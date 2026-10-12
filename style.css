@@ -39,6 +39,7 @@ input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
 #drawing { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
 #input-diagnostics { display: block; padding: 10px; background: #e9efdf; font-size: .85rem; }
+#stroke-diagnostics { white-space: pre-wrap; overflow-wrap: anywhere; font: .85rem/1.5 system-ui, sans-serif; }
 body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 .writing-focus > header, .writing-focus > nav { display: none; }
 .writing-focus #writing { height: calc(100dvh - 24px); display: flex; flex-direction: column; }
