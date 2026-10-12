@@ -1,7 +1,7 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v5";
+const CACHE = "remy-ipad-werkplek-shell-v6";
 const PREFIX = "remy-ipad-werkplek-shell-";
-const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./app.js", "./manifest.json", "./icon.svg"];
+const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./app.js", "./connections.js", "./manifest.json", "./icon.svg"];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 
 self.addEventListener("install", event => {

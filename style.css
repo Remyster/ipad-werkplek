@@ -14,6 +14,11 @@ button[aria-pressed="true"], .action { background: #173c39; color: #fff; border-
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #af6700; outline-offset: 3px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.task-panel { margin-top: 18px; }
+#task-list { padding-left: 24px; }
+#task-list li { padding: 12px 0; border-bottom: 1px solid #d6ded4; overflow-wrap: anywhere; }
+#task-list p { margin-bottom: 0; font-size: .85rem; }
+#hub-frame { width: 100%; height: 75vh; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
 article, aside { background: #fff; border: 1px solid #d6ded4; border-radius: 16px; padding: 22px; }
 section > aside { margin-top: 22px; background: #e9efdf; }
 #save-status { font-size: .85rem; max-width: 320px; }

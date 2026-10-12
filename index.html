@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./style.css">
   <script src="./model.js" defer></script>
   <script src="./app.js" defer></script>
+  <script src="./connections.js" defer></script>
 </head>
 <body>
   <header>
@@ -33,7 +34,7 @@
       <div class="cards">
         <article>
           <h3>WerkHub</h3>
-          <p>Open je bestaande taken en planning. Deze proef leest of wijzigt nog geen WerkHub-gegevens.</p>
+          <p>Lees je open taken na inloggen bij WerkHub in dezelfde browser. Wijzigen doe je voorlopig in WerkHub.</p>
           <a class="action" href="https://remyster.github.io/solo-leveling/" target="_blank" rel="noopener noreferrer">Open WerkHub</a>
         </article>
         <article>
@@ -47,7 +48,14 @@
           <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar</a>
         </article>
       </div>
-      <aside>Lokale schrijfproef. Geen cloudback-up, AI-aanroepen of geintegreerde taken. Exporteer je notities voordat je browsergegevens wist.</aside>
+      <article class="task-panel">
+        <h3>Je WerkHub-taken</h3>
+        <button id="load-tasks">Laad open taken</button>
+        <button id="hide-tasks">Verberg taken</button>
+        <p id="task-status" role="status">Nog niet geladen. Alleen lezen; geen offline opslag van taken.</p>
+        <ul id="task-list"></ul>
+      </article>
+      <aside>Notities blijven lokaal, zonder cloudback-up. Taken worden alleen na jouw klik geladen. Exporteer je notities voordat je browsergegevens wist.</aside>
     </section>
     <section id="writing" hidden>
       <div class="section-heading">
@@ -58,6 +66,8 @@
           <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
           <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Bladen &amp; back-up</button>
         </div>
+        <p id="hub-panel-status" role="status">Je bestaande hub kan hier worden geopend. Dit is geen nieuwe gedeelde project-API.</p>
+        <iframe id="hub-frame" title="Remy AI Hub" hidden referrerpolicy="no-referrer"></iframe>
       </div>
       <div class="workspace">
         <aside class="document-list" id="document-panel" hidden>
@@ -95,7 +105,7 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger omhoog/omlaag: schuiven als aanraking tekenen uit staat. Gum verwijdert hele streken; herstel met Ongedaan. Versie 5: gum &amp; schriftpagina's.</p>
+          <p id="drawing-help">Vinger omhoog/omlaag: schuiven als aanraking tekenen uit staat. Gum verwijdert hele streken; herstel met Ongedaan. Versie 6: WerkHub lezen &amp; ingebouwde AI Hub.</p>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
@@ -113,8 +123,10 @@
       <div class="cards">
         <article>
           <h3>Agents en projecten</h3>
-          <p>Gebruik je bestaande hub. Dit is een link, nog geen gedeelde project- of gespreksopslag.</p>
+          <p>Gebruik je bestaande hub in een apart tabblad of binnen Werkplek. Geen nieuwe gedeelde project- of gespreksopslag.</p>
           <a class="action" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">Open AI Hub</a>
+          <button id="open-hub-panel">Open hub binnen Werkplek</button>
+          <button id="close-hub-panel">Sluit ingebouwde hub</button>
         </article>
         <article>
           <h3>Claude Haiku 5.5</h3>
