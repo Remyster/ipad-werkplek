@@ -25,6 +25,7 @@
     <button data-tab="hubs" aria-pressed="false">AI Hub &amp; projecten</button>
   </nav>
   <div id="error" role="alert" hidden></div>
+  <aside id="update-status" role="status" hidden>Nieuwe appversie beschikbaar. Rond je penstreek af en herlaad de pagina om de update te gebruiken. Je lokale notities blijven bewaard.</aside>
   <main>
     <section id="today">
       <p class="eyebrow" id="today-date"></p>
@@ -54,17 +55,19 @@
         <div class="tools">
           <button id="new-page">Nieuw schriftblad</button>
           <button id="new-board">Nieuw whiteboard</button>
+          <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
+          <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Bladen &amp; back-up</button>
         </div>
       </div>
       <div class="workspace">
-        <aside class="document-list">
+        <aside class="document-list" id="document-panel" hidden>
           <label for="documents">Je bladen en borden</label>
           <select id="documents" size="6" aria-label="Je bladen en borden"></select>
           <button id="export">Download back-up</button>
           <p>Alleen opgeslagen in deze browser. De back-up bevat je tekst en penstreken.</p>
         </aside>
         <div class="editor">
-          <label for="title">Titel</label>
+          <label for="title" class="title-label">Titel</label>
           <input id="title" maxlength="120" autocomplete="off">
           <div class="tools" aria-label="Tekengereedschap">
             <button id="pen" aria-pressed="true">Pen</button>
@@ -78,13 +81,22 @@
             <button id="zoom-in" aria-label="Inzoomen">+</button>
             <button id="reset">Beginweergave</button>
           </div>
-          <label class="finger-option"><input id="finger" type="checkbox" checked> Tekenen met aanraking toestaan (voor ESR-pennen die als vinger worden herkend)</label>
-          <p id="drawing-help">Pen: schrijven. Verplaatsen: schuiven. Zoom met + en -. Geen gegarandeerde handpalmherkenning.</p>
+          <details id="input-options">
+            <summary>Peninstellingen &amp; invoermeter</summary>
+            <label class="finger-option"><input id="finger" type="checkbox" checked> Tekenen met aanraking toestaan (nodig als ESR als touch binnenkomt)</label>
+            <p>Herkende peninvoer krijgt voorrang op touch. Als pen en hand beide touch zijn, is betrouwbare handpalmherkenning niet mogelijk in deze proef.</p>
+            <output id="input-diagnostics" aria-label="Lokale invoermeter">Nog geen invoer. Deze meter verstuurt en bewaart geen gegevens.</output>
+          </details>
+          <p id="drawing-help">Pen: schrijven. Verplaatsen: schuiven. Zoom met + en -. Schrijfproef v2: Canvas.</p>
           <div id="surface">
-            <svg id="drawing" role="img" aria-label="Schrijfoppervlak" xmlns="http://www.w3.org/2000/svg"></svg>
+            <canvas id="saved-drawing" aria-hidden="true"></canvas>
+            <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
           </div>
-          <label for="text">Getypte notities naast je handschrift</label>
-          <textarea id="text" rows="4" placeholder="Typ hier je notities. AI-herkenning volgt na de backendkoppeling."></textarea>
+          <details id="typed-notes">
+            <summary>Getypte notities naast je handschrift</summary>
+            <label for="text">Notities</label>
+            <textarea id="text" rows="4" placeholder="Typ hier je notities. AI-herkenning volgt na de backendkoppeling."></textarea>
+          </details>
         </div>
       </div>
     </section>

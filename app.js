@@ -2,13 +2,16 @@
   "use strict";
   const M = window.IpadModel;
   const $ = id => document.getElementById(id);
-  const svgNS = "http://www.w3.org/2000/svg";
   let data;
   let blocked = false;
   let tool = "pen";
   let gesture = null;
   let redo = [];
   let frame = null;
+  let livePoints = 0;
+  let renderedWidth = 0;
+  let renderedHeight = 0;
+  const diagnostics = { pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-" };
 
   function report(error) {
     console.error("iPad Werkplek:", error);
@@ -29,44 +32,108 @@
 
   function active() { return data.documents.find(doc => doc.id === data.activeId); }
 
-  function element(name, attrs) {
-    const node = document.createElementNS(svgNS, name);
-    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
-    return node;
+  function context(id) {
+    const ctx = $(id).getContext("2d");
+    if (!ctx) throw new Error("Canvas tekenen is niet beschikbaar in deze browser.");
+    return ctx;
+  }
+
+  function clear(id) {
+    const ctx = context(id);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, $(id).width, $(id).height);
+  }
+
+  function worldContext(id) {
+    const ctx = context(id);
+    const rect = $("drawing").getBoundingClientRect();
+    const ratio = $(id).width / rect.width;
+    const { x, y, scale } = active().view;
+    ctx.setTransform(ratio * scale, 0, 0, ratio * scale, -x * ratio * scale, -y * ratio * scale);
+    return ctx;
+  }
+
+  function drawStroke(ctx, stroke, from = 0) {
+    ctx.strokeStyle = stroke.color;
+    ctx.fillStyle = stroke.color;
+    ctx.lineWidth = stroke.width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const points = stroke.points;
+    if (from === 0) {
+      ctx.beginPath();
+      ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (points.length > 1) {
+      ctx.beginPath();
+      const start = Math.max(0, from - 1);
+      ctx.moveTo(points[start].x, points[start].y);
+      for (let i = start + 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.stroke();
+    }
+  }
+
+  function drawLive() {
+    if (!gesture || !gesture.stroke) return;
+    if (livePoints < gesture.stroke.points.length) {
+      drawStroke(worldContext("drawing"), gesture.stroke, livePoints);
+      livePoints = gesture.stroke.points.length;
+    }
+  }
+
+  function updateControls() {
+    $("zoom").textContent = `${Math.round(active().view.scale * 100)}%`;
+    $("undo").disabled = !active().strokes.length;
+    $("redo").disabled = !redo.length;
+  }
+
+  function updateDiagnostics() {
+    $("input-diagnostics").textContent = `Laatste invoer: ${diagnostics.last}. Pen: ${diagnostics.pen}; touch: ${diagnostics.touch}; muis: ${diagnostics.mouse}; onbekend: ${diagnostics.other}; genegeerd: ${diagnostics.ignored}; onderbroken: ${diagnostics.cancelled}. Alleen lokaal, niet opgeslagen.`;
   }
 
   function render() {
     frame = null;
     const doc = active();
-    const svg = $("drawing");
-    const rect = svg.getBoundingClientRect();
+    const rect = $("drawing").getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    const { x, y, scale } = doc.view;
-    svg.setAttribute("viewBox", `${x} ${y} ${rect.width / scale} ${rect.height / scale}`);
-    svg.replaceChildren();
-    if (doc.kind === "page") {
-      const defs = element("defs", {});
-      const pattern = element("pattern", { id: "ruled", width: 800, height: 32, patternUnits: "userSpaceOnUse" });
-      pattern.append(element("path", { d: "M 0 31 L 800 31", stroke: "#d9e1e5", "stroke-width": 1 }));
-      defs.append(pattern);
-      svg.append(defs, element("rect", { x: 0, y: 0, width: 800, height: 1120, fill: "url(#ruled)", stroke: "#bbc9c5" }));
-    }
-    for (const stroke of doc.strokes.concat(gesture && gesture.stroke ? [gesture.stroke] : [])) {
-      const points = stroke.points.map(p => `${p.x},${p.y}`).join(" ");
-      if (stroke.points.length === 1) {
-        svg.append(element("circle", { cx: stroke.points[0].x, cy: stroke.points[0].y, r: stroke.width / 2, fill: stroke.color }));
-      } else {
-        svg.append(element("polyline", { points, fill: "none", stroke: stroke.color,
-          "stroke-width": stroke.width, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    renderedWidth = rect.width;
+    renderedHeight = rect.height;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    for (const id of ["drawing", "saved-drawing"]) {
+      const width = Math.round(rect.width * ratio);
+      const height = Math.round(rect.height * ratio);
+      if ($(id).width !== width || $(id).height !== height) {
+        $(id).width = width;
+        $(id).height = height;
       }
+      clear(id);
     }
-    $("zoom").textContent = `${Math.round(scale * 100)}%`;
-    $("undo").disabled = !doc.strokes.length;
-    $("redo").disabled = !redo.length;
+    const ctx = worldContext("saved-drawing");
+    if (doc.kind === "page") {
+      ctx.strokeStyle = "#bbc9c5";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, 0, 800, 1120);
+      ctx.strokeStyle = "#d9e1e5";
+      ctx.beginPath();
+      for (let y = 31; y < 1120; y += 32) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(800, y);
+      }
+      ctx.stroke();
+    }
+    for (const stroke of doc.strokes) drawStroke(ctx, stroke);
+    livePoints = 0;
+    drawLive();
+    updateControls();
   }
 
   function scheduleRender() {
-    if (frame === null) frame = requestAnimationFrame(render);
+    if (frame === null) frame = requestAnimationFrame(() => {
+      frame = null;
+      if (gesture && gesture.stroke) drawLive();
+      else render();
+    });
   }
 
   function list() {
@@ -91,18 +158,29 @@
   function finish(event) {
     if (!gesture || (event && gesture.id !== event.pointerId)) return;
     const old = gesture;
+    if (event && event.type === "pointerup" && old.stroke) addSamples([event]);
+    if (event && event.type === "pointercancel") {
+      diagnostics.cancelled++;
+      updateDiagnostics();
+    }
     if (old.stroke) {
       active().strokes.push(old.stroke);
       redo = [];
+      drawStroke(worldContext("saved-drawing"), old.stroke);
     }
     gesture = null;
+    clear("drawing");
+    livePoints = 0;
     if ($("drawing").hasPointerCapture(old.id)) $("drawing").releasePointerCapture(old.id);
     persist();
-    render();
+    updateControls();
   }
 
   function tab(name) {
     finish();
+    document.body.classList.remove("writing-focus");
+    $("focus").setAttribute("aria-pressed", "false");
+    $("focus").textContent = "Brede schrijfmodus";
     for (const section of ["today", "writing", "hubs"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
@@ -127,6 +205,24 @@
   $("start-writing").addEventListener("click", () => tab("writing"));
 
   if (!blocked) {
+    $("toggle-documents").addEventListener("click", () => {
+      finish();
+      const open = $("document-panel").hidden;
+      $("document-panel").hidden = !open;
+      document.querySelector(".workspace").classList.toggle("documents-open", open);
+      $("toggle-documents").setAttribute("aria-expanded", String(open));
+      render();
+    });
+    $("focus").addEventListener("click", () => {
+      finish();
+      const on = document.body.classList.toggle("writing-focus");
+      $("focus").setAttribute("aria-pressed", String(on));
+      $("focus").textContent = on ? "Terug naar overzicht" : "Brede schrijfmodus";
+      $("document-panel").hidden = true;
+      document.querySelector(".workspace").classList.remove("documents-open");
+      $("toggle-documents").setAttribute("aria-expanded", "false");
+      render();
+    });
     selectDocument();
     $("documents").addEventListener("change", () => {
       finish();
@@ -180,34 +276,54 @@
       persist();
       render();
     });
-    const svg = $("drawing");
-    svg.addEventListener("pointerdown", event => {
-      if (gesture || event.button !== 0 || (tool === "pen" && event.pointerType === "touch" && !$("finger").checked)) return;
+    $("finger").addEventListener("change", () => { finish(); });
+    const canvas = $("drawing");
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    canvas.addEventListener("pointerdown", event => {
       event.preventDefault();
-      svg.setPointerCapture(event.pointerId);
-      const point = M.point(event.clientX, event.clientY, svg.getBoundingClientRect(), active().view);
-      gesture = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY, view: { ...active().view } };
+      const kind = ["pen", "touch", "mouse"].includes(event.pointerType) ? event.pointerType : "other";
+      diagnostics[kind]++;
+      diagnostics.last = kind;
+      if (gesture && event.pointerType === "pen" && gesture.type === "touch") {
+        // A classified pen replaces an uncommitted touch stroke, not a stored note.
+        const old = gesture;
+        gesture = null;
+        if (canvas.hasPointerCapture(old.id)) canvas.releasePointerCapture(old.id);
+        clear("drawing");
+        livePoints = 0;
+      }
+      if (gesture || event.button !== 0 || (tool === "pen" && kind !== "pen" && kind !== "mouse" && !$("finger").checked)) {
+        diagnostics.ignored++;
+        updateDiagnostics();
+        return;
+      }
+      updateDiagnostics();
+      canvas.setPointerCapture(event.pointerId);
+      const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+      gesture = { id: event.pointerId, type: event.pointerType, clientX: event.clientX, clientY: event.clientY, view: { ...active().view } };
       if (tool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), points: [point] };
-      render();
+      livePoints = 0;
+      drawLive();
     });
-    svg.addEventListener("pointermove", event => {
+    canvas.addEventListener("pointermove", event => {
       if (!gesture || gesture.id !== event.pointerId) return;
       event.preventDefault();
       if (gesture.stroke) {
         const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
-        for (const sample of events.length ? events : [event]) {
-          const point = M.point(sample.clientX, sample.clientY, svg.getBoundingClientRect(), active().view);
-          const last = gesture.stroke.points[gesture.stroke.points.length - 1];
-          if (Math.hypot(point.x - last.x, point.y - last.y) >= .6 / active().view.scale) gesture.stroke.points.push(point);
-        }
+        addSamples(events.length ? events : [event]);
       } else {
         active().view.x = gesture.view.x - (event.clientX - gesture.clientX) / gesture.view.scale;
         active().view.y = gesture.view.y - (event.clientY - gesture.clientY) / gesture.view.scale;
       }
       scheduleRender();
     });
-    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) svg.addEventListener(name, finish);
-    new ResizeObserver(scheduleRender).observe(svg);
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, finish);
+    new ResizeObserver(() => {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height || (rect.width === renderedWidth && rect.height === renderedHeight)) return;
+      finish();
+      render();
+    }).observe(canvas);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") { finish(); persist(); }
     });
@@ -224,7 +340,19 @@
     });
   }
 
+  function addSamples(events) {
+    const rect = $("drawing").getBoundingClientRect();
+    for (const sample of events) {
+      const point = M.point(sample.clientX, sample.clientY, rect, active().view);
+      const last = gesture.stroke.points[gesture.stroke.points.length - 1];
+      if (Math.hypot(point.x - last.x, point.y - last.y) >= .3 / active().view.scale) gesture.stroke.points.push(point);
+    }
+  }
+
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      $("update-status").hidden = false;
+    });
     navigator.serviceWorker.register("./sw.js").catch(error => {
       report(new Error(`Offline openen is niet ingesteld: ${error.message}`));
     });
