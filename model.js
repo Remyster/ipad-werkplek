@@ -13,7 +13,7 @@
   function createMeasurementDocument(formType, id) {
     if (!["dwat-akf", "lws"].includes(formType)) throw new Error("Onbekend meetlijsttype.");
     const doc = createDocument("page", id);
-    doc.title = formType === "dwat-akf" ? "Nieuwe DWAT/AKF-meetlijst" : "Nieuwe LWS-meetlijst";
+    doc.title = formType === "dwat-akf" ? "DWAT/AKF meetstatus" : "LWS meetstatus";
     doc.formType = formType;
     doc.formData = {};
     return doc;

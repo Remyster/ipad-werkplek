@@ -81,6 +81,9 @@
     workhubFrame.hidden = true;
     workhubFrame.removeAttribute("src");
   });
+  workhubFrame.hidden = false;
+  workhubFrame.src = HUB;
+  status.textContent = "WerkHub staat standaard open. Bij een bestaande geldige login worden je open taken automatisch geladen.";
   window.addEventListener("pagehide", clear);
   window.addEventListener("storage", event => {
     if (event.key === "werkhub_auth" || event.key === null) clear();
@@ -115,6 +118,12 @@
       button.disabled = false;
     }
   });
+  try {
+    session(localStorage);
+    button.click();
+  } catch (error) {
+    status.textContent = "WerkHub staat open. Log zo nodig in in het paneel; daarna kun je de taken laden.";
+  }
   const frame = document.getElementById("hub-frame");
   document.getElementById("open-hub-panel").addEventListener("click", () => {
     frame.hidden = false;
@@ -126,6 +135,9 @@
     frame.removeAttribute("src");
     document.getElementById("hub-panel-status").textContent = "Ingebouwde AI Hub gesloten.";
   });
+  frame.hidden = false;
+  frame.src = "https://remyster.github.io/ai-hub-remy/";
+  document.getElementById("hub-panel-status").textContent = "AI Hub staat standaard open. Werkt de ingebouwde weergave niet, gebruik Open AI Hub.";
 
   function calendarUrl(id, second = "") {
     for (const value of [id, ...(second ? [second] : [])]) {

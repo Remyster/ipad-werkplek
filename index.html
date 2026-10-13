@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./style.css">
   <script src="./model.js" defer></script>
   <script src="./pdf.js" defer></script>
+  <script src="./drive.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./connections.js" defer></script>
   <script src="./ai.js" defer></script>
@@ -62,34 +63,56 @@
         <ul id="task-list"></ul>
         <iframe id="workhub-frame" title="WerkHub login en taken" hidden referrerpolicy="no-referrer"></iframe>
       </article>
-      <aside>Notities blijven lokaal, zonder cloudback-up. Taken worden alleen na jouw klik geladen. Exporteer je notities voordat je browsergegevens wist.</aside>
+      <aside>Notities worden eerst lokaal opgeslagen. Maak daarnaast bewust een Google Drive-back-up via Werkmap &gt; Inhoud &amp; back-up. Wis geen browsergegevens voordat een back-up is gecontroleerd.</aside>
     </section>
     <section id="writing" hidden>
       <div class="section-heading">
         <h2>Schrijven, meetlijsten &amp; werkmappen</h2>
+        <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Inhoud &amp; back-up</button>
+      </div>
+      <details class="workmap-menu" open>
+        <summary>Werkmappen</summary>
+        <div id="folder-buttons" class="folder-grid" aria-label="Vaste werkmappen"></div>
+      </details>
+      <details class="workmap-menu">
+        <summary>Nieuw of toevoegen</summary>
         <div class="tools">
           <button id="new-page">Nieuw schriftblad</button>
           <button id="new-board">Nieuw whiteboard</button>
-          <button id="new-dwat-akf">Nieuwe DWAT/AKF-lijst</button>
-          <button id="new-lws">Nieuwe LWS-lijst</button>
-          <button id="new-folder">Nieuwe map</button>
-          <button id="save-document">Bewaar document</button>
-          <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
-          <button id="writing-ai-recognize" aria-haspopup="dialog">Herken handschrift</button>
+          <button id="new-folder">Nieuwe eigen map</button>
           <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
           <label>Werkbeschrijving als nieuw PDF-bord <input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
-          <button id="pdf-original" disabled>Download originele PDF</button>
-          <span id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</span>
-          <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
-          <button id="toggle-documents" aria-expanded="false" aria-controls="document-panel">Bladen &amp; back-up</button>
         </div>
-      </div>
+      </details>
+      <details class="workmap-menu">
+        <summary>Schrijven en AI</summary>
+        <div class="tools">
+          <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
+          <button id="writing-ai-recognize" aria-haspopup="dialog">Herken handschrift</button>
+          <button id="pdf-original" disabled>Download originele PDF</button>
+          <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
+        </div>
+      </details>
+      <p id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</p>
       <div class="workspace">
         <aside class="document-list" id="document-panel" hidden>
-          <label for="documents">Je bladen en borden</label>
+          <label for="documents">Inhoud van je werkmappen</label>
           <select id="documents" size="10" aria-label="Je mappen, meetlijsten, bladen en borden"></select>
-          <button id="export">Download back-up</button>
-          <p>Documenten staan per map gegroepeerd. Een nieuwe map verplaatst het geopende document direct naar die map. Geen cloudback-up.</p>
+          <button id="export">Download lokale back-up</button>
+          <details id="drive-settings">
+            <summary>Google Drive back-up &amp; herstel</summary>
+            <label for="drive-client-id">Google OAuth client-ID (openbare configuratie, geen sleutel)</label>
+            <input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
+            <button id="drive-connect" type="button">Koppel Google Drive</button>
+            <button id="drive-backup" type="button" disabled>Maak Drive-back-up</button>
+            <button id="drive-refresh" type="button" disabled>Ververs Drive-lijst</button>
+            <label for="drive-backups">Back-up om terug te zetten</label>
+            <select id="drive-backups" aria-label="Google Drive back-ups"></select>
+            <button id="drive-restore" type="button" disabled>Herstel geselecteerde back-up</button>
+            <a id="drive-folder-link" class="action" target="_blank" rel="noopener noreferrer" hidden>Open back-upmap in Google Drive</a>
+            <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
+          </details>
+          <p>Documenten staan per map gegroepeerd. Open eerst een werkmap; nieuwe schriften, whiteboards en PDF-borden worden daarin opgeslagen.</p>
         </aside>
         <div class="editor">
           <label for="title" class="title-label">Titel</label>

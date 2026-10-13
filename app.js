@@ -29,7 +29,7 @@
     if (blocked) return false;
     try {
       M.save(localStorage, data);
-      $("save-status").textContent = "Lokaal opgeslagen. Geen cloudback-up.";
+      $("save-status").textContent = "Lokaal opgeslagen. Drive-back-up via Inhoud & back-up.";
       return true;
     } catch (error) {
       $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
@@ -408,8 +408,22 @@
     title.textContent = active().formType === "dwat-akf" ? "Logboek DWAT / AKF-meetstaat" : "Logboek LWS Andijk";
     const help = document.createElement("p");
     help.className = "measurement-help";
-    help.textContent = "Typ de meetstatussen en waarden in. Alles wordt alleen lokaal in deze Werkplek en in je handmatige back-up bewaard.";
-    sheet.append(title, help);
+    help.textContent = "Vul deze vaste meetstatus in, neem de waarden over in het officiële logboek en maak de lijst daarna leeg. Opslag is lokaal en via jouw bewuste Drive-back-up.";
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.textContent = "Meetlijst leegmaken";
+    clearButton.addEventListener("click", () => {
+      if (!window.confirm("Alle ingevulde waarden en vinkjes uit deze meetlijst verwijderen? Controleer eerst of je alles hebt overgenomen.")) return;
+      const previous = active().formData;
+      active().formData = {};
+      if (!persist()) {
+        active().formData = previous;
+        report(new Error("Meetlijst niet leeggemaakt: lokale opslag mislukt."));
+        return;
+      }
+      renderMeasurementForm();
+    });
+    sheet.append(title, help, clearButton);
     if (active().formType === "dwat-akf") renderDwatAkf(sheet);
     else renderLws(sheet);
     container.append(sheet);
@@ -429,6 +443,7 @@
     undo = [];
     list();
     updateFolderControl();
+    renderFolderButtons();
     renderMeasurementForm();
     if (isMeasurement(doc)) {
       pdfImages = [];
@@ -514,6 +529,89 @@
     if (name === "writing" && !blocked) render();
   }
 
+  const defaultFolders = [
+    { key: "dwat-akf", title: "DWAT/AKF", formType: "dwat-akf" },
+    { key: "lws", title: "LWS", formType: "lws" },
+    { key: "billa-meeting", title: "Billa / Meeting" },
+    { key: "uf-ro", title: "UF-RO" },
+    { key: "overveen", title: "Overveen" },
+    { key: "waag", title: "Waag" },
+    { key: "pwn-guidelines", title: "PWN Guidelines" },
+    { key: "pwn-contacten-routes", title: "PWN Contacten en Routes" },
+    { key: "opleidingen-cursus", title: "Opleidingen / Cursus" }
+  ];
+
+  function normalizedFolderTitle(value) {
+    return String(value).trim().toLowerCase().replace(/\s*&\s*/g, " en ").replace(/\s*\/\s*/g, "/").replace(/\s+/g, " ");
+  }
+
+  function fixedFolder(definition) {
+    const target = normalizedFolderTitle(definition.title);
+    return data.folders.find(folder => normalizedFolderTitle(folder.title) === target) || null;
+  }
+
+  function ensureDefaultFolders() {
+    const map = new Map((data.folders || []).map(folder => [normalizedFolderTitle(folder.title), folder]));
+    for (const definition of defaultFolders) {
+      const key = normalizedFolderTitle(definition.title);
+      if (!map.has(key)) {
+        data.folders.push({ id: crypto.randomUUID(), title: definition.title });
+        map.set(key, data.folders[data.folders.length - 1]);
+      }
+    }
+    for (const doc of data.documents) {
+      if (!doc.formType) continue;
+      const definition = defaultFolders.find(item => item.formType === doc.formType);
+      if (!definition) continue;
+      const folder = map.get(normalizedFolderTitle(definition.title));
+      doc.folderId = folder.id;
+      if (doc.title === "Nieuwe DWAT/AKF-meetlijst" || doc.title === "Nieuwe LWS-meetlijst") {
+        doc.title = definition.formType === "dwat-akf" ? "DWAT/AKF meetstatus" : "LWS meetstatus";
+      }
+    }
+  }
+
+  function renderFolderButtons() {
+    const container = $("folder-buttons");
+    if (!container || !data) return;
+    container.replaceChildren(...defaultFolders.map(definition => {
+      const folder = fixedFolder(definition);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.folderKey = definition.key;
+      button.textContent = `${definition.title} map`;
+      button.setAttribute("aria-pressed", String(!!folder && active().folderId === folder.id));
+      button.addEventListener("click", () => {
+        try { openFixedFolder(definition); }
+        catch (error) { report(error); }
+      });
+      return button;
+    }));
+  }
+
+  function openFixedFolder(definition) {
+    finish();
+    const folder = fixedFolder(definition);
+    if (!folder) throw new Error(`Werkmap ${definition.title} ontbreekt.`);
+    let doc = definition.formType
+      ? data.documents.find(item => item.formType === definition.formType)
+      : data.documents.find(item => item.folderId === folder.id);
+    if (!doc) {
+      doc = definition.formType
+        ? M.createMeasurementDocument(definition.formType, crypto.randomUUID())
+        : M.createDocument("page", crypto.randomUUID());
+      doc.folderId = folder.id;
+      if (!definition.formType) doc.title = `${definition.title} - notities`;
+      data.documents.push(doc);
+    }
+    data.activeId = doc.id;
+    if (!persist()) throw new Error(`Werkmap ${definition.title} kon niet worden geopend.`);
+    selectDocument();
+    $("document-panel").hidden = false;
+    document.querySelector(".workspace").classList.add("documents-open");
+    $("toggle-documents").setAttribute("aria-expanded", "true");
+  }
+
   try {
     data = M.load(localStorage);
     if (!data) {
@@ -521,6 +619,7 @@
       data = { version: 1, activeId: doc.id, documents: [doc], folders: [] };
     }
     data.folders = data.folders || [];
+    ensureDefaultFolders();
     persist();
   } catch (error) {
     blocked = true;
@@ -535,6 +634,17 @@
   if (!blocked) {
     window.WorkplaceWriting = {
       currentId() { finish(); return active().id; },
+      async createBackup() {
+        finish();
+        const snapshot = JSON.parse(JSON.stringify(data));
+        return window.WorkplacePdf.backup(snapshot);
+      },
+      async restoreBackup(backup) {
+        finish();
+        const restored = await window.WorkplacePdf.restore(backup, M.validate);
+        M.save(localStorage, restored);
+        location.reload();
+      },
       captureInk() {
         finish();
         if (isMeasurement()) throw new Error("Open een schrift of whiteboard om handschrift te selecteren.");
@@ -638,7 +748,6 @@
       try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
       catch (error) { report(error); }
     });
-    $("save-document").addEventListener("click", () => { finish(); persist(); });
     $("width").addEventListener("input", () => { $("width-value").textContent = $("width").value; });
     $("reset-diagnostics").addEventListener("click", () => {
       finish();
@@ -680,16 +789,28 @@
         report(new Error("Geef een mapnaam van 1 tot en met 120 tekens."));
         return;
       }
+      const previousId = active().id;
       const folder = { id: crypto.randomUUID(), title: clean };
       data.folders.push(folder);
-      active().folderId = folder.id;
-      list();
-      updateFolderControl();
-      persist();
+      const doc = M.createDocument("page", crypto.randomUUID());
+      doc.folderId = folder.id;
+      doc.title = `${clean} - notities`;
+      data.documents.push(doc);
+      data.activeId = doc.id;
+      selectDocument();
+      if (!persist()) {
+        data.documents = data.documents.filter(item => item.id !== doc.id);
+        data.folders = data.folders.filter(item => item.id !== folder.id);
+        data.activeId = previousId;
+        selectDocument();
+        report(new Error("Nieuwe map niet opgeslagen. Download eerst een back-up."));
+      }
     });
-    $("document-folder").addEventListener("change", () => {
+    $("document-folder").addEventListener("input", event => {
+      if (!event.isTrusted) return;
       active().folderId = $("document-folder").value || null;
       list();
+      renderFolderButtons();
       persist();
     });
     for (const [button, kind] of [["new-page", "page"], ["new-board", "board"]]) {
@@ -697,18 +818,6 @@
         finish();
         const folderId = active().folderId || null;
         const doc = M.createDocument(kind, crypto.randomUUID());
-        doc.folderId = folderId;
-        data.documents.push(doc);
-        data.activeId = doc.id;
-        selectDocument();
-        persist();
-      });
-    }
-    for (const [button, formType] of [["new-dwat-akf", "dwat-akf"], ["new-lws", "lws"]]) {
-      $(button).addEventListener("click", () => {
-        finish();
-        const folderId = active().folderId || null;
-        const doc = M.createMeasurementDocument(formType, crypto.randomUUID());
         doc.folderId = folderId;
         data.documents.push(doc);
         data.activeId = doc.id;
@@ -940,6 +1049,7 @@
         const backup = await window.WorkplacePdf.backup(snapshot);
         window.WorkplacePdf.download(new Blob([JSON.stringify(backup)], { type: "application/json" }),
           `werkplek-backup-${new Date().toISOString().slice(0, 10)}.json`);
+        $("save-status").textContent = "Lokale back-up gedownload.";
       } catch (error) { report(error); }
       finally { $("export").disabled = false; }
     });
@@ -956,8 +1066,24 @@
   }
 
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    const offlineErrorKey = "remy-ipad-offline-error-v14";
+    if (localStorage.getItem(offlineErrorKey) === "1") {
+      $("update-status").hidden = false;
+      $("update-status").textContent = "Offline opslag kon niet volledig worden ingesteld. De online app blijft werken; herlaad later online voordat je zonder internet werkt.";
+    }
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       $("update-status").hidden = false;
+    });
+    navigator.serviceWorker.addEventListener("message", event => {
+      if (event.data?.type === "offline-ready") {
+        localStorage.removeItem(offlineErrorKey);
+        return;
+      }
+      if (event.data?.type === "offline-error") {
+        localStorage.setItem(offlineErrorKey, "1");
+        $("update-status").hidden = false;
+        $("update-status").textContent = "Offline opslag kon niet volledig worden ingesteld. De online app blijft werken; herlaad later online voordat je zonder internet werkt.";
+      }
     });
     navigator.serviceWorker.register("./sw.js").catch(error => {
       report(new Error(`Offline openen is niet ingesteld: ${error.message}`));

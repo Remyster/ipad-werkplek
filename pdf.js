@@ -112,5 +112,49 @@
     }
     return { ...data, attachments };
   }
-  window.WorkplacePdf = { importFile, images, original, backup, download };
+
+  function dataBlob(value, expectedType) {
+    if (typeof value !== "string" || value.length > 160 * 1024 * 1024) throw new Error("Een bestand in de back-up is ongeldig of te groot.");
+    const match = value.match(/^data:([^;,]+);base64,([a-zA-Z0-9+/=\r\n]+)$/);
+    if (!match || match[1] !== expectedType) throw new Error(`Back-upbestand heeft niet het verwachte type ${expectedType}.`);
+    let binary;
+    try { binary = atob(match[2].replace(/\s/g, "")); }
+    catch (error) { throw new Error("Een bestand in de back-up heeft ongeldige base64-gegevens."); }
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return new Blob([bytes], { type: expectedType });
+  }
+
+  async function restore(backup, validate) {
+    if (!backup || typeof backup !== "object" || Array.isArray(backup) || typeof validate !== "function") {
+      throw new Error("De gekozen back-up heeft een onbekend formaat.");
+    }
+    const snapshot = JSON.parse(JSON.stringify(backup));
+    const attachments = snapshot.attachments;
+    delete snapshot.attachments;
+    validate(snapshot);
+    const restored = new Set();
+    for (const doc of snapshot.documents) {
+      if (!doc.pdf || restored.has(doc.pdf.id)) continue;
+      const asset = attachments?.[doc.pdf.id];
+      if (!asset || typeof asset.name !== "string" || asset.name.length > 255 ||
+          !Array.isArray(asset.pages) || asset.pages.length !== doc.pdf.pages.length) {
+        throw new Error(`PDF ${doc.pdf.name} ontbreekt of is onvolledig in de back-up.`);
+      }
+      const original = dataBlob(asset.original, "application/pdf");
+      const header = new TextDecoder().decode(new Uint8Array(await original.slice(0, 5).arrayBuffer()));
+      if (header !== "%PDF-") throw new Error(`Het origineel van ${doc.pdf.name} is geen geldige PDF.`);
+      const pages = asset.pages.map((page, index) => {
+        const reference = doc.pdf.pages[index];
+        if (!page || page.width !== reference.width || page.height !== reference.height || page.top !== reference.top) {
+          throw new Error(`PDF-pagina van ${doc.pdf.name} past niet bij de back-upgegevens.`);
+        }
+        return { width: page.width, height: page.height, top: page.top, image: dataBlob(page.image, "image/png") };
+      });
+      await put(doc.pdf.id, { original, name: asset.name, pages });
+      restored.add(doc.pdf.id);
+    }
+    return snapshot;
+  }
+  window.WorkplacePdf = { importFile, images, original, backup, restore, download };
 })();
