@@ -24,7 +24,7 @@
   </header>
   <nav aria-label="Hoofdnavigatie">
     <button data-tab="today" aria-pressed="true">Vandaag</button>
-    <button data-tab="writing" aria-pressed="false">Schrijven</button>
+    <button data-tab="writing" aria-pressed="false">Werkmap</button>
     <button data-tab="hubs" aria-pressed="false">AI Hub &amp; projecten</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
   </nav>
@@ -66,14 +66,18 @@
     </section>
     <section id="writing" hidden>
       <div class="section-heading">
-        <h2>Schrijven</h2>
+        <h2>Schrijven, meetlijsten &amp; werkmappen</h2>
         <div class="tools">
           <button id="new-page">Nieuw schriftblad</button>
           <button id="new-board">Nieuw whiteboard</button>
-          <button id="save-document">Bewaar schrift / bord</button>
+          <button id="new-dwat-akf">Nieuwe DWAT/AKF-lijst</button>
+          <button id="new-lws">Nieuwe LWS-lijst</button>
+          <button id="new-folder">Nieuwe map</button>
+          <button id="save-document">Bewaar document</button>
           <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
           <button id="writing-ai-recognize" aria-haspopup="dialog">Herken handschrift</button>
           <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
+          <label>Werkbeschrijving als nieuw PDF-bord <input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
           <button id="pdf-original" disabled>Download originele PDF</button>
           <span id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</span>
           <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
@@ -83,13 +87,17 @@
       <div class="workspace">
         <aside class="document-list" id="document-panel" hidden>
           <label for="documents">Je bladen en borden</label>
-          <select id="documents" size="6" aria-label="Je bladen en borden"></select>
+          <select id="documents" size="10" aria-label="Je mappen, meetlijsten, bladen en borden"></select>
           <button id="export">Download back-up</button>
-          <p>Elk nieuw schrift of bord blijft apart bewaard in deze browser. Kies hierboven een oud document om verder te gaan. Geen cloudback-up.</p>
+          <p>Documenten staan per map gegroepeerd. Een nieuwe map verplaatst het geopende document direct naar die map. Geen cloudback-up.</p>
         </aside>
         <div class="editor">
           <label for="title" class="title-label">Titel</label>
           <input id="title" maxlength="120" autocomplete="off">
+          <label for="document-folder">Map</label>
+          <select id="document-folder" aria-label="Map van geopend document"></select>
+          <div id="measurement-editor" hidden></div>
+          <div id="drawing-editor">
           <details id="drawing-tools" open>
           <summary>Pen, gum &amp; pagina's</summary>
           <div class="tools" aria-label="Tekengereedschap">
@@ -132,6 +140,7 @@
             <label for="text">Notities</label>
             <textarea id="text" rows="4" placeholder="Typ hier je notities. Gebruik Herken handschrift om peninkt via Gemini om te zetten."></textarea>
           </details>
+          </div>
         </div>
       </div>
     </section>

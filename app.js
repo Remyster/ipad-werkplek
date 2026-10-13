@@ -39,6 +39,7 @@
   }
 
   function active() { return data.documents.find(doc => doc.id === data.activeId); }
+  function isMeasurement(doc = active()) { return !!doc.formType; }
 
   function context(id) {
     const ctx = $(id).getContext("2d");
@@ -167,6 +168,7 @@
   function render() {
     frame = null;
     const doc = active();
+    if (isMeasurement(doc)) return;
     const rect = $("drawing").getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     renderedWidth = rect.width;
@@ -217,25 +219,225 @@
     });
   }
 
-  function list() {
-    $("documents").replaceChildren(...data.documents.map(doc => {
+  function documentLabel(doc) {
+    if (doc.formType === "dwat-akf") return `DWAT/AKF: ${doc.title || "Zonder titel"}`;
+    if (doc.formType === "lws") return `LWS: ${doc.title || "Zonder titel"}`;
+    return `${doc.kind === "page" ? "Schrift" : doc.pdf ? "PDF" : "Bord"}: ${doc.title || "Zonder titel"}`;
+  }
+
+  function documentOption(doc) {
       const option = document.createElement("option");
       option.value = doc.id;
-      option.textContent = `${doc.kind === "page" ? "Schrift" : "Bord"}: ${doc.title || "Zonder titel"}`;
+      option.textContent = documentLabel(doc);
       option.selected = doc.id === data.activeId;
       return option;
-    }));
+  }
+
+  function list() {
+    const groups = [];
+    const addGroup = (label, folderId) => {
+      const docs = data.documents.filter(doc => (doc.folderId || null) === folderId);
+      if (!docs.length) return;
+      const group = document.createElement("optgroup");
+      group.label = label;
+      group.replaceChildren(...docs.map(documentOption));
+      groups.push(group);
+    };
+    addGroup("Zonder map", null);
+    for (const folder of data.folders) addGroup(folder.title, folder.id);
+    $("documents").replaceChildren(...groups);
+  }
+
+  function updateFolderControl() {
+    const options = [new Option("Zonder map", "")];
+    for (const folder of data.folders) options.push(new Option(folder.title, folder.id));
+    $("document-folder").replaceChildren(...options);
+    $("document-folder").value = active().folderId || "";
+  }
+
+  function fieldValue(key) {
+    return active().formData[key] ?? "";
+  }
+
+  function measurementInput(key, label, type = "text") {
+    const wrapper = document.createElement("label");
+    wrapper.textContent = label;
+    const input = document.createElement("input");
+    input.type = type;
+    input.dataset.measureField = key;
+    input.value = String(fieldValue(key));
+    wrapper.append(input);
+    return wrapper;
+  }
+
+  function checkbox(key, label) {
+    const wrapper = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.measureField = key;
+    input.checked = fieldValue(key) === true;
+    wrapper.append(input, document.createTextNode(label));
+    return wrapper;
+  }
+
+  function heading(text) {
+    const element = document.createElement("h4");
+    element.textContent = text;
+    return element;
+  }
+
+  function table(headers, rows) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "measurement-table-wrap";
+    const element = document.createElement("table");
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (const label of headers) {
+      const cell = document.createElement("th");
+      cell.textContent = label;
+      headRow.append(cell);
+    }
+    head.append(headRow);
+    const body = document.createElement("tbody");
+    for (const cells of rows) {
+      const row = document.createElement("tr");
+      for (const item of cells) {
+        const cell = document.createElement("td");
+        if (item instanceof Node) cell.append(item);
+        else cell.textContent = item;
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    element.append(head, body);
+    wrapper.append(element);
+    return wrapper;
+  }
+
+  function measurementCell(key, disabled = false) {
+    if (disabled) {
+      const span = document.createElement("span");
+      span.className = "not-applicable";
+      span.textContent = "n.v.t.";
+      return span;
+    }
+    const input = document.createElement("input");
+    input.type = "text";
+    input.dataset.measureField = key;
+    input.value = String(fieldValue(key));
+    return input;
+  }
+
+  function renderDwatAkf(container) {
+    const visit = document.createElement("div");
+    visit.className = "measure-grid";
+    visit.append(measurementInput("visit.date", "Datum", "date"), measurementInput("visit.start", "Aanvang", "time"),
+      measurementInput("visit.operator", "Operator"));
+    container.append(heading("Bezoekgegevens"), visit);
+    const points = [
+      ["1", "PLG-TIAKF-EFF", "Waterverdeelstation, gebouw t.o. RO/UF-installaties - bouwdeel B"],
+      ["2", "PLG-PI-AKF-0", "AKF-pilotkolom, 0 min contacttijd (inlaat)"],
+      ["3", "PLG-PI-AKF-20", "AKF-pilotkolom, 20 min contacttijd"],
+      ["4", "PLG-AKF-40", "AKF-pilotkolom, 40 min contacttijd"],
+      ["5", "PLG-UVstrx-AKRx-EFF", "Monsterkraan AKF-kolommen pilot (tegen de muur)"]
+    ];
+    container.append(heading("Bemonsteringspunten - volgorde zoals in Excel"),
+      table(["Punt", "Code", "Locatie"], points));
+    const parameters = [
+      ["Tijdstip", "time"], ["pH", "ph"], ["O2 (%/mg/L)", "o2"], ["EGV (uS/cm)", "egv"],
+      ["Temperatuur (C)", "temperature"], ["Doorstroming (L/h)", "flow"], ["Troebelheid (FNU)", "turbidity"],
+      ["Nitraat", "nitrate"], ["Waterlevel (kolom 1 bovenkant)", "waterlevel"]
+    ];
+    const rows = parameters.map(([label, key]) => [
+      label,
+      ...[1, 2, 3, 4, 5].map(point => measurementCell(`measure.${key}.${point}`,
+        (key === "flow" && [1, 3, 5].includes(point)) || (key === "nitrate" && [2, 3].includes(point))))
+    ]);
+    container.append(heading("Metingen"),
+      table(["Parameter", "Punt 1", "Punt 2", "Punt 3", "Punt 4", "Punt 5"], rows));
+    container.append(heading("Waterdebietmeters"),
+      table(["Meter", "Datum", "Tijd", "Stand / debiet"], [
+        ["INF waterdebietmeter", measurementCell("meter.inf.date"), measurementCell("meter.inf.time"), measurementCell("meter.inf.value")],
+        ["EFF waterdebietmeter", measurementCell("meter.eff.date"), measurementCell("meter.eff.time"), measurementCell("meter.eff.value")]
+      ]));
+    const notes = document.createElement("textarea");
+    notes.dataset.measureField = "notes";
+    notes.value = String(fieldValue("notes"));
+    notes.placeholder = "Aantekeningen";
+    container.append(heading("Aantekeningen"), notes);
+  }
+
+  function renderLws(container) {
+    const visit = document.createElement("div");
+    visit.className = "measure-grid";
+    visit.append(measurementInput("visit.date", "Datum", "date"), measurementInput("visit.start", "Aanvang", "time"),
+      measurementInput("weather.direction", "Windrichting"), measurementInput("weather.temperature", "Temperatuur lucht (C)"),
+      measurementInput("weather.speed", "Windsnelheid (km/h)"));
+    container.append(heading("Bezoekgegevens"), visit);
+    const weather = document.createElement("div");
+    weather.className = "check-row";
+    for (const [key, label] of [["sunny", "Zonnig"], ["cloudy", "Bewolkt"], ["rain", "Regen"], ["wind", "Wind"], ["frost", "Vorst"]]) {
+      weather.append(checkbox(`weather.${key}`, label));
+    }
+    container.append(weather, heading("Scan sensor status"));
+    const sensor = document.createElement("div");
+    sensor.className = "check-row";
+    sensor.append(checkbox("sensor.blueOk", "BLAUW = OK"), checkbox("sensor.redCall", "ROOD = Tim bellen"),
+      checkbox("sensor.cleaned", "Sensoren schoongemaakt"));
+    container.append(sensor, heading("Ronde LWS"));
+    const round = document.createElement("div");
+    round.className = "check-row";
+    for (const [key, label] of [
+      ["pumps", "Check pompen"], ["container", "Container schoon"], ["oddities", "Kijk globaal of je iets raars ziet"],
+      ["samples", "Grondmonstername stokken nog allemaal recht"]
+    ]) round.append(checkbox(`round.${key}`, label));
+    const observations = document.createElement("textarea");
+    observations.dataset.measureField = "observations";
+    observations.value = String(fieldValue("observations"));
+    observations.placeholder = "Observaties / bijzonderheden";
+    container.append(round, heading("Observaties / bijzonderheden"), observations);
+  }
+
+  function renderMeasurementForm() {
+    const container = $("measurement-editor");
+    container.replaceChildren();
+    if (!isMeasurement()) return;
+    const sheet = document.createElement("article");
+    sheet.className = "measurement-sheet";
+    const title = document.createElement("h3");
+    title.textContent = active().formType === "dwat-akf" ? "Logboek DWAT / AKF-meetstaat" : "Logboek LWS Andijk";
+    const help = document.createElement("p");
+    help.className = "measurement-help";
+    help.textContent = "Typ de meetstatussen en waarden in. Alles wordt alleen lokaal in deze Werkplek en in je handmatige back-up bewaard.";
+    sheet.append(title, help);
+    if (active().formType === "dwat-akf") renderDwatAkf(sheet);
+    else renderLws(sheet);
+    container.append(sheet);
   }
 
   function selectDocument() {
-    loadPdf();
     const doc = active();
     $("title").value = doc.title;
     $("text").value = doc.text;
+    $("drawing-editor").hidden = isMeasurement(doc);
+    $("measurement-editor").hidden = !isMeasurement(doc);
+    $("focus").disabled = isMeasurement(doc);
+    $("writing-ai-open").disabled = isMeasurement(doc);
+    $("writing-ai-recognize").disabled = isMeasurement(doc);
+    $("pdf-file").disabled = isMeasurement(doc);
     redo = [];
     undo = [];
     list();
-    render();
+    updateFolderControl();
+    renderMeasurementForm();
+    if (isMeasurement(doc)) {
+      pdfImages = [];
+      $("pdf-original").disabled = true;
+      $("pdf-status").textContent = "Meetlijst wordt lokaal bewaard. Open een whiteboard voor een PDF-achtergrond.";
+    } else {
+      loadPdf();
+      render();
+    }
   }
 
   async function loadPdf() {
@@ -316,8 +518,9 @@
     data = M.load(localStorage);
     if (!data) {
       const doc = M.createDocument("page", crypto.randomUUID());
-      data = { version: 1, activeId: doc.id, documents: [doc] };
+      data = { version: 1, activeId: doc.id, documents: [doc], folders: [] };
     }
+    data.folders = data.folders || [];
     persist();
   } catch (error) {
     blocked = true;
@@ -334,6 +537,7 @@
       currentId() { finish(); return active().id; },
       captureInk() {
         finish();
+        if (isMeasurement()) throw new Error("Open een schrift of whiteboard om handschrift te selecteren.");
         render();
         const source = $("saved-drawing");
         const canvas = document.createElement("canvas");
@@ -390,26 +594,46 @@
         render();
       }
     };
-    $("pdf-file").addEventListener("change", async () => {
+    async function importPdfInput(input, createBoard) {
       finish();
-      const file = $("pdf-file").files[0];
+      const file = input.files[0];
       if (!file) return;
-      const doc = active();
-      if (doc.kind !== "board" || doc.pdf) {
+      const original = active();
+      let doc = original;
+      if (!createBoard && (doc.kind !== "board" || doc.pdf || isMeasurement(doc))) {
         $("pdf-status").textContent = "Maak of open een whiteboard zonder PDF om dit bestand toe te voegen.";
-        $("pdf-file").value = "";
+        input.value = "";
         return;
       }
-      $("pdf-file").disabled = true;
+      input.disabled = true;
       $("pdf-status").textContent = "PDF lokaal verwerken...";
       try {
         const reference = await window.WorkplacePdf.importFile(file);
+        const previousId = original.id;
+        if (createBoard) {
+          doc = M.createDocument("board", crypto.randomUUID());
+          doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "Werkbeschrijving";
+          doc.folderId = original.folderId || null;
+          data.documents.push(doc);
+          data.activeId = doc.id;
+        }
         doc.pdf = reference;
-        persist();
-        if (active().id === doc.id) await loadPdf();
+        if (!persist()) {
+          if (createBoard) {
+            data.documents = data.documents.filter(item => item.id !== doc.id);
+            data.activeId = previousId;
+          } else {
+            delete doc.pdf;
+          }
+          throw new Error("PDF niet aan de werkmap toegevoegd: lokale opslag mislukt. Download eerst een back-up.");
+        }
+        if (createBoard) selectDocument();
+        else await loadPdf();
       } catch (error) { report(error); $("pdf-status").textContent = error.message; }
-      finally { $("pdf-file").disabled = false; $("pdf-file").value = ""; }
-    });
+      finally { input.disabled = false; input.value = ""; }
+    }
+    $("pdf-file").addEventListener("change", () => importPdfInput($("pdf-file"), false));
+    $("work-pdf-file").addEventListener("change", () => importPdfInput($("work-pdf-file"), true));
     $("pdf-original").addEventListener("click", async () => {
       try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
       catch (error) { report(error); }
@@ -447,16 +671,63 @@
       selectDocument();
       persist();
     });
+    $("new-folder").addEventListener("click", () => {
+      finish();
+      const title = window.prompt("Naam van de nieuwe map:", "");
+      if (title === null) return;
+      const clean = title.trim();
+      if (!clean || clean.length > 120) {
+        report(new Error("Geef een mapnaam van 1 tot en met 120 tekens."));
+        return;
+      }
+      const folder = { id: crypto.randomUUID(), title: clean };
+      data.folders.push(folder);
+      active().folderId = folder.id;
+      list();
+      updateFolderControl();
+      persist();
+    });
+    $("document-folder").addEventListener("change", () => {
+      active().folderId = $("document-folder").value || null;
+      list();
+      persist();
+    });
     for (const [button, kind] of [["new-page", "page"], ["new-board", "board"]]) {
       $(button).addEventListener("click", () => {
         finish();
+        const folderId = active().folderId || null;
         const doc = M.createDocument(kind, crypto.randomUUID());
+        doc.folderId = folderId;
         data.documents.push(doc);
         data.activeId = doc.id;
         selectDocument();
         persist();
       });
     }
+    for (const [button, formType] of [["new-dwat-akf", "dwat-akf"], ["new-lws", "lws"]]) {
+      $(button).addEventListener("click", () => {
+        finish();
+        const folderId = active().folderId || null;
+        const doc = M.createMeasurementDocument(formType, crypto.randomUUID());
+        doc.folderId = folderId;
+        data.documents.push(doc);
+        data.activeId = doc.id;
+        selectDocument();
+        persist();
+      });
+    }
+    $("measurement-editor").addEventListener("input", event => {
+      const field = event.target.dataset.measureField;
+      if (!field || !isMeasurement()) return;
+      active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+      persist();
+    });
+    $("measurement-editor").addEventListener("change", event => {
+      const field = event.target.dataset.measureField;
+      if (!field || !isMeasurement()) return;
+      active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+      persist();
+    });
     for (const field of ["title", "text"]) $(field).addEventListener("input", () => {
       active()[field] = $(field).value;
       if (field === "title") list();

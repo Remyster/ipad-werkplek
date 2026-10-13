@@ -7,12 +7,32 @@
   function createDocument(kind, id) {
     if (!["page", "board"].includes(kind)) throw new Error("Onbekend documenttype.");
     return { id, kind, title: kind === "page" ? "Nieuw schriftblad" : "Nieuw whiteboard",
-      text: "", strokes: [], pages: 1, view: { x: 0, y: 0, scale: 1 } };
+      text: "", strokes: [], pages: 1, view: { x: 0, y: 0, scale: 1 }, folderId: null };
+  }
+
+  function createMeasurementDocument(formType, id) {
+    if (!["dwat-akf", "lws"].includes(formType)) throw new Error("Onbekend meetlijsttype.");
+    const doc = createDocument("page", id);
+    doc.title = formType === "dwat-akf" ? "Nieuwe DWAT/AKF-meetlijst" : "Nieuwe LWS-meetlijst";
+    doc.formType = formType;
+    doc.formData = {};
+    return doc;
   }
 
   function validate(data) {
     if (!data || data.version !== 1 || !Array.isArray(data.documents) || !data.documents.length) {
       throw new Error("De opgeslagen notities hebben een onbekend formaat.");
+    }
+    if (data.folders !== undefined && (!Array.isArray(data.folders) || data.folders.length > 100)) {
+      throw new Error("De opgeslagen mappen zijn ongeldig; de opslag is niet overschreven.");
+    }
+    const folderIds = new Set();
+    for (const folder of data.folders || []) {
+      if (!folder || typeof folder.id !== "string" || !folder.id || folderIds.has(folder.id) ||
+          typeof folder.title !== "string" || !folder.title.trim() || folder.title.length > 120) {
+        throw new Error("Een opgeslagen map is ongeldig; de opslag is niet overschreven.");
+      }
+      folderIds.add(folder.id);
     }
     const ids = new Set();
     let totalPoints = 0;
@@ -20,10 +40,20 @@
       if (!doc || typeof doc.id !== "string" || !doc.id || ids.has(doc.id) ||
           !["page", "board"].includes(doc.kind) || typeof doc.title !== "string" ||
           doc.title.length > 120 || typeof doc.text !== "string" || !Array.isArray(doc.strokes) ||
+          (doc.folderId !== undefined && doc.folderId !== null &&
+            (typeof doc.folderId !== "string" || !folderIds.has(doc.folderId))) ||
+          (doc.formType !== undefined && !["dwat-akf", "lws"].includes(doc.formType)) ||
           (doc.pages !== undefined && (!Number.isInteger(doc.pages) || doc.pages < 1 || doc.pages > 200)) ||
           !doc.view || !finite(doc.view.x) || !finite(doc.view.y) ||
           !finite(doc.view.scale) || doc.view.scale < .2 || doc.view.scale > 4) {
         throw new Error("Een opgeslagen document is ongeldig; de opslag is niet overschreven.");
+      }
+      if (doc.formType !== undefined && (!doc.formData || typeof doc.formData !== "object" ||
+          Array.isArray(doc.formData) || Object.keys(doc.formData).length > 250 ||
+          Object.entries(doc.formData).some(([key, value]) => !/^[a-z0-9_.-]{1,80}$/i.test(key) ||
+            !["string", "boolean"].includes(typeof value) ||
+            (typeof value === "string" && value.length > 20000)))) {
+        throw new Error("Een opgeslagen meetlijst is ongeldig; de opslag is niet overschreven.");
       }
       ids.add(doc.id);
       if (doc.textBlocks !== undefined && (!Array.isArray(doc.textBlocks) ||
@@ -185,5 +215,5 @@
     return { x: view.x + center.x / view.scale - next.x / scale, y: view.y + center.y / view.scale - next.y / scale, scale };
   }
 
-  window.IpadModel = { KEY, createDocument, validate, load, save, point, zoom, hitStroke, erase, clearPage, pinch };
+  window.IpadModel = { KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom, hitStroke, erase, clearPage, pinch };
 })();

@@ -45,6 +45,24 @@ section > aside { margin-top: 22px; background: #e9efdf; }
 .editor { min-width: 0; }
 label { display: block; font-size: .9rem; }
 #title, textarea { width: 100%; padding: 12px; border: 1px solid #b4c4b9; background: #fff; color: inherit; border-radius: 10px; margin: 6px 0 14px; }
+#document-folder { width: 100%; min-height: 44px; padding: 8px; margin: 6px 0 14px; border: 1px solid #b4c4b9; border-radius: 10px; background: #fff; color: inherit; }
+.measurement-sheet { background: #fff; border: 1px solid #b4c4b9; border-radius: 14px; padding: 18px; }
+.measurement-sheet h3 { color: #173c39; margin-bottom: 4px; }
+.measurement-sheet h4 { color: #fff; background: #245b87; padding: 8px 10px; margin: 20px 0 10px; font-size: .9rem; text-transform: uppercase; }
+.measurement-sheet .measure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.measurement-sheet input[type="text"], .measurement-sheet input[type="date"], .measurement-sheet input[type="time"],
+.measurement-sheet input[type="number"], .measurement-sheet textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid #b4c4b9; border-radius: 7px; background: #fff; color: inherit; }
+.measurement-sheet textarea { min-height: 180px; }
+.measurement-sheet .check-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 0; }
+.measurement-sheet .check-row label { display: flex; align-items: center; gap: 6px; }
+.measurement-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.measurement-sheet table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .82rem; }
+.measurement-sheet th, .measurement-sheet td { border: 1px solid #c9d2d8; padding: 6px; text-align: left; vertical-align: top; }
+.measurement-sheet th { background: #2d6898; color: #fff; }
+.measurement-sheet td:first-child { background: #f4dfd0; font-weight: 700; }
+.measurement-sheet table input { min-width: 90px; margin: 0; }
+.measurement-sheet .not-applicable { background: #e0e0e0; color: #65706f; text-align: center; font-style: italic; }
+.measurement-help { color: #50645c; font-size: .85rem; }
 .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
 .tools label { display: flex; align-items: center; gap: 6px; }
 .tools select { padding: 8px; min-height: 44px; }
@@ -64,11 +82,14 @@ summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
 body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 .writing-focus > header, .writing-focus > nav { display: none; }
 .writing-focus #writing { height: calc(100dvh - 24px); display: flex; flex-direction: column; }
-.writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title, .writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
+.writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title,
+.writing-focus label[for="document-folder"], .writing-focus #document-folder,
+.writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
 .writing-focus .section-heading label, .writing-focus #pdf-original, .writing-focus #pdf-status, .writing-focus #save-document { display: none; }
 .writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }
+.writing-focus #drawing-editor { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .writing-focus #surface { flex: 1; height: auto; min-height: 120px; margin: 4px 0 0; }
 .writing-focus #input-options[open] { max-height: 28vh; overflow: auto; flex-shrink: 0; }
 .writing-focus #input-options:not([open]) summary { min-height: 32px; padding: 6px 0; }
@@ -80,4 +101,5 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   .document-list select { min-height: 90px; height: 90px; }
   .document-list { padding: 12px; }
   #surface { height: 85dvh; }
+  .measurement-sheet { padding: 12px; }
 }
