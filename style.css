@@ -38,21 +38,23 @@ section > aside { margin-top: 22px; background: #e9efdf; }
 #save-status { font-size: .85rem; max-width: 320px; }
 #error { background: #ffe1da; border: 1px solid #a33c27; color: #6d2415; padding: 14px; border-radius: 10px; margin-bottom: 18px; white-space: pre-wrap; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.workspace.documents-open { grid-template-columns: 300px minmax(0, 1fr); }
-.document-list { padding: 16px; align-self: start; }
-.document-list select { width: 100%; margin: 12px 0; min-height: 180px; border: 1px solid #b4c4b9; border-radius: 8px; padding: 6px; }
+.document-list { padding: 0 0 14px; }
+.document-list > select { width: 100%; margin: 8px 0 12px; min-height: 132px; border: 1px solid #b4c4b9; border-radius: 8px; padding: 6px; }
 .document-list p { font-size: .85rem; color: #50645c; }
 .workmap-menu { background: #fff; border: 1px solid #d6ded4; border-radius: 12px; padding: 0 14px; margin: 10px 0; }
 .folder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; padding: 0 0 14px; }
 .folder-grid button { width: 100%; }
-#drive-settings { margin-top: 12px; border-top: 1px solid #d6ded4; }
+#content-backup > .document-list { max-width: 760px; }
+.backup-actions { display: grid; grid-template-columns: minmax(180px, .45fr) minmax(280px, 1fr); gap: 10px; align-items: start; }
+.backup-actions > button { width: 100%; }
+#drive-settings { border: 1px solid #d6ded4; border-radius: 10px; padding: 0 12px; background: #f8faf7; }
 #drive-client-id, #drive-backups { width: 100%; min-height: 44px; margin: 6px 0 10px; padding: 8px; border: 1px solid #b4c4b9; border-radius: 8px; }
-#drive-settings button, #drive-folder-link { width: 100%; margin: 4px 0; }
+.drive-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.drive-actions button, .drive-actions .action { flex: 1 1 150px; }
 #drive-status { overflow-wrap: anywhere; }
 .editor { min-width: 0; }
 label { display: block; font-size: .9rem; }
 #title, textarea { width: 100%; padding: 12px; border: 1px solid #b4c4b9; background: #fff; color: inherit; border-radius: 10px; margin: 6px 0 14px; }
-#document-folder { width: 100%; min-height: 44px; padding: 8px; margin: 6px 0 14px; border: 1px solid #b4c4b9; border-radius: 10px; background: #fff; color: inherit; }
 .measurement-sheet { background: #fff; border: 1px solid #b4c4b9; border-radius: 14px; padding: 18px; }
 .measurement-sheet h3 { color: #173c39; margin-bottom: 4px; }
 .measurement-sheet h4 { color: #fff; background: #245b87; padding: 8px 10px; margin: 20px 0 10px; font-size: .9rem; text-transform: uppercase; }
@@ -90,9 +92,8 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus > header, .writing-focus > nav { display: none; }
 .writing-focus #writing { height: calc(100dvh - 24px); display: flex; flex-direction: column; }
 .writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title,
-.writing-focus label[for="document-folder"], .writing-focus #document-folder,
 .writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
-.writing-focus .workmap-menu, .writing-focus #toggle-documents, .writing-focus #pdf-status { display: none; }
+.writing-focus .workmap-menu, .writing-focus #pdf-status { display: none; }
 .writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }
@@ -104,9 +105,9 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 [hidden] { display: none !important; }
 @media (max-width: 760px) {
   body { padding: 14px; }
-  .workspace, .workspace.documents-open { grid-template-columns: 1fr; }
-  .document-list select { min-height: 90px; height: 90px; }
-  .document-list { padding: 12px; }
+  .workspace { grid-template-columns: 1fr; }
+  .document-list > select { min-height: 100px; height: 100px; }
+  .backup-actions { grid-template-columns: 1fr; }
   #surface { height: 85dvh; }
   .measurement-sheet { padding: 12px; }
 }

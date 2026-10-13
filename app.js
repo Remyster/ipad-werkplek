@@ -248,13 +248,6 @@
     $("documents").replaceChildren(...groups);
   }
 
-  function updateFolderControl() {
-    const options = [new Option("Zonder map", "")];
-    for (const folder of data.folders) options.push(new Option(folder.title, folder.id));
-    $("document-folder").replaceChildren(...options);
-    $("document-folder").value = active().folderId || "";
-  }
-
   function fieldValue(key) {
     return active().formData[key] ?? "";
   }
@@ -442,7 +435,6 @@
     redo = [];
     undo = [];
     list();
-    updateFolderControl();
     renderFolderButtons();
     renderMeasurementForm();
     if (isMeasurement(doc)) {
@@ -579,8 +571,11 @@
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.folderKey = definition.key;
-      button.textContent = `${definition.title} map`;
-      button.setAttribute("aria-pressed", String(!!folder && active().folderId === folder.id));
+      button.textContent = definition.title;
+      button.title = `Open ${definition.title}`;
+      const activeFolder = !!folder && active() && active().folderId === folder.id;
+      button.classList.toggle("active", activeFolder);
+      button.setAttribute("aria-pressed", String(activeFolder));
       button.addEventListener("click", () => {
         try { openFixedFolder(definition); }
         catch (error) { report(error); }
@@ -607,9 +602,7 @@
     data.activeId = doc.id;
     if (!persist()) throw new Error(`Werkmap ${definition.title} kon niet worden geopend.`);
     selectDocument();
-    $("document-panel").hidden = false;
-    document.querySelector(".workspace").classList.add("documents-open");
-    $("toggle-documents").setAttribute("aria-expanded", "true");
+    $("content-backup").open = true;
   }
 
   try {
@@ -754,23 +747,13 @@
       diagnostics = emptyDiagnostics();
       updateDiagnostics();
     });
-    $("toggle-documents").addEventListener("click", () => {
-      finish();
-      const open = $("document-panel").hidden;
-      $("document-panel").hidden = !open;
-      document.querySelector(".workspace").classList.toggle("documents-open", open);
-      $("toggle-documents").setAttribute("aria-expanded", String(open));
-      render();
-    });
     $("focus").addEventListener("click", () => {
       finish();
       const on = document.body.classList.toggle("writing-focus");
       $("drawing-tools").open = !on;
       $("focus").setAttribute("aria-pressed", String(on));
       $("focus").textContent = on ? "Terug naar overzicht" : "Brede schrijfmodus";
-      $("document-panel").hidden = true;
-      document.querySelector(".workspace").classList.remove("documents-open");
-      $("toggle-documents").setAttribute("aria-expanded", "false");
+      $("content-backup").open = false;
       render();
     });
     selectDocument();
@@ -805,13 +788,6 @@
         selectDocument();
         report(new Error("Nieuwe map niet opgeslagen. Download eerst een back-up."));
       }
-    });
-    $("document-folder").addEventListener("input", event => {
-      if (!event.isTrusted) return;
-      active().folderId = $("document-folder").value || null;
-      list();
-      renderFolderButtons();
-      persist();
     });
     for (const [button, kind] of [["new-page", "page"], ["new-board", "board"]]) {
       $(button).addEventListener("click", () => {
