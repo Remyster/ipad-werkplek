@@ -60,70 +60,14 @@
   }
 
   window.WorkplaceConnections = { session, publicConfig, tasks, loadTasks };
-  const button = document.getElementById("load-tasks");
-  if (!button) return;
-  const status = document.getElementById("task-status");
-  const list = document.getElementById("task-list");
-  let generation = 0;
-  const clear = () => {
-    generation++;
-    list.replaceChildren();
-    status.textContent = "Taken verborgen. Klik opnieuw op laden om actuele taken te zien.";
-  };
-  document.getElementById("hide-tasks").addEventListener("click", clear);
   const workhubFrame = document.getElementById("workhub-frame");
-  document.getElementById("login-workhub").addEventListener("click", () => {
-    workhubFrame.hidden = false;
-    workhubFrame.src = HUB;
-    status.textContent = "Log in bij WerkHub in het paneel hieronder. Klik daarna Laad open taken. Ook bij een verlopen login gebruik je dit paneel.";
-  });
   document.getElementById("close-workhub").addEventListener("click", () => {
     workhubFrame.hidden = true;
     workhubFrame.removeAttribute("src");
   });
   workhubFrame.hidden = false;
   workhubFrame.src = HUB;
-  status.textContent = "WerkHub staat standaard open. Bij een bestaande geldige login worden je open taken automatisch geladen.";
-  window.addEventListener("pagehide", clear);
-  window.addEventListener("storage", event => {
-    if (event.key === "werkhub_auth" || event.key === null) clear();
-  });
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    const current = ++generation;
-    list.replaceChildren();
-    status.textContent = "WerkHub-taken laden...";
-    try {
-      const initialSession = localStorage.getItem("werkhub_auth");
-      const rows = await loadTasks(localStorage);
-      if (generation !== current) return;
-      if (localStorage.getItem("werkhub_auth") !== initialSession) throw new Error("WerkHub-login is gewijzigd tijdens laden. Probeer opnieuw.");
-      for (const task of rows) {
-        const item = document.createElement("li");
-        const title = document.createElement("strong");
-        title.textContent = task.titel;
-        const meta = document.createElement("p");
-        const labels = { bezig: "Mee bezig", wacht_op: "Wacht op", backlog: "Nog doen", klaar: "Klaar" };
-        meta.textContent = [labels[task.status] || task.status, task.project, task.deadline].filter(Boolean).join(" | ");
-        item.append(title, meta);
-        list.append(item);
-      }
-      status.textContent = rows.length ? `${rows.length} open taken geladen (maximaal 100). Alleen lezen; niet offline bewaard.` : "Geen open taken gevonden.";
-    } catch (error) {
-      if (generation !== current) return;
-      list.replaceChildren();
-      status.textContent = error.name === "AbortError" ? "Laden duurt te lang. Controleer je internetverbinding." : error.message;
-      console.error("Werkplek: WerkHub-koppeling mislukt:", error.name);
-    } finally {
-      button.disabled = false;
-    }
-  });
-  try {
-    session(localStorage);
-    button.click();
-  } catch (error) {
-    status.textContent = "WerkHub staat open. Log zo nodig in in het paneel; daarna kun je de taken laden.";
-  }
+
   const frame = document.getElementById("hub-frame");
   document.getElementById("open-hub-panel").addEventListener("click", () => {
     frame.hidden = false;

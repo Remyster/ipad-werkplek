@@ -64,7 +64,7 @@ Diagnosewaarden blijven alleen in het geheugen van de pagina, zonder coordinaten
 netwerkverkeer of opslag. De Canvas-laag gebruikt maximaal 2x schermresolutie.
 Het opslagformaat en de localStorage-sleutel blijven gelijk: oude notities blijven leesbaar.
 
-De offline-cache heeft versienummer v14. De nieuwe worker activeert na volledige
+De offline-cache heeft versienummer v19. De nieuwe worker activeert na volledige
 assetinstallatie. Een melding vraagt om handmatig herladen; geen automatische reload
 tijdens schrijven. Upload alle assets samen. Wis geen websitegegevens om te updaten.
 
@@ -694,3 +694,20 @@ De knop `Nu opslaan` voert nu daadwerkelijk direct een opslagactie uit en toont
 het tijdstip. 214 Chrome-regressiecontroles geslaagd. Cache v18. Upload de
 veertien assets uit `../ipad-werkplek-v18-update.zip` en behoud de bestaande
 vendor-map.
+
+## Versie 19: rustige agenda en vaste WerkHub
+
+De agenda-acties staan direct bij de agenda: `Toon widget`, `Google Calendar
+openen` en `Weg`. Alleen de naam- en ID-velden blijven onder
+`Agenda-widget instellen`. Opgeslagen agenda-ID's en automatisch heropenen zijn
+ongewijzigd.
+
+De losse takenlijst en knoppen voor laden, verbergen en inloggen zijn verwijderd.
+WerkHub zelf opent bij iedere start standaard in het ingebouwde paneel. Daar staat
+alleen `Sluit WerkHub`; na sluiten opent het paneel weer bij de volgende appstart.
+De onderliggende alleen-lezen taakparser blijft beschikbaar voor compatibiliteit,
+maar wordt niet meer door de interface aangeroepen.
+
+De Chrome-regressiesuite is na deze wijziging volledig geslaagd. Cache v19.
+Upload de veertien assets uit `../ipad-werkplek-v19-update.zip` en behoud de
+bestaande vendor-map.

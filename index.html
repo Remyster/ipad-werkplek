@@ -51,8 +51,14 @@
       <div class="cards">
         <article>
           <h3>Werk en priveagenda</h3>
-          <p>Beide via Google Calendar. Nog niet gekoppeld: afspraken staan alleen in Google, niet in deze proef.</p>
-          <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar</a>
+          <p>Beide via Google Calendar. Afspraken blijven in Google en worden hier alleen weergegeven.</p>
+          <div class="panel-actions" aria-label="Agenda-acties">
+            <button id="show-calendar">Toon widget</button>
+            <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Google Calendar openen</a>
+            <button id="hide-calendar">Weg</button>
+          </div>
+          <p id="calendar-status" role="status">Alleen weergave. Privetoegang hangt af van je Google-login in Safari; maak je agenda niet openbaar.</p>
+          <iframe id="calendar-frame" title="Google Agenda widget" hidden referrerpolicy="no-referrer"></iframe>
           <details>
             <summary>Agenda-widget instellen</summary>
             <label for="calendar-name">Naam werkagenda</label>
@@ -63,22 +69,13 @@
             <input id="calendar-name-private" placeholder="Bijvoorbeeld Prive">
             <label for="calendar-id-private">Tweede agenda-ID (optioneel, bijvoorbeeld prive)</label>
             <input id="calendar-id-private" placeholder="Optionele tweede agenda-ID">
-            <button id="show-calendar">Toon agenda-widget</button>
-            <button id="hide-calendar">Verberg widget</button>
-            <p id="calendar-status" role="status">Alleen weergave. Privetoegang hangt af van je Google-login in Safari; maak je agenda niet openbaar.</p>
           </details>
-          <iframe id="calendar-frame" title="Google Agenda widget" hidden referrerpolicy="no-referrer"></iframe>
         </article>
       </div>
       <article class="task-panel">
-        <h3>Je WerkHub-taken</h3>
-        <button id="load-tasks">Laad open taken</button>
-        <button id="hide-tasks">Verberg taken</button>
-        <button id="login-workhub">Log in bij WerkHub binnen deze app</button>
-        <button id="close-workhub">Sluit WerkHub-paneel</button>
-        <p id="task-status" role="status">Nog niet geladen. Alleen lezen; geen offline opslag van taken.</p>
-        <ul id="task-list"></ul>
-        <iframe id="workhub-frame" title="WerkHub login en taken" hidden referrerpolicy="no-referrer"></iframe>
+        <h3>WerkHub</h3>
+        <button id="close-workhub">Sluit WerkHub</button>
+        <iframe id="workhub-frame" title="WerkHub" referrerpolicy="no-referrer"></iframe>
       </article>
       <aside>Notities worden eerst lokaal opgeslagen. Maak daarnaast bewust een Google Drive-back-up via Werkmap &gt; Inhoud &amp; back-up. Wis geen browsergegevens voordat een back-up is gecontroleerd.</aside>
     </section>
