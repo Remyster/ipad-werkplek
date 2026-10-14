@@ -86,6 +86,10 @@ label { display: block; font-size: .9rem; }
 .compact-actions button, .compact-actions .circle-file { width: 66px; height: 66px; min-height: 66px; padding: 6px; border: 1px solid #b4c4b9; border-radius: 50%; background: #fff; color: #173c39; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; text-align: center; }
 .compact-actions span { font-weight: 800; font-size: 1rem; line-height: 1; }
 .compact-actions small { font-size: .65rem; line-height: 1.05; }
+.writing-actions { display: flex; flex-wrap: nowrap; gap: 8px; max-width: 780px; margin: 6px 0 10px; padding: 0 0 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.writing-actions button, .writing-actions .circle-file { flex: 0 0 auto; width: clamp(46px, 9.6vw, 78px); max-width: 78px; height: auto; min-height: 0; aspect-ratio: 1 / 1; padding: 4px; overflow: hidden; }
+.writing-actions span { font-size: clamp(.72rem, 1.5vw, .95rem); }
+.writing-actions small { font-size: clamp(.5rem, 1.05vw, .64rem); overflow-wrap: anywhere; }
 .circle-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .tools label { display: flex; align-items: center; gap: 6px; }
 .tools select { padding: 8px; min-height: 44px; }
@@ -108,6 +112,8 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title,
 .writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
 .writing-focus .workmap-menu, .writing-focus #pdf-status { display: none; }
+.writing-focus .writing-actions { max-width: none; gap: 6px; margin: 0 0 6px; flex-shrink: 0; }
+.writing-focus .writing-actions button, .writing-focus .writing-actions .circle-file { width: clamp(46px, 7.4vw, 54px); max-width: 54px; }
 .writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }
@@ -124,4 +130,10 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   .backup-actions { grid-template-columns: 1fr; }
   #surface { height: 85dvh; }
   .measurement-sheet { padding: 12px; }
+  .writing-actions { gap: 5px; }
+}
+@media (max-width: 520px) {
+  .writing-actions { gap: 4px; }
+  .writing-actions span { font-size: .78rem; }
+  .writing-actions small { font-size: .48rem; }
 }

@@ -91,25 +91,6 @@
         <summary>Werkmappen</summary>
         <div id="folder-buttons" class="folder-grid" aria-label="Vaste werkmappen"></div>
       </details>
-      <details class="workmap-menu">
-        <summary>Nieuw of toevoegen</summary>
-        <div class="compact-actions" aria-label="Nieuw of toevoegen">
-          <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
-          <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
-          <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
-          <label class="circle-file" title="PDF op whiteboard"><span>PDF</span><small>Op bord</small><input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
-          <label class="circle-file" title="Werkbeschrijving als nieuw PDF-bord"><span>PDF</span><small>Nieuw bord</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
-        </div>
-      </details>
-      <details class="workmap-menu">
-        <summary>Schrijven en AI</summary>
-        <div class="compact-actions" aria-label="Schrijven en AI">
-          <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
-          <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
-          <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
-          <button id="focus" aria-pressed="false" title="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
-        </div>
-      </details>
       <details class="workmap-menu" id="content-backup">
         <summary>Inhoud &amp; back-up</summary>
         <div class="document-list" id="document-panel">
@@ -138,6 +119,17 @@
           <p>Open een werkmap bovenaan. Nieuwe schriften, whiteboards en PDF-borden worden in die map opgeslagen.</p>
         </div>
       </details>
+      <div class="compact-actions writing-actions" id="writing-actions" aria-label="Nieuw, toevoegen, schrijven en AI">
+        <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
+        <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
+        <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
+        <label class="circle-file" title="PDF op whiteboard"><span>PDF</span><small>Op bord</small><input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
+        <label class="circle-file" title="Werkbeschrijving als nieuw PDF-bord"><span>PDF</span><small>Nieuw</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
+        <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
+        <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
+        <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
+        <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
+      </div>
       <p id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</p>
       <div class="workspace">
         <div class="editor">

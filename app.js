@@ -514,13 +514,22 @@
     }
   }
 
+  function setFocusLabel(on) {
+    const button = $("focus");
+    const label = on ? "Terug naar overzicht" : "Brede schrijfmodus";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-pressed", String(on));
+    button.querySelector("span").textContent = on ? "⤢" : "↔";
+    button.querySelector("small").textContent = on ? "Terug" : "Breed";
+  }
+
   function tab(name) {
     finish();
     pinch = null;
     touches.clear();
     document.body.classList.remove("writing-focus");
-    $("focus").setAttribute("aria-pressed", "false");
-    $("focus").textContent = "Brede schrijfmodus";
+    setFocusLabel(false);
     for (const section of ["today", "writing", "hubs", "ai"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
@@ -756,8 +765,7 @@
       finish();
       const on = document.body.classList.toggle("writing-focus");
       $("drawing-tools").open = !on;
-      $("focus").setAttribute("aria-pressed", String(on));
-      $("focus").textContent = on ? "Terug naar overzicht" : "Brede schrijfmodus";
+      setFocusLabel(on);
       $("content-backup").open = false;
       render();
     });
