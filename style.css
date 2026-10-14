@@ -47,13 +47,17 @@ section > aside { margin-top: 22px; background: #e9efdf; }
 .autosave-state button { min-height: 36px; padding: 7px 11px; }
 #error { background: #ffe1da; border: 1px solid #a33c27; color: #6d2415; padding: 14px; border-radius: 10px; margin-bottom: 18px; white-space: pre-wrap; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.document-list { padding: 0 0 14px; }
-.document-list > select { width: 100%; margin: 8px 0 12px; min-height: 132px; border: 1px solid #b4c4b9; border-radius: 8px; padding: 6px; }
+.document-list { padding: 12px; margin-bottom: 12px; background: #f8faf7; border: 1px solid #d6ded4; border-radius: 12px; }
+.document-pickers { display: grid; grid-template-columns: minmax(150px, .65fr) minmax(220px, 1fr) auto; gap: 8px; align-items: end; }
+.document-pickers select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 8px; border: 1px solid #b4c4b9; border-radius: 8px; background: #fff; color: inherit; }
+.document-pickers button { min-height: 44px; }
 .document-list p { font-size: .85rem; color: #50645c; }
+.document-list #current-context { margin: 8px 0 0; font-weight: 700; }
+.danger-button { border-color: #b85c4a; color: #7b2e20; background: #fff7f5; }
+.danger-button:disabled { border-color: #c8cfcc; color: #78827e; background: #f2f4f2; }
 .workmap-menu { background: #fff; border: 1px solid #d6ded4; border-radius: 12px; padding: 0 14px; margin: 10px 0; }
 .folder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; padding: 0 0 14px; }
 .folder-grid button { width: 100%; }
-#content-backup > .document-list { max-width: 760px; }
 .backup-actions { display: grid; grid-template-columns: minmax(180px, .45fr) minmax(280px, 1fr); gap: 10px; align-items: start; }
 .backup-actions > button { width: 100%; }
 #drive-settings { border: 1px solid #d6ded4; border-radius: 10px; padding: 0 12px; background: #f8faf7; }
@@ -111,7 +115,7 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus #writing { height: calc(100dvh - 24px); display: flex; flex-direction: column; }
 .writing-focus .section-heading h2, .writing-focus .title-label, .writing-focus #title,
 .writing-focus #drawing-help, .writing-focus #typed-notes { display: none; }
-.writing-focus .workmap-menu, .writing-focus #pdf-status { display: none; }
+.writing-focus .workmap-menu, .writing-focus #pdf-status, .writing-focus .document-list { display: none; }
 .writing-focus .writing-actions { max-width: none; gap: 6px; margin: 0 0 6px; flex-shrink: 0; }
 .writing-focus .writing-actions button, .writing-focus .writing-actions .circle-file { width: clamp(46px, 7.4vw, 54px); max-width: 54px; }
 .writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
@@ -126,7 +130,8 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 @media (max-width: 760px) {
   body { padding: 14px; }
   .workspace { grid-template-columns: 1fr; }
-  .document-list > select { min-height: 100px; height: 100px; }
+  .document-pickers { grid-template-columns: 1fr 1fr; }
+  .document-pickers .danger-button { grid-column: 1 / -1; }
   .backup-actions { grid-template-columns: 1fr; }
   #surface { height: 85dvh; }
   .measurement-sheet { padding: 12px; }

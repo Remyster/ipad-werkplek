@@ -92,47 +92,54 @@
         <div id="folder-buttons" class="folder-grid" aria-label="Vaste werkmappen"></div>
       </details>
       <details class="workmap-menu" id="content-backup">
-        <summary>Inhoud &amp; back-up</summary>
-        <div class="document-list" id="document-panel">
-          <label for="documents">Bladen en lijsten in je werkmappen</label>
-          <select id="documents" size="7" aria-label="Je meetlijsten, bladen en borden"></select>
-          <div class="backup-actions">
-            <button id="export">Download lokale back-up</button>
-            <details id="drive-settings">
-              <summary>Google Drive-back-up</summary>
-              <label for="drive-client-id">Google OAuth client-ID (openbare configuratie, geen sleutel)</label>
-              <input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
-              <div class="drive-actions">
-                <button id="drive-connect" type="button">Koppel Drive</button>
-                <button id="drive-backup" type="button" disabled>Back-up maken</button>
-                <button id="drive-refresh" type="button" disabled>Lijst verversen</button>
-              </div>
-              <label for="drive-backups">Back-up om terug te zetten</label>
-              <select id="drive-backups" aria-label="Google Drive back-ups"></select>
-              <div class="drive-actions">
-                <button id="drive-restore" type="button" disabled>Geselecteerde back-up herstellen</button>
-                <a id="drive-folder-link" class="action" target="_blank" rel="noopener noreferrer" hidden>Open Drive-map</a>
-              </div>
-              <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
-            </details>
-          </div>
-          <p>Open een werkmap bovenaan. Nieuwe schriften, whiteboards en PDF-borden worden in die map opgeslagen.</p>
+        <summary>Back-up</summary>
+        <div class="backup-actions">
+          <button id="export">Download lokale back-up</button>
+          <details id="drive-settings">
+            <summary>Google Drive-back-up</summary>
+            <label for="drive-client-id">Google OAuth client-ID (openbare configuratie, geen sleutel)</label>
+            <input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
+            <div class="drive-actions">
+              <button id="drive-connect" type="button">Koppel Drive</button>
+              <button id="drive-backup" type="button" disabled>Back-up maken</button>
+              <button id="drive-refresh" type="button" disabled>Lijst verversen</button>
+            </div>
+            <label for="drive-backups">Back-up om terug te zetten</label>
+            <select id="drive-backups" aria-label="Google Drive back-ups"></select>
+            <div class="drive-actions">
+              <button id="drive-restore" type="button" disabled>Geselecteerde back-up herstellen</button>
+              <a id="drive-folder-link" class="action" target="_blank" rel="noopener noreferrer" hidden>Open Drive-map</a>
+            </div>
+            <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
+          </details>
         </div>
       </details>
       <div class="compact-actions writing-actions" id="writing-actions" aria-label="Nieuw, toevoegen, schrijven en AI">
         <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
         <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
         <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
-        <label class="circle-file" title="PDF op whiteboard"><span>PDF</span><small>Op bord</small><input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
-        <label class="circle-file" title="Werkbeschrijving als nieuw PDF-bord"><span>PDF</span><small>Nieuw</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
+        <label class="circle-file" title="PDF als achtergrond op het huidige lege whiteboard"><span>PDF</span><small>Achtergrond</small><input id="pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF als achtergrond op huidig leeg whiteboard"></label>
+        <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>Nieuw bord</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF openen als nieuw bord in huidige map"></label>
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
         <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
         <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
         <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
       </div>
-      <p id="pdf-status" role="status">PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.</p>
+      <p id="pdf-status" role="status">PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.</p>
       <div class="workspace">
         <div class="editor">
+          <div class="document-list" id="document-panel">
+            <div class="document-pickers">
+              <label for="content-folder">Map
+                <select id="content-folder" aria-label="Kies een werkmap"></select>
+              </label>
+              <label for="documents">Inhoud
+                <select id="documents" aria-label="Kies een meetlijst, schrift of bord"></select>
+              </label>
+              <button id="delete-document" type="button" class="danger-button">Weggooien</button>
+            </div>
+            <p id="current-context" role="status"></p>
+          </div>
           <label for="title" class="title-label">Titel</label>
           <input id="title" maxlength="120" autocomplete="off">
           <div id="measurement-editor" hidden></div>
@@ -161,9 +168,9 @@
           </div>
           </details>
           <details id="input-options">
-            <summary>Peninstellingen &amp; invoermeter</summary>
+            <summary>Extra: aanraking &amp; pencontrole</summary>
             <label class="finger-option"><input id="finger" type="checkbox"> Tekenen met aanraking toestaan (uit: vinger schuift, pen schrijft)</label>
-            <p>Herkende peninvoer krijgt voorrang op touch. Als pen en hand beide touch zijn, is betrouwbare handpalmherkenning niet mogelijk in deze proef.</p>
+            <p>Alleen nodig als je pen of handpalm niet goed reageert. Herkende peninvoer krijgt voorrang op touch. Als pen en hand beide touch zijn, is betrouwbare handpalmherkenning niet mogelijk.</p>
             <output id="input-diagnostics" aria-label="Lokale invoermeter">Nog geen invoer. Deze meter verstuurt en bewaart geen gegevens.</output>
             <button id="reset-diagnostics">Start nieuwe meting</button>
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>

@@ -29,18 +29,13 @@
     if (blocked) return false;
     try {
       M.save(localStorage, data);
-      $("save-status").textContent = "Lokaal opgeslagen. Drive-back-up via Inhoud & back-up.";
+      $("save-status").textContent = "Lokaal opgeslagen. Drive-back-up via Back-up.";
       return true;
     } catch (error) {
       $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
       report(error);
       return false;
     }
-
-    $("save-now").addEventListener("click", () => {
-      finish();
-      if (persist()) $("save-status").textContent = `Nu opgeslagen om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}.`;
-    });
   }
 
   function active() { return data.documents.find(doc => doc.id === data.activeId); }
@@ -231,26 +226,58 @@
   }
 
   function documentOption(doc) {
-      const option = document.createElement("option");
-      option.value = doc.id;
-      option.textContent = documentLabel(doc);
-      option.selected = doc.id === data.activeId;
-      return option;
+    const option = document.createElement("option");
+    option.value = doc.id;
+    option.textContent = documentLabel(doc);
+    option.selected = doc.id === data.activeId;
+    return option;
   }
 
-  function list() {
-    const groups = [];
-    const addGroup = (label, folderId) => {
-      const docs = data.documents.filter(doc => (doc.folderId || null) === folderId);
-      if (!docs.length) return;
-      const group = document.createElement("optgroup");
-      group.label = label;
-      group.replaceChildren(...docs.map(documentOption));
-      groups.push(group);
-    };
-    addGroup("Zonder map", null);
-    for (const folder of data.folders) addGroup(folder.title, folder.id);
-    $("documents").replaceChildren(...groups);
+  const noFolderValue = "__zonder_map__";
+
+  function folderValue(folderId) {
+    return folderId || noFolderValue;
+  }
+
+  function folderTitle(folderId) {
+    if (!folderId) return "Zonder map";
+    return data.folders.find(folder => folder.id === folderId)?.title || "Onbekende map";
+  }
+
+  function list(folderId = undefined) {
+    const folderSelect = $("content-folder");
+    const requested = folderId === undefined
+      ? folderSelect.value || folderValue(active().folderId)
+      : folderValue(folderId);
+    const folderOptions = [];
+    const withoutFolder = document.createElement("option");
+    withoutFolder.value = noFolderValue;
+    withoutFolder.textContent = "Zonder map";
+    folderOptions.push(withoutFolder);
+    for (const folder of data.folders) {
+      const option = document.createElement("option");
+      option.value = folder.id;
+      option.textContent = folder.title;
+      folderOptions.push(option);
+    }
+    folderSelect.replaceChildren(...folderOptions);
+    folderSelect.value = folderOptions.some(option => option.value === requested)
+      ? requested
+      : folderValue(active().folderId);
+
+    const selectedFolderId = folderSelect.value === noFolderValue ? null : folderSelect.value;
+    const docs = data.documents.filter(doc => (doc.folderId || null) === selectedFolderId);
+    const options = docs.map(documentOption);
+    if (!docs.some(doc => doc.id === data.activeId)) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = docs.length ? "Kies inhoud..." : "Deze map is leeg";
+      placeholder.selected = true;
+      options.unshift(placeholder);
+    }
+    $("documents").replaceChildren(...options);
+    $("delete-document").disabled = !active();
+    $("current-context").textContent = `Nu open: ${folderTitle(active().folderId)} → ${documentLabel(active())}`;
   }
 
   function fieldValue(key) {
@@ -439,7 +466,7 @@
     $("pdf-file").disabled = isMeasurement(doc);
     redo = [];
     undo = [];
-    list();
+    list(doc.folderId || null);
     renderFolderButtons();
     renderMeasurementForm();
     if (isMeasurement(doc)) {
@@ -457,7 +484,9 @@
     pdfImages = [];
     const doc = active();
     $("pdf-original").disabled = !doc.pdf;
-    $("pdf-status").textContent = doc.pdf ? `PDF laden: ${doc.pdf.name}` : "PDF blijft lokaal. Maximaal 20 MB / 50 pagina's; een PDF per whiteboard.";
+    $("pdf-status").textContent = doc.pdf
+      ? `PDF laden: ${doc.pdf.name}`
+      : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.";
     if (!doc.pdf) return;
     try {
       const images = await window.WorkplacePdf.images(doc.pdf.id);
@@ -469,6 +498,34 @@
       if (generation !== pdfGeneration) return;
       $("pdf-status").textContent = error.message;
       report(error);
+    }
+  }
+
+  async function deleteActiveDocument() {
+    finish();
+    const removed = active();
+    if (!removed || !window.confirm(`"${removed.title || "Zonder titel"}" weggooien? Dit verwijdert het hele ${removed.formType ? "meetformulier" : removed.kind === "page" ? "schrift" : "bord"} van dit apparaat.`)) return;
+    const previousDocuments = data.documents;
+    const previousId = data.activeId;
+    let remaining = data.documents.filter(doc => doc.id !== removed.id);
+    if (!remaining.length) {
+      const replacement = M.createDocument("page", crypto.randomUUID());
+      remaining = [replacement];
+    }
+    data.documents = remaining;
+    data.activeId = remaining.find(doc => (doc.folderId || null) === (removed.folderId || null))?.id || remaining[0].id;
+    if (!persist()) {
+      data.documents = previousDocuments;
+      data.activeId = previousId;
+      selectDocument();
+      report(new Error("Inhoud niet weggegooid: lokale opslag mislukt. Download eerst een back-up."));
+      return;
+    }
+    selectDocument();
+    $("save-status").textContent = `"${removed.title || "Zonder titel"}" is weggegooid.`;
+    if (removed.pdf) {
+      try { await window.WorkplacePdf.remove(removed.pdf.id); }
+      catch (error) { report(new Error(`Het bord is weggegooid, maar het lokale PDF-bestand kon niet worden opgeruimd: ${error.message}`)); }
     }
   }
 
@@ -616,7 +673,6 @@
     data.activeId = doc.id;
     if (!persist()) throw new Error(`Werkmap ${definition.title} kon niet worden geopend.`);
     selectDocument();
-    $("content-backup").open = true;
   }
 
   try {
@@ -769,12 +825,23 @@
       $("content-backup").open = false;
       render();
     });
+    $("save-now").addEventListener("click", () => {
+      finish();
+      if (persist()) $("save-status").textContent = `Nu opgeslagen om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}.`;
+    });
     selectDocument();
+    $("content-folder").addEventListener("change", () => {
+      list($("content-folder").value === noFolderValue ? null : $("content-folder").value);
+    });
     $("documents").addEventListener("change", () => {
+      if (!$("documents").value) return;
       finish();
       data.activeId = $("documents").value;
       selectDocument();
       persist();
+    });
+    $("delete-document").addEventListener("click", () => {
+      deleteActiveDocument().catch(report);
     });
     $("new-folder").addEventListener("click", () => {
       finish();
@@ -828,7 +895,7 @@
     });
     for (const field of ["title", "text"]) $(field).addEventListener("input", () => {
       active()[field] = $(field).value;
-      if (field === "title") list();
+      if (field === "title") list(active().folderId || null);
       persist();
     });
     for (const name of ["pen", "move", "eraser"]) $(name).addEventListener("click", () => {

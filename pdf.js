@@ -24,6 +24,7 @@
   }
   const get = id => transaction("readonly", store => store.get(id));
   const put = (id, value) => transaction("readwrite", store => store.put(value, id));
+  const remove = id => transaction("readwrite", store => store.delete(id));
 
   async function importFile(file) {
     if (!(file instanceof Blob) || file.size > 20 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 20 MB.");
@@ -156,5 +157,5 @@
     }
     return snapshot;
   }
-  window.WorkplacePdf = { importFile, images, original, backup, restore, download };
+  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download };
 })();

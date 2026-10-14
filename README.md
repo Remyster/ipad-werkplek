@@ -670,3 +670,27 @@ rondjes dus op een rij.
 
 211 Chrome-regressiecontroles geslaagd. Upload de veertien assets uit
 `../ipad-werkplek-v17.1-update.zip` en behoud de bestaande vendor-map.
+
+## Versie 18: inhoud per map boven de titel
+
+De inhoudskeuze staat niet meer in het back-upmenu. Direct boven `Titel` staan
+nu twee compacte keuzelijsten: eerst de werkmap en daarna alleen de schriften,
+borden, PDF-borden en meetlijsten uit die map. De regel `Nu open` toont steeds
+de actuele map en inhoud, zodat zichtbaar blijft waar je werkt. De laatst
+geopende inhoud blijft lokaal geselecteerd.
+
+`Weggooien` verwijdert na een duidelijke bevestiging het volledige actieve
+schrift, bord of meetformulier. Een gekoppeld lokaal PDF-bestand wordt daarna
+ook uit de PDF-opslag verwijderd. Als het laatste document wordt weggegooid,
+maakt de app automatisch een leeg schrift zodat de lokale opslag geldig blijft.
+
+Het back-upmenu bevat voortaan alleen de lokale download en Google Drive. De
+twee PDF-acties heten nu `Achtergrond` (PDF op het huidige lege bord) en
+`Nieuw bord` (apart PDF-bord in de huidige map). De invoermeter blijft
+beschikbaar voor storingscontrole, maar staat gesloten onder
+`Extra: aanraking & pencontrole`; dagelijks gebruik heeft hem niet nodig.
+
+De knop `Nu opslaan` voert nu daadwerkelijk direct een opslagactie uit en toont
+het tijdstip. 214 Chrome-regressiecontroles geslaagd. Cache v18. Upload de
+veertien assets uit `../ipad-werkplek-v18-update.zip` en behoud de bestaande
+vendor-map.
