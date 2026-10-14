@@ -36,6 +36,11 @@
       report(error);
       return false;
     }
+
+    $("save-now").addEventListener("click", () => {
+      finish();
+      if (persist()) $("save-status").textContent = `Nu opgeslagen om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}.`;
+    });
   }
 
   function active() { return data.documents.find(doc => doc.id === data.activeId); }

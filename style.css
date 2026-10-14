@@ -1,6 +1,13 @@
 :root { color-scheme: light; font-family: system-ui, sans-serif; color: #18312f; background: #f3f3ed; }
 * { box-sizing: border-box; }
 body { margin: 0; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+.app-lock { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 20px; background: #173c39; }
+.app-lock-card { width: min(340px, 100%); padding: 24px; border-radius: 18px; background: #fff; box-shadow: 0 16px 50px rgb(0 0 0 / 30%); }
+.app-lock-card input { width: 100%; margin: 10px 0; padding: 14px; border: 1px solid #b4c4b9; border-radius: 10px; text-align: center; letter-spacing: .45em; font-size: 1.35rem; }
+.app-lock-card button { width: 100%; }
+.app-lock-card small { display: block; margin-top: 12px; color: #50645c; line-height: 1.4; }
+.app-lock-card [role="alert"] { min-height: 1.4em; color: #8f2f1c; }
+body.locked > :not(.app-lock) { visibility: hidden; }
 header, .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 h1 { font-size: clamp(1.4rem, 3vw, 2rem); margin: 6px 0 20px; }
 h2 { font-size: 1.4rem; }
@@ -21,7 +28,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 #hub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
 #workhub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; margin-top: 12px; }
 #calendar-frame { width: 100%; height: 75dvh; min-height: 520px; border: 0; margin-top: 12px; }
-#calendar-id, #calendar-id-private { width: 100%; padding: 10px; }
+#calendar-name, #calendar-name-private, #calendar-id, #calendar-id-private { width: 100%; padding: 10px; }
 .ai-panel { min-height: 75dvh; }
 #ai-provider { min-height: 44px; padding: 8px; }
 #ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; min-height: 180px; }
@@ -36,6 +43,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 article, aside { background: #fff; border: 1px solid #d6ded4; border-radius: 16px; padding: 22px; }
 section > aside { margin-top: 22px; background: #e9efdf; }
 #save-status { font-size: .85rem; max-width: 320px; }
+.autosave-state { display: flex; align-items: center; gap: 8px; color: #506e65; font-size: .85rem; }
+.autosave-state button { min-height: 36px; padding: 7px 11px; }
 #error { background: #ffe1da; border: 1px solid #a33c27; color: #6d2415; padding: 14px; border-radius: 10px; margin-bottom: 18px; white-space: pre-wrap; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .document-list { padding: 0 0 14px; }
@@ -73,6 +82,11 @@ label { display: block; font-size: .9rem; }
 .measurement-sheet .not-applicable { background: #e0e0e0; color: #65706f; text-align: center; font-style: italic; }
 .measurement-help { color: #50645c; font-size: .85rem; }
 .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.compact-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 0 14px; }
+.compact-actions button, .compact-actions .circle-file { width: 66px; height: 66px; min-height: 66px; padding: 6px; border: 1px solid #b4c4b9; border-radius: 50%; background: #fff; color: #173c39; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; text-align: center; }
+.compact-actions span { font-weight: 800; font-size: 1rem; line-height: 1; }
+.compact-actions small { font-size: .65rem; line-height: 1.05; }
+.circle-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .tools label { display: flex; align-items: center; gap: 6px; }
 .tools select { padding: 8px; min-height: 44px; }
 input[type="color"] { width: 44px; height: 44px; border: 0; background: transparent; }

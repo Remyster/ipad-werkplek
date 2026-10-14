@@ -12,13 +12,26 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
   <script src="./model.js" defer></script>
+  <script src="./config.js" defer></script>
   <script src="./pdf.js" defer></script>
   <script src="./drive.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./connections.js" defer></script>
   <script src="./ai.js" defer></script>
+  <script src="./lock.js" defer></script>
 </head>
 <body>
+  <div id="app-lock" class="app-lock" role="dialog" aria-modal="true" aria-labelledby="app-lock-title">
+    <form id="app-lock-form" class="app-lock-card">
+      <span class="eyebrow">REMYS WERKPLEK</span>
+      <h2 id="app-lock-title">Werkplek openen</h2>
+      <p>Voer je viercijferige toestelcode in.</p>
+      <input id="app-lock-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="Toestelcode">
+      <button type="submit">Open Werkplek</button>
+      <p id="app-lock-error" role="alert"></p>
+      <small>Dit is een lokaal gemaksslot, geen vervanging voor je iPad-code of WerkHub-login.</small>
+    </form>
+  </div>
   <header>
     <div><span class="eyebrow">REMYS WERKPLEK</span><h1>Ruimte voor je hoofd</h1></div>
     <span id="save-status" role="status">Opslag controleren...</span>
@@ -42,8 +55,12 @@
           <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar</a>
           <details>
             <summary>Agenda-widget instellen</summary>
+            <label for="calendar-name">Naam werkagenda</label>
+            <input id="calendar-name" placeholder="Bijvoorbeeld PWN werkagenda">
             <label for="calendar-id">Google agenda-ID (geen geheime ICS-link)</label>
             <input id="calendar-id" placeholder="Agenda-ID uit Google Calendar instellingen">
+            <label for="calendar-name-private">Naam tweede agenda (optioneel)</label>
+            <input id="calendar-name-private" placeholder="Bijvoorbeeld Prive">
             <label for="calendar-id-private">Tweede agenda-ID (optioneel, bijvoorbeeld prive)</label>
             <input id="calendar-id-private" placeholder="Optionele tweede agenda-ID">
             <button id="show-calendar">Toon agenda-widget</button>
@@ -68,6 +85,7 @@
     <section id="writing" hidden>
       <div class="section-heading">
         <h2>Schrijven, meetlijsten &amp; werkmappen</h2>
+        <div class="autosave-state"><strong>Automatisch opslaan aan</strong><button id="save-now" type="button">Nu opslaan</button></div>
       </div>
       <details class="workmap-menu" open>
         <summary>Werkmappen</summary>
@@ -75,21 +93,21 @@
       </details>
       <details class="workmap-menu">
         <summary>Nieuw of toevoegen</summary>
-        <div class="tools">
-          <button id="new-page">Nieuw schriftblad</button>
-          <button id="new-board">Nieuw whiteboard</button>
-          <button id="new-folder">Nieuwe eigen map</button>
-          <label>PDF op whiteboard <input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
-          <label>Werkbeschrijving als nieuw PDF-bord <input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
+        <div class="compact-actions" aria-label="Nieuw of toevoegen">
+          <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
+          <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
+          <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
+          <label class="circle-file" title="PDF op whiteboard"><span>PDF</span><small>Op bord</small><input id="pdf-file" type="file" accept="application/pdf,.pdf"></label>
+          <label class="circle-file" title="Werkbeschrijving als nieuw PDF-bord"><span>PDF</span><small>Nieuw bord</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf"></label>
         </div>
       </details>
       <details class="workmap-menu">
         <summary>Schrijven en AI</summary>
-        <div class="tools">
-          <button id="writing-ai-open" aria-haspopup="dialog">Vraag aan AI</button>
-          <button id="writing-ai-recognize" aria-haspopup="dialog">Herken handschrift</button>
-          <button id="pdf-original" disabled>Download originele PDF</button>
-          <button id="focus" aria-pressed="false">Brede schrijfmodus</button>
+        <div class="compact-actions" aria-label="Schrijven en AI">
+          <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
+          <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
+          <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
+          <button id="focus" aria-pressed="false" title="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
         </div>
       </details>
       <details class="workmap-menu" id="content-backup">

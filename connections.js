@@ -149,16 +149,45 @@
     return url.href;
   }
   window.WorkplaceConnections.calendarUrl = calendarUrl;
+  const CALENDAR_KEY = "remy-ipad-calendar-settings";
   const calendar = document.getElementById("calendar-frame");
+  const calendarFields = ["calendar-name", "calendar-id", "calendar-name-private", "calendar-id-private"];
+  function readCalendarSettings() {
+    try {
+      const value = JSON.parse(localStorage.getItem(CALENDAR_KEY) || "null");
+      return value && typeof value === "object" ? value : {};
+    } catch (error) {
+      return {};
+    }
+  }
+  function saveCalendarSettings() {
+    const settings = Object.fromEntries(calendarFields.map(id => [id, document.getElementById(id).value.trim()]));
+    localStorage.setItem(CALENDAR_KEY, JSON.stringify(settings));
+    return settings;
+  }
+  const savedCalendar = readCalendarSettings();
+  for (const id of calendarFields) document.getElementById(id).value = savedCalendar[id] || "";
   document.getElementById("show-calendar").addEventListener("click", () => {
     try {
-      calendar.src = calendarUrl(document.getElementById("calendar-id").value.trim(), document.getElementById("calendar-id-private").value.trim());
+      const settings = saveCalendarSettings();
+      calendar.src = calendarUrl(settings["calendar-id"], settings["calendar-id-private"]);
       calendar.hidden = false;
-      document.getElementById("calendar-status").textContent = "Google agendaweergave geopend. Een leeg of geblokkeerd paneel vraagt om Google-login/toestemming; geen bewezen agendasynchronisatie.";
+      const names = [settings["calendar-name"], settings["calendar-name-private"]].filter(Boolean).join(" en ");
+      document.getElementById("calendar-status").textContent = `${names || "Agenda"} opgeslagen en geopend. Een leeg of geblokkeerd paneel vraagt om Google-login/toestemming.`;
     } catch (error) { document.getElementById("calendar-status").textContent = error.message; }
   });
+  for (const id of calendarFields) document.getElementById(id).addEventListener("change", saveCalendarSettings);
   document.getElementById("hide-calendar").addEventListener("click", () => {
     calendar.hidden = true;
     calendar.removeAttribute("src");
   });
+  if (savedCalendar["calendar-id"]) {
+    try {
+      calendar.src = calendarUrl(savedCalendar["calendar-id"], savedCalendar["calendar-id-private"]);
+      calendar.hidden = false;
+      document.getElementById("calendar-status").textContent = `${savedCalendar["calendar-name"] || "Opgeslagen agenda"} automatisch geopend.`;
+    } catch (error) {
+      document.getElementById("calendar-status").textContent = error.message;
+    }
+  }
 })();

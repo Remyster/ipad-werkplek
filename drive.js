@@ -159,7 +159,7 @@
   const restoreButton = document.getElementById("drive-restore");
   const backups = document.getElementById("drive-backups");
   const folderLink = document.getElementById("drive-folder-link");
-  clientInput.value = localStorage.getItem(CLIENT_ID_KEY) || "";
+  clientInput.value = localStorage.getItem(CLIENT_ID_KEY) || window.WorkplaceConfig?.googleDriveClientId || "";
 
   function showError(error) {
     status.textContent = error.message || String(error);
