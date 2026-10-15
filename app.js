@@ -83,8 +83,8 @@
     ctx.fillStyle = stroke.color;
     ctx.lineWidth = stroke.width;
     const brush = stroke.brush || "pen";
-    ctx.globalAlpha = brush === "highlighter" ? .28 : brush === "marker" ? .72 : 1;
-    ctx.lineCap = ["pen", "marker", "highlighter"].includes(brush) ? "round" : "butt";
+    ctx.globalAlpha = brush === "highlighter" ? .32 : 1;
+    ctx.lineCap = brush === "highlighter" ? "square" : ["pen", "marker"].includes(brush) ? "round" : "butt";
     ctx.lineJoin = "round";
     ctx.setLineDash(brush === "dashed" ? [stroke.width * 3, stroke.width * 2] : []);
     let distance = 0;
@@ -176,13 +176,19 @@
 
   function drawSelectionOverlay() {
     const ctx = worldContext("drawing");
-    const bounds = selectionBounds() || selection.region;
-    if (!bounds) return;
+    const bounds = selectionBounds();
+    if (!bounds && !selection?.lasso?.length) return;
     ctx.save();
     ctx.strokeStyle = "#af6700";
     ctx.lineWidth = 2 / active().view.scale;
     ctx.setLineDash([8 / active().view.scale, 6 / active().view.scale]);
-    ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+    if (bounds) {
+      ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+    } else {
+      ctx.beginPath();
+      selection.lasso.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -664,14 +670,8 @@
       remember(old.before);
     } else if (old.tool === "select-ink" && old.moveSelection) {
       remember(old.before);
-    } else if (old.tool === "select-ink" && old.selectStart && old.selectEnd) {
-      const region = {
-        left: Math.min(old.selectStart.x, old.selectEnd.x),
-        top: Math.min(old.selectStart.y, old.selectEnd.y),
-        right: Math.max(old.selectStart.x, old.selectEnd.x),
-        bottom: Math.max(old.selectStart.y, old.selectEnd.y)
-      };
-      const indexes = active().strokes.map((stroke, index) => M.intersectsBounds(strokeBounds(stroke), region) ? index : -1).filter(index => index >= 0);
+    } else if (old.tool === "select-ink" && old.lassoPoints?.length >= 3) {
+      const indexes = active().strokes.map((stroke, index) => M.strokeInPolygon(stroke, old.lassoPoints) ? index : -1).filter(index => index >= 0);
       selection = indexes.length ? { indexes } : null;
     }
     gesture = null;
@@ -703,8 +703,8 @@
   function scratchEraseAt(point) {
     const before = active().strokes;
     const from = gesture.lastPoint;
-    const radius = Math.max(8, gesture.eraserRadius / active().view.scale);
-    const kept = before.filter(stroke => !M.hitStroke(stroke, from, point, radius));
+    const radius = Math.max(12, gesture.eraserRadius / active().view.scale);
+    const kept = before.filter(stroke => stroke.shape || !M.hitStroke(stroke, from, point, radius));
     gesture.lastPoint = point;
     if (kept.length !== before.length) {
       gesture.changed = true;
@@ -1053,7 +1053,6 @@
     $("focus").addEventListener("click", () => {
       finish();
       const on = document.body.classList.toggle("writing-focus");
-      $("drawing-tools").open = !on;
       setFocusLabel(on);
       $("content-backup").open = false;
       render();
@@ -1131,14 +1130,67 @@
       if (field === "title") list(active().folderId || null);
       persist();
     });
-    const drawingToolIds = ["pen", "move", "eraser", "scratch-eraser", "select-ink"];
+    const drawingToolIds = ["pen", "marker-tool", "highlighter-tool", "move", "eraser", "scratch-eraser", "select-ink", "shape-tool"];
+    const brushSettings = {
+      pen: { color: "#173c39", width: 4 }, fineliner: { color: "#173c39", width: 2 },
+      dashed: { color: "#173c39", width: 4 }, marker: { color: "#173c39", width: 10 },
+      highlighter: { color: "#ffe066", width: 22 }
+    };
+    let currentBrush = $("brush").value;
+    const syncToolButtons = () => {
+      const brush = $("brush").value, shape = $("shape").value;
+      $("pen").setAttribute("aria-pressed", String(tool === "pen" && !shape && !["marker", "highlighter"].includes(brush)));
+      $("marker-tool").setAttribute("aria-pressed", String(tool === "pen" && !shape && brush === "marker"));
+      $("highlighter-tool").setAttribute("aria-pressed", String(tool === "pen" && !shape && brush === "highlighter"));
+      $("shape-tool").setAttribute("aria-pressed", String(tool === "pen" && !!shape));
+      for (const id of ["move", "eraser", "scratch-eraser", "select-ink"]) $(id).setAttribute("aria-pressed", String(tool === id));
+    };
+    const syncColorSwatches = () => document.querySelectorAll("[data-color]").forEach(button =>
+      button.setAttribute("aria-pressed", String(button.dataset.color.toLowerCase() === $("color").value.toLowerCase())));
+    const rememberBrushSettings = () => {
+      if (brushSettings[currentBrush]) brushSettings[currentBrush] = { color: $("color").value, width: Number($("width").value) };
+    };
     const activateTool = name => {
       finish();
       tool = name;
       if (name !== "select-ink") clearSelection();
-      for (const id of drawingToolIds) $(id).setAttribute("aria-pressed", String(name === id));
+      syncToolButtons();
     };
-    for (const name of drawingToolIds) $(name).addEventListener("click", () => activateTool(name));
+    const activateBrush = name => {
+      rememberBrushSettings();
+      currentBrush = name;
+      $("brush").value = name;
+      $("shape").value = "";
+      const settings = brushSettings[name] || brushSettings.pen;
+      $("color").value = settings.color;
+      $("width").value = String(settings.width);
+      $("width-value").textContent = String(settings.width);
+      syncColorSwatches();
+      activateTool("pen");
+    };
+    $("pen").addEventListener("click", () => activateBrush("pen"));
+    $("marker-tool").addEventListener("click", () => activateBrush("marker"));
+    $("highlighter-tool").addEventListener("click", () => activateBrush("highlighter"));
+    for (const name of ["move", "eraser", "scratch-eraser", "select-ink"]) $(name).addEventListener("click", () => activateTool(name));
+    $("shape-tool").addEventListener("click", () => {
+      const palette = $("shape-palette");
+      palette.hidden = !palette.hidden;
+      $("shape-tool").setAttribute("aria-expanded", String(!palette.hidden));
+    });
+    $("shape-palette").querySelectorAll("[data-shape]").forEach(button => button.addEventListener("click", () => {
+      $("shape").value = button.dataset.shape;
+      $("shape-palette").hidden = true;
+      $("shape-tool").setAttribute("aria-expanded", "false");
+      activateTool("pen");
+    }));
+    document.querySelectorAll("[data-color]").forEach(button => button.addEventListener("click", () => {
+      $("color").value = button.dataset.color;
+      rememberBrushSettings();
+      syncColorSwatches();
+    }));
+    $("color").addEventListener("input", () => { rememberBrushSettings(); syncColorSwatches(); });
+    $("width").addEventListener("input", rememberBrushSettings);
+    syncColorSwatches();
     $("selection-copy").addEventListener("click", () => copySelection(false));
     $("selection-cut").addEventListener("click", () => copySelection(true));
     $("selection-paste").addEventListener("click", pasteSelection);
@@ -1218,18 +1270,18 @@
     };
     quickTools.addEventListener("pointerdown", event => event.stopPropagation());
     quickTools.querySelectorAll("[data-quick-brush]").forEach(button => button.addEventListener("click", () => {
-      $("brush").value = button.dataset.quickBrush;
-      activateTool("pen");
+      activateBrush(button.dataset.quickBrush);
       hideQuickTools();
     }));
     quickTools.querySelector("[data-quick-tool='eraser']").addEventListener("click", () => {
       activateTool("eraser");
       hideQuickTools();
     });
-    $("quick-color").addEventListener("input", () => { $("color").value = $("quick-color").value; });
+    $("quick-color").addEventListener("input", () => { $("color").value = $("quick-color").value; rememberBrushSettings(); syncColorSwatches(); });
     $("quick-width").addEventListener("input", () => {
       $("width").value = $("quick-width").value;
       $("width-value").textContent = $("width").value;
+      rememberBrushSettings();
     });
     const touchPair = () => [...touches.values()].slice(0, 2);
     const startPinch = () => {
@@ -1305,6 +1357,7 @@
         gesture.before = active().strokes.slice();
         gesture.lastPoint = point;
         if (inputTool === "eraser") eraseAt(point);
+        else scratchEraseAt(point);
       }
       if (inputTool === "select-ink") {
         const bounds = selectionBounds();
@@ -1317,9 +1370,8 @@
           gesture.moveStart = point;
         } else {
           clearSelection();
-          gesture.selectStart = point;
-          gesture.selectEnd = point;
-          selection = { indexes: [], region: { left: point.x, top: point.y, right: point.x, bottom: point.y } };
+          gesture.lassoPoints = [point];
+          selection = { indexes: [], lasso: gesture.lassoPoints };
         }
       }
       if (inputTool === "pen" && !$("shape").value) {
@@ -1385,13 +1437,9 @@
           }
           scheduleRender();
         } else {
-          gesture.selectEnd = point;
-          selection.region = {
-            left: Math.min(gesture.selectStart.x, point.x),
-            top: Math.min(gesture.selectStart.y, point.y),
-            right: Math.max(gesture.selectStart.x, point.x),
-            bottom: Math.max(gesture.selectStart.y, point.y)
-          };
+          const previous = gesture.lassoPoints[gesture.lassoPoints.length - 1];
+          if (Math.hypot(point.x - previous.x, point.y - previous.y) >= 2 / active().view.scale) gesture.lassoPoints.push(point);
+          selection.lasso = gesture.lassoPoints;
           clear("drawing");
           drawSelectionOverlay();
         }

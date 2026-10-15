@@ -284,6 +284,31 @@
     return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
   }
 
+  function pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+      const a = polygon[index], b = polygon[previous];
+      const crosses = (a.y > point.y) !== (b.y > point.y) &&
+        point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x;
+      if (crosses) inside = !inside;
+    }
+    return inside;
+  }
+
+  function strokeInPolygon(stroke, polygon) {
+    if (!stroke || !Array.isArray(stroke.points) || !Array.isArray(polygon) || polygon.length < 3) return false;
+    if (stroke.points.some(point => pointInPolygon(point, polygon))) return true;
+    const orientation = (a, b, c) => Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+    const crosses = (a, b, c, d) => orientation(a, b, c) !== orientation(a, b, d) && orientation(c, d, a) !== orientation(c, d, b);
+    for (let pointIndex = 1; pointIndex < stroke.points.length; pointIndex++) {
+      const a = stroke.points[pointIndex - 1], b = stroke.points[pointIndex];
+      for (let edgeIndex = 0; edgeIndex < polygon.length; edgeIndex++) {
+        const c = polygon[edgeIndex], d = polygon[(edgeIndex + 1) % polygon.length];
+        if (crosses(a, b, c, d)) return true;
+      }
+    }
+    return false;
+  }
   function pinch(view, a, b, nextA, nextB, rect) {
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
     const scale = Math.max(.2, Math.min(4, view.scale * Math.hypot(nextB.x - nextA.x, nextB.y - nextA.y) / Math.max(1, distance)));
@@ -294,6 +319,6 @@
 
   window.IpadModel = {
     KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom,
-    hitStroke, erase, clearPage, pinch, simplifyPoints, strokeBounds, intersectsBounds
+    hitStroke, erase, clearPage, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon
   };
 })();

@@ -90,6 +90,28 @@ label { display: block; font-size: .9rem; }
 .measurement-sheet .not-applicable { background: #e0e0e0; color: #65706f; text-align: center; font-style: italic; }
 .measurement-help { color: #50645c; font-size: .85rem; }
 .tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }
+.drawing-toolbar { display: grid; gap: 6px; margin: 6px 0; padding: 7px; border: 1px solid #c8d3ce; border-radius: 14px; background: #f8faf7; box-shadow: 0 4px 14px rgb(23 60 57 / 8%); }
+.tool-strip, .edit-strip { display: flex; gap: 5px; align-items: center; overflow-x: auto; padding: 1px 0 4px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.tool-strip button, .edit-strip button { flex: 0 0 auto; }
+.icon-tool { width: 58px; min-width: 58px; height: 56px; min-height: 56px; padding: 4px 3px; border-radius: 11px; flex-direction: column; gap: 1px; }
+.icon-tool span { font-size: 1.25rem; line-height: 1; font-weight: 750; }
+.icon-tool small { font-size: .61rem; line-height: 1; white-space: nowrap; }
+.icon-tool.danger-tool { border-color: #d9a69b; color: #7b2e20; }
+.tool-options { display: flex; gap: 7px; align-items: center; min-height: 44px; overflow-x: auto; padding: 2px 0; -webkit-overflow-scrolling: touch; }
+.tool-options label { flex: 0 0 auto; display: flex; align-items: center; gap: 5px; font-size: .75rem; font-weight: 650; white-space: nowrap; }
+.tool-options .color-tool span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.tool-options input[type="color"] { width: 40px; height: 40px; }
+.width-tool input { width: clamp(90px, 18vw, 150px); }
+.eraser-tool select { min-height: 38px; padding: 5px; border: 1px solid #b4c4b9; border-radius: 8px; background: #fff; }
+.color-swatches { display: flex; gap: 4px; flex: 0 0 auto; }
+.color-swatches button { width: 30px; height: 30px; min-height: 30px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 1px #8ca49d; }
+.color-swatches button[aria-pressed="true"] { box-shadow: 0 0 0 3px #173c39; }
+.shape-palette { display: flex; gap: 5px; overflow-x: auto; padding: 5px; border-radius: 10px; background: #e9efdf; }
+.shape-palette button { flex: 0 0 auto; width: 42px; min-width: 42px; height: 40px; min-height: 40px; padding: 4px; font-size: 1.15rem; }
+.edit-strip { border-top: 1px solid #d6ded4; padding-top: 6px; }
+.edit-strip button { min-height: 36px; padding: 6px 10px; }
+.edit-strip output { flex: 0 0 auto; min-width: 46px; text-align: center; font-size: .78rem; }
 .compact-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 0 14px; }
 .compact-actions button, .compact-actions .circle-file { width: 66px; height: 66px; min-height: 66px; padding: 6px; border: 1px solid #b4c4b9; border-radius: 50%; background: #fff; color: #173c39; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; text-align: center; }
 .compact-actions span { font-weight: 800; font-size: 1rem; line-height: 1; }
@@ -126,7 +148,9 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus .workmap-menu, .writing-focus #pdf-status, .writing-focus .document-list { display: none; }
 .writing-focus .writing-actions { max-width: none; gap: 6px; margin: 0 0 6px; flex-shrink: 0; }
 .writing-focus .writing-actions button, .writing-focus .writing-actions .circle-file { width: clamp(46px, 7.4vw, 54px); max-width: 54px; }
-.writing-focus .section-heading .tools, .writing-focus .editor > .tools { margin: 0 0 6px; }
+.writing-focus #drawing-tools { margin: 0 0 4px; padding: 5px; flex-shrink: 0; }
+.writing-focus #drawing-tools .tool-options, .writing-focus #drawing-tools .edit-strip { display: none; }
+.writing-focus #input-options { display: none; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }
 .writing-focus #drawing-editor { display: flex; flex: 1; flex-direction: column; min-height: 0; }
@@ -145,6 +169,8 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   #surface { height: 85dvh; }
   .measurement-sheet { padding: 12px; }
   .writing-actions { gap: 5px; }
+  .icon-tool { width: 52px; min-width: 52px; }
+  .tool-options { gap: 5px; }
 }
 @media (max-width: 520px) {
   .writing-actions { gap: 4px; }

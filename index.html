@@ -151,35 +151,6 @@
           <input id="title" maxlength="120" autocomplete="off">
           <div id="measurement-editor" hidden></div>
           <div id="drawing-editor">
-          <details id="drawing-tools" open>
-          <summary>Pen, gum &amp; pagina's</summary>
-          <div class="tools" aria-label="Tekengereedschap">
-            <button id="pen" aria-pressed="true">Pen</button>
-            <button id="eraser" aria-pressed="false" title="Wist alleen het geraakte stukje inkt">Gum</button>
-            <button id="scratch-eraser" aria-pressed="false" title="Streep door inkt om hele geraakte streken te verwijderen">Doorhalen</button>
-            <button id="clear-page">Pagina leegmaken</button>
-            <button id="move" aria-pressed="false">Verplaatsen</button>
-            <button id="select-ink" aria-pressed="false">Selecteer</button>
-            <label>Pensoort <select id="brush"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select></label>
-            <label>Vorm/pictogram <select id="shape"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select></label>
-            <label>Pendikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
-            <label>Gumgrootte <select id="eraser-size"><option value="6">Klein (12 px)</option><option value="12" selected>Normaal (24 px)</option><option value="24">Groot (48 px)</option><option value="40">Extra groot (80 px)</option></select></label>
-            <label>Kleur <input id="color" type="color" value="#173c39"></label>
-            <button id="undo">Ongedaan</button>
-            <button id="redo">Opnieuw</button>
-            <button id="selection-copy" disabled>Kopieer</button>
-            <button id="selection-cut" disabled>Knip</button>
-            <button id="selection-paste" disabled>Plak</button>
-            <button id="zoom-out" aria-label="Uitzoomen">-</button>
-            <output id="zoom">100%</output>
-            <button id="zoom-in" aria-label="Inzoomen">+</button>
-            <button id="reset">Beginweergave</button>
-            <button id="previous-page">Vorige pagina</button>
-            <output id="page-number"></output>
-            <button id="next-page">Volgende pagina</button>
-            <button id="add-page">Pagina erbij</button>
-          </div>
-          </details>
           <details id="input-options">
             <summary>Extra: aanraking &amp; pencontrole</summary>
             <label class="finger-option"><input id="finger" type="checkbox"> Tekenen met aanraking toestaan (uit: vinger schuift, pen schrijft)</label>
@@ -189,12 +160,53 @@
             <pre id="stroke-diagnostics" aria-label="Laatste streken">Nog geen afgeronde streek. Maximaal de laatste 5; geen coordinaten of notitietekst.</pre>
             <p>Bewegingen zijn ontvangen browser-events. Samples kunnen gebundeld zijn. Een tijdgat kan ook een gewone schrijfpauze zijn; dit bewijst geen gemiste invoer. Er is geen minimale druk om te tekenen.</p>
           </details>
-          <p id="drawing-help">Vinger schuift met aanraking tekenen uit. Twee vingers zoomen. Klap het gereedschap dicht voor meer schrijfruimte. Versie 12: Gemini herkent geselecteerd handschrift.</p>
+          <div id="drawing-tools" class="drawing-toolbar" aria-label="Tekengereedschap">
+            <div class="tool-strip" role="toolbar" aria-label="Tekenen en bewerken">
+              <button id="pen" class="icon-tool" aria-pressed="true" title="Pen"><span aria-hidden="true">✒</span><small>Pen</small></button>
+              <button id="marker-tool" class="icon-tool" aria-pressed="false" title="Dikke stift"><span aria-hidden="true">▰</span><small>Stift</small></button>
+              <button id="highlighter-tool" class="icon-tool" aria-pressed="false" title="Transparante markeerstift"><span aria-hidden="true">▱</span><small>Markeer</small></button>
+              <button id="eraser" class="icon-tool" aria-pressed="false" title="Gum: wis alleen het geraakte stukje"><span aria-hidden="true">⌫</span><small>Gum</small></button>
+              <button id="scratch-eraser" class="icon-tool" aria-pressed="false" title="Krabbel door een woord om de geraakte penstreken te verwijderen"><span aria-hidden="true">〽</span><small>Kras weg</small></button>
+              <button id="select-ink" class="icon-tool" aria-pressed="false" title="Omcirkel zelf wat je wilt selecteren"><span aria-hidden="true">◌</span><small>Lasso</small></button>
+              <button id="move" class="icon-tool" aria-pressed="false" title="Schuif het blad of whiteboard"><span aria-hidden="true">✋</span><small>Schuif</small></button>
+              <button id="shape-tool" class="icon-tool" aria-expanded="false" title="Vormen en pictogrammen"><span aria-hidden="true">○□</span><small>Vormen</small></button>
+              <button id="clear-page" class="icon-tool danger-tool" title="Maak deze pagina leeg"><span aria-hidden="true">▧×</span><small>Leeg</small></button>
+            </div>
+            <div class="tool-options" aria-label="Instellingen van het actieve gereedschap">
+              <label class="color-tool" title="Kies kleur"><span>Kleur</span><input id="color" type="color" value="#173c39"></label>
+              <div class="color-swatches" aria-label="Snelle kleuren">
+                <button type="button" data-color="#173c39" style="--swatch:#173c39" aria-label="Donkergroen"></button>
+                <button type="button" data-color="#1f5fa8" style="--swatch:#1f5fa8" aria-label="Blauw"></button>
+                <button type="button" data-color="#d33b32" style="--swatch:#d33b32" aria-label="Rood"></button>
+                <button type="button" data-color="#ffe066" style="--swatch:#ffe066" aria-label="Geel"></button>
+                <button type="button" data-color="#73d89b" style="--swatch:#73d89b" aria-label="Groen"></button>
+                <button type="button" data-color="#ee8bd3" style="--swatch:#ee8bd3" aria-label="Roze"></button>
+              </div>
+              <label class="width-tool">Dikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
+              <label class="eraser-tool">Gum <select id="eraser-size"><option value="6">Klein</option><option value="12" selected>Normaal</option><option value="24">Groot</option><option value="40">Extra groot</option></select></label>
+              <select id="brush" class="visually-hidden" aria-label="Pensoort"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select>
+              <select id="shape" class="visually-hidden" aria-label="Vorm of pictogram"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select>
+            </div>
+            <div id="shape-palette" class="shape-palette" aria-label="Kies een vorm of pictogram" hidden>
+              <button type="button" data-shape="line" title="Lijn">╱</button><button type="button" data-shape="arrow" title="Pijl">→</button>
+              <button type="button" data-shape="rectangle" title="Vierkant of rechthoek">□</button><button type="button" data-shape="ellipse" title="Cirkel of ovaal">○</button>
+              <button type="button" data-shape="check" title="Vinkje">✓</button><button type="button" data-shape="warning" title="Waarschuwing">⚠</button>
+              <button type="button" data-shape="star" title="Ster">★</button><button type="button" data-shape="" title="Terug naar vrij tekenen">Vrij</button>
+            </div>
+            <div class="edit-strip" role="toolbar" aria-label="Selectie, herstel en pagina">
+              <button id="undo" title="Ongedaan" aria-label="Ongedaan">↶</button><button id="redo" title="Opnieuw" aria-label="Opnieuw">↷</button>
+              <button id="selection-copy" disabled title="Selectie kopiëren">Kopieer</button><button id="selection-cut" disabled title="Selectie knippen">Knip</button><button id="selection-paste" disabled title="Selectie plakken">Plak</button>
+              <button id="zoom-out" aria-label="Uitzoomen">−</button><output id="zoom">100%</output><button id="zoom-in" aria-label="Inzoomen">＋</button>
+              <button id="reset" title="Terug naar beginweergave">⌂</button><button id="previous-page" aria-label="Vorige pagina">‹</button><output id="page-number"></output><button id="next-page" aria-label="Volgende pagina">›</button><button id="add-page" title="Pagina erbij">＋ pagina</button>
+            </div>
+          </div>
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
             <div id="quick-tools" role="dialog" aria-label="Snelle pengereedschappen" hidden>
               <button type="button" data-quick-brush="pen">Pen</button>
+              <button type="button" data-quick-brush="fineliner">Fineliner</button>
+              <button type="button" data-quick-brush="dashed">Stippel</button>
               <button type="button" data-quick-brush="marker">Stift</button>
               <button type="button" data-quick-brush="highlighter">Markeer</button>
               <button type="button" data-quick-tool="eraser">Gum</button>
@@ -202,6 +214,7 @@
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
             </div>
           </div>
+          <p id="drawing-help">Lasso: omcirkel zelf de inkt. Kras weg: krabbel door een woord. Houd de pen stil voor snelle peninstellingen.</p>
           <details id="typed-notes">
             <summary>Getypte notities naast je handschrift</summary>
             <label for="text">Notities</label>

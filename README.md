@@ -18,7 +18,7 @@ De app gebruikt alleen relatieve assetpaden en kan onder een GitHub Pages-subpad
 
 - Meerdere schriftbladen en whiteboards; titel en getypte tekst naast penstreken.
 - Vaste werkmappen: DWAT/AKF, LWS, Billa / Meeting, UF-RO, Overveen, Waag, PWN Guidelines, PWN Contacten en Routes en Opleidingen / Cursus.
-- Pen, kleur, dikte, undo/redo, handmatig zoomen en schuiven in de modus Verplaatsen.
+- Compacte pictogrammenbalk direct boven het canvas, met pen, dikke stift, markeerstift, twee gummen, vrije lasso, vormen, kleur en dikte.
 - Lokaal bewaren, opnieuw openen, JSON-back-up downloaden en echte Google Drive-back-up/herstel via OAuth.
 - Offline app-shell na een geslaagde eerste online installatie.
 - WerkHub-taken, standaard geopende WerkHub en AI Hub, Google Calendar-weergave en beveiligde AI-chat.
@@ -28,8 +28,7 @@ De app gebruikt alleen relatieve assetpaden en kan onder een GitHub Pages-subpad
 
 Een schriftblad toont een pagina van 800 x 1120 teken-eenheden. De pagina is een
 visuele achtergrond, geen harde grens. Een whiteboard heeft geen paginagrens.
-Deze Canvas-proef is beperkt tot 100.000 penpunten over alle documenten.
-Grote borden moeten later een performant geteste tekenengine krijgen.
+De app bewaakt maximaal 1.000.000 penpunten over alle documenten. Een penpunt is één ontvangen positie tijdens een streek, niet één zichtbaar stipje. Afgeronde streken worden vereenvoudigd om minder punten op te slaan. De grens is alleen een veiligheidsstop; de beschikbare browseropslag kan al eerder vol raken, dus grote borden blijven back-ups nodig hebben.
 
 ## Beperkingen en gegevens
 
@@ -58,13 +57,13 @@ een nog niet opgeslagen touch-streek; die touch-streek vervalt om handpalminkt t
 Touch kan een actieve herkende pen niet overnemen. Twee touch-bronnen kunnen niet
 betrouwbaar als ESR-pen en handpalm worden onderscheiden; er is geen handpalmgarantie.
 Remy bevestigt dat ESR niet tekent met touch uit, maar wel goed werkt in Freeform.
-Zoom gebruikt knoppen; geen pinch-zoom.
+Zoom gebruikt knoppen of twee vingers (pinch-zoom).
 Een onderbroken penstreek wordt bewaard voor zover de browser de pointer-events heeft geleverd.
 Diagnosewaarden blijven alleen in het geheugen van de pagina, zonder coordinaten,
 netwerkverkeer of opslag. De Canvas-laag gebruikt maximaal 2x schermresolutie.
 Het opslagformaat en de localStorage-sleutel blijven gelijk: oude notities blijven leesbaar.
 
-De offline-cache heeft versienummer v19. De nieuwe worker activeert na volledige
+De offline-cache heeft versienummer v21. De nieuwe worker activeert na volledige
 assetinstallatie. Een melding vraagt om handmatig herladen; geen automatische reload
 tijdens schrijven. Upload alle assets samen. Wis geen websitegegevens om te updaten.
 
@@ -726,10 +725,10 @@ Nieuwe tekengereedschappen:
 - stift en transparante markeerstift;
 - lijn, pijl, rechthoek/vierkant en cirkel/ovaal;
 - pictogramstempels voor vinkje, waarschuwing en ster;
-- gewone gum voor gedeelten en `Doorhalen` voor complete geraakte streken;
-- rechthoekige inktselectie met verslepen, kopieren, knippen en plakken;
+- gewone gum voor gedeelten en `Kras weg` voor complete geraakte handschriftstreken; vormen blijven bij doorkrassen intact;
+- vrije lasso: omcirkel zelf inkt en versleep, kopieer, knip of plak de selectie;
 - lang indrukken op een stil punt van het schrijfvlak opent een compact palet
-  voor pen, stift, markeerstift, gum, kleur en dikte.
+  voor pen, fineliner, stippellijn, stift, markeerstift, gum, kleur en dikte.
 
 De PDF-bibliotheek toont alle lokaal verwerkte PDF-bestanden uit IndexedDB.
 Een bestand kan opnieuw als apart bord in de huidige map worden geopend of als
@@ -744,9 +743,12 @@ toestemming blijft verplicht en de backend behandelt tekst in het beeld als
 onbetrouwbare inhoud, niet als instructie.
 
 De bestaande opslag blijft versie 1 en oude documenten blijven geldig. De
-uitbreiding voegt alleen optionele brush- en shape-waarden toe. 223 lokale
-Chrome-regressiecontroles geslaagd. Cache v20. Upload de veertien app-assets uit
-`../ipad-werkplek-v20.2-update.zip`, behoud de bestaande vendor-map en deploy
+uitbreiding voegt alleen optionele brush- en shape-waarden toe. In v20.3 staat
+de compacte pictogrammenbalk direct boven het canvas, gebruikt Stift standaard
+10 px en Markeer standaard 22 px met transparant geel, en is selectie een vrije
+lasso in plaats van een rechthoek. 228 lokale Chrome-regressiecontroles geslaagd.
+Cache v21. Upload de vijftien app-assets uit
+`../ipad-werkplek-v20.3-update.zip`, behoud de bestaande vendor-map en deploy
 daarnaast de actuele backend uit `../ipad-werkplek-v20.2-backend.zip`. Echte
 iPad-prestaties en live Gemini-herkenning moeten daarna nog fysiek worden
 gecontroleerd met uitsluitend fictieve tekst.
