@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   const KEY = "remy-ipad-werkplek-v1";
-  const MAX_POINTS = 100000;
+  const MAX_POINTS = 1000000;
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
   function createDocument(kind, id) {
@@ -70,13 +70,14 @@
       }
       for (const stroke of doc.strokes) {
         if (!stroke || !/^#[0-9a-f]{6}$/i.test(stroke.color) || !finite(stroke.width) ||
-            (stroke.brush !== undefined && !["pen", "fineliner", "dashed"].includes(stroke.brush)) ||
-            stroke.width <= 0 || stroke.width > 20 || !Array.isArray(stroke.points) ||
+            (stroke.brush !== undefined && !["pen", "fineliner", "dashed", "marker", "highlighter"].includes(stroke.brush)) ||
+            (stroke.shape !== undefined && !["line", "rectangle", "ellipse", "arrow", "check", "warning", "star"].includes(stroke.shape)) ||
+            stroke.width <= 0 || stroke.width > 40 || !Array.isArray(stroke.points) ||
             !stroke.points.length || stroke.points.some(p => !p || !finite(p.x) || !finite(p.y))) {
           throw new Error("Opgeslagen penstreken zijn ongeldig; de opslag is niet overschreven.");
         }
         totalPoints += stroke.points.length;
-        if (totalPoints > MAX_POINTS) throw new Error("Deze schrijfproef ondersteunt maximaal 100.000 penpunten. Exporteer je back-up.");
+        if (totalPoints > MAX_POINTS) throw new Error("Dit document bevat meer dan 1.000.000 tekenpunten. Splits het bord op en maak een back-up.");
       }
     }
     if (!ids.has(data.activeId)) throw new Error("Het actieve document ontbreekt.");
@@ -114,8 +115,21 @@
   function hitStroke(stroke, a, b, radius) {
     const limit = radius + stroke.width / 2;
     const cross = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-    return stroke.points.some((d, i) => {
-      const c = stroke.points[Math.max(0, i - 1)];
+    let points = stroke.points;
+    if (stroke.shape && stroke.points.length >= 2) {
+      const start = stroke.points[0], end = stroke.points[stroke.points.length - 1];
+      if (stroke.shape === "rectangle") {
+        points = [start, { x: end.x, y: start.y }, end, { x: start.x, y: end.y }, start];
+      } else if (stroke.shape === "ellipse") {
+        points = Array.from({ length: 33 }, (_, index) => {
+          const angle = index / 32 * Math.PI * 2;
+          return { x: (start.x + end.x) / 2 + Math.cos(angle) * Math.abs(end.x - start.x) / 2,
+            y: (start.y + end.y) / 2 + Math.sin(angle) * Math.abs(end.y - start.y) / 2 };
+        });
+      }
+    }
+    return points.some((d, i) => {
+      const c = points[Math.max(0, i - 1)];
       const intersects = cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0;
       return intersects || Math.min(distanceToSegment(c, a, b), distanceToSegment(d, a, b),
         distanceToSegment(a, c, d), distanceToSegment(b, c, d)) <= limit;
@@ -192,11 +206,22 @@
     const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
     const local = p => ({ x: length ? ((p.x - from.x) * dx + (p.y - from.y) * dy) / length : 0,
       y: length ? (-(p.x - from.x) * dy + (p.y - from.y) * dx) / length : 0 });
-    return transformStrokes(strokes, (a, b, stroke) => {
+    let changed = false;
+    const result = strokes.flatMap(stroke => {
+      if (stroke.shape) {
+        if (hitStroke(stroke, from, to, radius)) { changed = true; return []; }
+        return [stroke];
+      }
       const r = radius + stroke.width / 2;
-      return [...circleInterval(a, b, from, r), ...circleInterval(a, b, to, r),
-        ...(length ? rectangleInterval(local(a), local(b), 0, -r, length, r) : [])];
+      const clipped = splitStroke(stroke, (a, b) => [
+        ...circleInterval(a, b, from, r),
+        ...circleInterval(a, b, to, r),
+        ...(length ? rectangleInterval(local(a), local(b), 0, -r, length, r) : [])
+      ]);
+      changed = changed || clipped.changed;
+      return clipped.strokes;
     });
+    return { changed, strokes: changed ? result : strokes };
   }
 
   function clearPage(strokes, page) {
@@ -207,6 +232,58 @@
     });
   }
 
+  function simplifyPoints(points, tolerance = .75) {
+    if (!Array.isArray(points) || points.length <= 2) return points ? points.slice() : [];
+    const squareTolerance = tolerance * tolerance;
+    const radial = [points[0]];
+    let previous = points[0];
+    for (let index = 1; index < points.length - 1; index++) {
+      const point = points[index];
+      const dx = point.x - previous.x, dy = point.y - previous.y;
+      if (dx * dx + dy * dy >= squareTolerance) {
+        radial.push(point);
+        previous = point;
+      }
+    }
+    radial.push(points[points.length - 1]);
+    const simplify = (start, end, output) => {
+      let maxDistance = squareTolerance, split = 0;
+      const a = radial[start], b = radial[end];
+      const dx = b.x - a.x, dy = b.y - a.y, length = dx * dx + dy * dy;
+      for (let index = start + 1; index < end; index++) {
+        const point = radial[index];
+        const t = length ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length)) : 0;
+        const x = a.x + t * dx, y = a.y + t * dy;
+        const distance = (point.x - x) ** 2 + (point.y - y) ** 2;
+        if (distance > maxDistance) { maxDistance = distance; split = index; }
+      }
+      if (!split) return;
+      if (split - start > 1) simplify(start, split, output);
+      output.push(radial[split]);
+      if (end - split > 1) simplify(split, end, output);
+    };
+    const result = [radial[0]];
+    simplify(0, radial.length - 1, result);
+    result.push(radial[radial.length - 1]);
+    return result;
+  }
+
+  function strokeBounds(stroke) {
+    const padding = stroke.width / 2;
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (const point of stroke.points) {
+      left = Math.min(left, point.x - padding);
+      top = Math.min(top, point.y - padding);
+      right = Math.max(right, point.x + padding);
+      bottom = Math.max(bottom, point.y + padding);
+    }
+    return { left, top, right, bottom };
+  }
+
+  function intersectsBounds(a, b) {
+    return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
+  }
+
   function pinch(view, a, b, nextA, nextB, rect) {
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
     const scale = Math.max(.2, Math.min(4, view.scale * Math.hypot(nextB.x - nextA.x, nextB.y - nextA.y) / Math.max(1, distance)));
@@ -215,5 +292,8 @@
     return { x: view.x + center.x / view.scale - next.x / scale, y: view.y + center.y / view.scale - next.y / scale, scale };
   }
 
-  window.IpadModel = { KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom, hitStroke, erase, clearPage, pinch };
+  window.IpadModel = {
+    KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom,
+    hitStroke, erase, clearPage, pinch, simplifyPoints, strokeBounds, intersectsBounds
+  };
 })();

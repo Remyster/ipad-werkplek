@@ -67,6 +67,8 @@ section > aside { margin-top: 22px; background: #e9efdf; }
 .drive-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
 .drive-actions button, .drive-actions .action { flex: 1 1 150px; }
 #drive-status { overflow-wrap: anywhere; }
+.pdf-library-actions { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; gap: 8px; padding-bottom: 8px; }
+.pdf-library-actions select { min-height: 44px; padding: 8px; border: 1px solid #b4c4b9; border-radius: 8px; background: #fff; }
 .editor { min-width: 0; }
 label { display: block; font-size: .9rem; }
 #title, textarea { width: 100%; padding: 12px; border: 1px solid #b4c4b9; background: #fff; color: inherit; border-radius: 10px; margin: 6px 0 14px; }
@@ -107,6 +109,10 @@ input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
 #drawing, #saved-drawing { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 #saved-drawing { pointer-events: none; }
 #drawing { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#quick-tools { position: absolute; z-index: 4; width: min(330px, calc(100% - 20px)); padding: 10px; border: 1px solid #8ca49d; border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgb(23 60 57 / 24%); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#quick-tools[hidden] { display: none; }
+#quick-tools button { min-height: 40px; padding: 7px 10px; }
+#quick-tools label { display: flex; align-items: center; gap: 4px; }
 #writing { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #writing input, #writing textarea, #writing select { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
@@ -135,6 +141,7 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   .document-pickers { grid-template-columns: 1fr 1fr; }
   .document-pickers .danger-button { grid-column: 1 / -1; }
   .backup-actions { grid-template-columns: 1fr; }
+  .pdf-library-actions { grid-template-columns: 1fr; }
   #surface { height: 85dvh; }
   .measurement-sheet { padding: 12px; }
   .writing-actions { gap: 5px; }

@@ -12,6 +12,11 @@
   let livePoints = 0;
   let renderedWidth = 0;
   let renderedHeight = 0;
+  let selection = null;
+  let inkClipboard = [];
+  let longPressTimer = null;
+  let longPressOrigin = null;
+  const boundsCache = new WeakMap();
   const touches = new Map();
   let pinch = null;
   let pdfImages = [];
@@ -36,6 +41,7 @@
       report(error);
       return false;
     }
+
   }
 
   function active() { return data.documents.find(doc => doc.id === data.activeId); }
@@ -53,6 +59,15 @@
     ctx.clearRect(0, 0, $(id).width, $(id).height);
   }
 
+  function strokeBounds(stroke) {
+    let bounds = boundsCache.get(stroke);
+    if (!bounds) {
+      bounds = M.strokeBounds(stroke);
+      boundsCache.set(stroke, bounds);
+    }
+    return bounds;
+  }
+
   function worldContext(id) {
     const ctx = context(id);
     const rect = $("drawing").getBoundingClientRect();
@@ -63,17 +78,68 @@
   }
 
   function drawStroke(ctx, stroke, from = 0) {
+    ctx.save();
     ctx.strokeStyle = stroke.color;
     ctx.fillStyle = stroke.color;
     ctx.lineWidth = stroke.width;
     const brush = stroke.brush || "pen";
-    ctx.lineCap = brush === "pen" ? "round" : "butt";
+    ctx.globalAlpha = brush === "highlighter" ? .28 : brush === "marker" ? .72 : 1;
+    ctx.lineCap = ["pen", "marker", "highlighter"].includes(brush) ? "round" : "butt";
     ctx.lineJoin = "round";
     ctx.setLineDash(brush === "dashed" ? [stroke.width * 3, stroke.width * 2] : []);
     let distance = 0;
     for (let i = 1; i < from; i++) distance += Math.hypot(stroke.points[i].x - stroke.points[i - 1].x, stroke.points[i].y - stroke.points[i - 1].y);
     ctx.lineDashOffset = -distance;
     const points = stroke.points;
+    if (stroke.shape && points.length >= 2) {
+      const a = points[0], b = points[points.length - 1];
+      ctx.beginPath();
+      if (stroke.shape === "line" || stroke.shape === "arrow") {
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+      } else if (stroke.shape === "rectangle") {
+        ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+      } else if (stroke.shape === "ellipse") {
+        ctx.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2,
+          Math.abs(b.x - a.x) / 2, Math.abs(b.y - a.y) / 2, 0, 0, Math.PI * 2);
+      } else if (stroke.shape === "check") {
+        ctx.moveTo(a.x, a.y + (b.y - a.y) * .55);
+        ctx.lineTo(a.x + (b.x - a.x) * .38, b.y);
+        ctx.lineTo(b.x, a.y);
+      } else if (stroke.shape === "warning") {
+        ctx.moveTo((a.x + b.x) / 2, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineTo(a.x, b.y);
+        ctx.closePath();
+        ctx.moveTo((a.x + b.x) / 2, a.y + (b.y - a.y) * .3);
+        ctx.lineTo((a.x + b.x) / 2, a.y + (b.y - a.y) * .68);
+        ctx.moveTo((a.x + b.x) / 2, a.y + (b.y - a.y) * .82);
+        ctx.lineTo((a.x + b.x) / 2, a.y + (b.y - a.y) * .84);
+      } else if (stroke.shape === "star") {
+        const centerX = (a.x + b.x) / 2, centerY = (a.y + b.y) / 2;
+        const outer = Math.min(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) / 2;
+        for (let index = 0; index < 10; index++) {
+          const angle = -Math.PI / 2 + index * Math.PI / 5;
+          const radius = index % 2 ? outer * .42 : outer;
+          const x = centerX + Math.cos(angle) * radius, y = centerY + Math.sin(angle) * radius;
+          if (!index) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+      }
+      ctx.stroke();
+      if (stroke.shape === "arrow") {
+        const angle = Math.atan2(b.y - a.y, b.x - a.x);
+        const size = Math.max(10, stroke.width * 4);
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - Math.cos(angle - Math.PI / 6) * size, b.y - Math.sin(angle - Math.PI / 6) * size);
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - Math.cos(angle + Math.PI / 6) * size, b.y - Math.sin(angle + Math.PI / 6) * size);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
     if (from === 0 && (brush === "pen" || points.length === 1)) {
       ctx.beginPath();
       ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2);
@@ -86,14 +152,51 @@
       for (let i = start + 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
       ctx.stroke();
     }
+    ctx.restore();
   }
 
   function drawLive() {
-    if (!gesture || !gesture.stroke) return;
-    if (livePoints < gesture.stroke.points.length) {
+    if (gesture && gesture.stroke && livePoints < gesture.stroke.points.length) {
       drawStroke(worldContext("drawing"), gesture.stroke, livePoints);
       livePoints = gesture.stroke.points.length;
     }
+    if (selection) drawSelectionOverlay();
+  }
+
+  function selectionBounds() {
+    if (!selection?.indexes?.length) return null;
+    const bounds = selection.indexes.map(index => strokeBounds(active().strokes[index]));
+    return {
+      left: Math.min(...bounds.map(value => value.left)),
+      top: Math.min(...bounds.map(value => value.top)),
+      right: Math.max(...bounds.map(value => value.right)),
+      bottom: Math.max(...bounds.map(value => value.bottom))
+    };
+  }
+
+  function drawSelectionOverlay() {
+    const ctx = worldContext("drawing");
+    const bounds = selectionBounds() || selection.region;
+    if (!bounds) return;
+    ctx.save();
+    ctx.strokeStyle = "#af6700";
+    ctx.lineWidth = 2 / active().view.scale;
+    ctx.setLineDash([8 / active().view.scale, 6 / active().view.scale]);
+    ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+    ctx.restore();
+  }
+
+  function updateSelectionButtons() {
+    const hasSelection = !!selection?.indexes?.length;
+    $("selection-copy").disabled = !hasSelection;
+    $("selection-cut").disabled = !hasSelection;
+    $("selection-paste").disabled = !inkClipboard.length;
+  }
+
+  function clearSelection() {
+    selection = null;
+    updateSelectionButtons();
+    clear("drawing");
   }
 
   function textLines(ctx, text) {
@@ -184,6 +287,12 @@
       clear(id);
     }
     const ctx = worldContext("saved-drawing");
+    const viewport = {
+      left: doc.view.x,
+      top: doc.view.y,
+      right: doc.view.x + rect.width / doc.view.scale,
+      bottom: doc.view.y + rect.height / doc.view.scale
+    };
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
     if (doc.kind === "page") {
@@ -203,9 +312,17 @@
         ctx.stroke();
       }
     }
-    for (const page of pdfImages) ctx.drawImage(page.image, 0, page.top, page.width, page.height);
-    for (const stroke of doc.strokes) drawStroke(ctx, stroke);
-    for (const block of doc.textBlocks || []) drawTextBlock(ctx, block);
+    for (const page of pdfImages) {
+      if (page.top <= viewport.bottom && page.top + page.height >= viewport.top) {
+        ctx.drawImage(page.image, 0, page.top, page.width, page.height);
+      }
+    }
+    for (const stroke of doc.strokes) {
+      if (M.intersectsBounds(strokeBounds(stroke), viewport)) drawStroke(ctx, stroke);
+    }
+    for (const block of doc.textBlocks || []) {
+      if (block.y <= viewport.bottom && block.y + 1000 >= viewport.top) drawTextBlock(ctx, block);
+    }
     livePoints = 0;
     drawLive();
     updateControls();
@@ -523,10 +640,6 @@
     }
     selectDocument();
     $("save-status").textContent = `"${removed.title || "Zonder titel"}" is weggegooid.`;
-    if (removed.pdf) {
-      try { await window.WorkplacePdf.remove(removed.pdf.id); }
-      catch (error) { report(new Error(`Het bord is weggegooid, maar het lokale PDF-bestand kon niet worden opgeruimd: ${error.message}`)); }
-    }
   }
 
   function finish(event, reason = "bediening") {
@@ -541,11 +654,25 @@
     }
     endDiagnostics(old, event ? event.type : reason);
     if (old.stroke) {
+      if (!old.stroke.shape) old.stroke.points = M.simplifyPoints(old.stroke.points, Math.max(.55, old.stroke.width * .08));
       remember(active().strokes.slice());
       active().strokes.push(old.stroke);
       drawStroke(worldContext("saved-drawing"), old.stroke);
     } else if (old.tool === "eraser" && old.changed) {
       remember(old.before);
+    } else if (old.tool === "scratch-eraser" && old.changed) {
+      remember(old.before);
+    } else if (old.tool === "select-ink" && old.moveSelection) {
+      remember(old.before);
+    } else if (old.tool === "select-ink" && old.selectStart && old.selectEnd) {
+      const region = {
+        left: Math.min(old.selectStart.x, old.selectEnd.x),
+        top: Math.min(old.selectStart.y, old.selectEnd.y),
+        right: Math.max(old.selectStart.x, old.selectEnd.x),
+        bottom: Math.max(old.selectStart.y, old.selectEnd.y)
+      };
+      const indexes = active().strokes.map((stroke, index) => M.intersectsBounds(strokeBounds(stroke), region) ? index : -1).filter(index => index >= 0);
+      selection = indexes.length ? { indexes } : null;
     }
     gesture = null;
     clear("drawing");
@@ -553,6 +680,8 @@
     if ($("drawing").hasPointerCapture(old.id)) $("drawing").releasePointerCapture(old.id);
     persist();
     updateControls();
+    updateSelectionButtons();
+    if (!old.stroke) render();
   }
 
   function remember(before) {
@@ -567,8 +696,51 @@
     if (result.changed) {
       gesture.changed = true;
       active().strokes = result.strokes;
+      scheduleRender();
+    }
+  }
+
+  function scratchEraseAt(point) {
+    const before = active().strokes;
+    const from = gesture.lastPoint;
+    const radius = Math.max(8, gesture.eraserRadius / active().view.scale);
+    const kept = before.filter(stroke => !M.hitStroke(stroke, from, point, radius));
+    gesture.lastPoint = point;
+    if (kept.length !== before.length) {
+      gesture.changed = true;
+      active().strokes = kept;
+      scheduleRender();
+    }
+  }
+
+  function copySelection(cut = false) {
+    if (!selection?.indexes?.length) return;
+    const selected = new Set(selection.indexes);
+    inkClipboard = active().strokes.filter((_, index) => selected.has(index)).map(stroke => JSON.parse(JSON.stringify(stroke)));
+    if (cut) {
+      remember(active().strokes.slice());
+      active().strokes = active().strokes.filter((_, index) => !selected.has(index));
+      selection = null;
+      persist();
       render();
     }
+    updateSelectionButtons();
+  }
+
+  function pasteSelection() {
+    if (!inkClipboard.length) return;
+    remember(active().strokes.slice());
+    const pasted = inkClipboard.map(stroke => ({
+      ...JSON.parse(JSON.stringify(stroke)),
+      points: stroke.points.map(point => ({ x: point.x + 24, y: point.y + 24 }))
+    }));
+    const start = active().strokes.length;
+    active().strokes.push(...pasted);
+    selection = { indexes: pasted.map((_, index) => start + index) };
+    inkClipboard = pasted;
+    persist();
+    updateSelectionButtons();
+    render();
   }
 
   function setFocusLabel(on) {
@@ -711,19 +883,31 @@
       captureInk() {
         finish();
         if (isMeasurement()) throw new Error("Open een schrift of whiteboard om handschrift te selecteren.");
-        render();
-        const source = $("saved-drawing");
+        if (!active().strokes.length) {
+          const empty = document.createElement("canvas");
+          empty.width = empty.height = 8;
+          const emptyContext = empty.getContext("2d");
+          emptyContext.fillStyle = "#ffffff";
+          emptyContext.fillRect(0, 0, 8, 8);
+          return empty;
+        }
+        const bounds = active().strokes.map(strokeBounds);
+        const margin = 24;
+        const left = Math.min(...bounds.map(value => value.left)) - margin;
+        const top = Math.min(...bounds.map(value => value.top)) - margin;
+        const right = Math.max(...bounds.map(value => value.right)) + margin;
+        const bottom = Math.max(...bounds.map(value => value.bottom)) + margin;
+        const worldWidth = Math.max(8, right - left);
+        const worldHeight = Math.max(8, bottom - top);
+        const scale = Math.min(2, 1600 / Math.max(worldWidth, worldHeight));
         const canvas = document.createElement("canvas");
-        canvas.width = source.width;
-        canvas.height = source.height;
+        canvas.width = Math.max(8, Math.ceil(worldWidth * scale));
+        canvas.height = Math.max(8, Math.ceil(worldHeight * scale));
         const ctx = canvas.getContext("2d");
-        if (!ctx || !canvas.width || !canvas.height) throw new Error("Open eerst een zichtbaar schrijfvlak om handschrift te selecteren.");
+        if (!ctx) throw new Error("Handschriftvoorbeeld maken is niet beschikbaar.");
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const rect = $("drawing").getBoundingClientRect();
-        const ratio = canvas.width / rect.width;
-        const { x, y, scale } = active().view;
-        ctx.setTransform(ratio * scale, 0, 0, ratio * scale, -x * ratio * scale, -y * ratio * scale);
+        ctx.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
         for (const stroke of active().strokes) drawStroke(ctx, stroke);
         return canvas;
       },
@@ -767,6 +951,54 @@
         render();
       }
     };
+    async function refreshPdfLibrary() {
+      try {
+        const files = await window.WorkplacePdf.list();
+        const options = files.map(file => {
+          const option = document.createElement("option");
+          option.value = file.id;
+          option.textContent = `${file.name} (${file.pages} pagina${file.pages === 1 ? "" : "'s"})`;
+          return option;
+        });
+        if (!options.length) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "Nog geen PDF-bestanden";
+          options.push(option);
+        }
+        $("pdf-library-list").replaceChildren(...options);
+        $("pdf-library-open").disabled = !files.length;
+        $("pdf-library-download").disabled = !files.length;
+        $("pdf-library-status").textContent = files.length
+          ? `${files.length} lokaal opgeslagen PDF-bestand${files.length === 1 ? "" : "en"}.`
+          : "Voeg eerst een PDF toe met Achtergrond of Nieuw bord.";
+      } catch (error) {
+        $("pdf-library-status").textContent = error.message;
+        $("pdf-library-open").disabled = true;
+        $("pdf-library-download").disabled = true;
+      }
+    }
+
+    $("pdf-library-open").addEventListener("click", async () => {
+      try {
+        finish();
+        const reference = await window.WorkplacePdf.reference($("pdf-library-list").value);
+        const doc = M.createDocument("board", crypto.randomUUID());
+        doc.title = reference.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
+        doc.folderId = active().folderId || null;
+        doc.pdf = reference;
+        data.documents.push(doc);
+        data.activeId = doc.id;
+        if (!persist()) throw new Error("PDF-bord kon niet lokaal worden opgeslagen.");
+        selectDocument();
+      } catch (error) { report(error); }
+    });
+    $("pdf-library-download").addEventListener("click", async () => {
+      try { await window.WorkplacePdf.original($("pdf-library-list").value); }
+      catch (error) { report(error); }
+    });
+    refreshPdfLibrary();
+
     async function importPdfInput(input, createBoard) {
       finish();
       const file = input.files[0];
@@ -802,6 +1034,7 @@
         }
         if (createBoard) selectDocument();
         else await loadPdf();
+        await refreshPdfLibrary();
       } catch (error) { report(error); $("pdf-status").textContent = error.message; }
       finally { input.disabled = false; input.value = ""; }
     }
@@ -898,11 +1131,17 @@
       if (field === "title") list(active().folderId || null);
       persist();
     });
-    for (const name of ["pen", "move", "eraser"]) $(name).addEventListener("click", () => {
+    const drawingToolIds = ["pen", "move", "eraser", "scratch-eraser", "select-ink"];
+    const activateTool = name => {
       finish();
       tool = name;
-      for (const id of ["pen", "move", "eraser"]) $(id).setAttribute("aria-pressed", String(name === id));
-    });
+      if (name !== "select-ink") clearSelection();
+      for (const id of drawingToolIds) $(id).setAttribute("aria-pressed", String(name === id));
+    };
+    for (const name of drawingToolIds) $(name).addEventListener("click", () => activateTool(name));
+    $("selection-copy").addEventListener("click", () => copySelection(false));
+    $("selection-cut").addEventListener("click", () => copySelection(true));
+    $("selection-paste").addEventListener("click", pasteSelection);
     $("undo").addEventListener("click", () => {
       finish();
       if (undo.length) {
@@ -960,6 +1199,38 @@
       render();
     });
     const canvas = $("drawing");
+    const quickTools = $("quick-tools");
+    const hideQuickTools = () => { quickTools.hidden = true; };
+    const showQuickTools = (clientX, clientY) => {
+      if (gesture?.stroke) {
+        const pointerId = gesture.id;
+        gesture.stroke = null;
+        gesture = null;
+        clear("drawing");
+        if (canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+      }
+      const rect = $("surface").getBoundingClientRect();
+      quickTools.style.left = `${Math.max(10, Math.min(rect.width - 340, clientX - rect.left))}px`;
+      quickTools.style.top = `${Math.max(10, Math.min(rect.height - 150, clientY - rect.top))}px`;
+      $("quick-color").value = $("color").value;
+      $("quick-width").value = $("width").value;
+      quickTools.hidden = false;
+    };
+    quickTools.addEventListener("pointerdown", event => event.stopPropagation());
+    quickTools.querySelectorAll("[data-quick-brush]").forEach(button => button.addEventListener("click", () => {
+      $("brush").value = button.dataset.quickBrush;
+      activateTool("pen");
+      hideQuickTools();
+    }));
+    quickTools.querySelector("[data-quick-tool='eraser']").addEventListener("click", () => {
+      activateTool("eraser");
+      hideQuickTools();
+    });
+    $("quick-color").addEventListener("input", () => { $("color").value = $("quick-color").value; });
+    $("quick-width").addEventListener("input", () => {
+      $("width").value = $("quick-width").value;
+      $("width-value").textContent = $("width").value;
+    });
     const touchPair = () => [...touches.values()].slice(0, 2);
     const startPinch = () => {
       const [a, b] = touchPair();
@@ -980,6 +1251,7 @@
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     canvas.addEventListener("pointerdown", event => {
       event.preventDefault();
+      hideQuickTools();
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) selection.removeAllRanges();
       if (document.activeElement instanceof HTMLElement && document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
@@ -1021,12 +1293,39 @@
       const inputTool = kind === "touch" && !$("finger").checked ? "move" : tool;
       gesture = { id: event.pointerId, type: event.pointerType, tool: inputTool, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
         metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
-      if (inputTool === "pen") gesture.stroke = { color: $("color").value, width: Number($("width").value), brush: $("brush").value, points: [point] };
-      if (inputTool === "eraser") {
+      if (inputTool === "pen") {
+        gesture.stroke = { color: $("color").value, width: Number($("width").value), brush: $("brush").value, points: [point] };
+        if ($("shape").value) {
+          gesture.stroke.shape = $("shape").value;
+          gesture.stroke.points.push({ ...point });
+        }
+      }
+      if (inputTool === "eraser" || inputTool === "scratch-eraser") {
         gesture.eraserRadius = Number($("eraser-size").value);
         gesture.before = active().strokes.slice();
         gesture.lastPoint = point;
-        eraseAt(point);
+        if (inputTool === "eraser") eraseAt(point);
+      }
+      if (inputTool === "select-ink") {
+        const bounds = selectionBounds();
+        if (bounds && point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top && point.y <= bounds.bottom) {
+          gesture.before = JSON.parse(JSON.stringify(active().strokes));
+          gesture.moveSelection = selection.indexes.map(index => ({
+            index,
+            points: active().strokes[index].points.map(value => ({ ...value }))
+          }));
+          gesture.moveStart = point;
+        } else {
+          clearSelection();
+          gesture.selectStart = point;
+          gesture.selectEnd = point;
+          selection = { indexes: [], region: { left: point.x, top: point.y, right: point.x, bottom: point.y } };
+        }
+      }
+      if (inputTool === "pen" && !$("shape").value) {
+        longPressOrigin = { x: event.clientX, y: event.clientY };
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => showQuickTools(event.clientX, event.clientY), 650);
       }
       livePoints = 0;
       drawLive();
@@ -1043,11 +1342,24 @@
       }
       if (!gesture || gesture.id !== event.pointerId) return;
       event.preventDefault();
+      if (longPressOrigin && Math.hypot(event.clientX - longPressOrigin.x, event.clientY - longPressOrigin.y) > 8) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+        longPressOrigin = null;
+      }
       const now = performance.now();
       gesture.metrics.moves++;
       gesture.metrics.gap = Math.max(gesture.metrics.gap, now - gesture.metrics.last);
       gesture.metrics.last = now;
       if (gesture.stroke) {
+        if (gesture.stroke.shape) {
+          gesture.metrics.samples++;
+          gesture.stroke.points[1] = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+          clear("drawing");
+          livePoints = 0;
+          drawStroke(worldContext("drawing"), gesture.stroke);
+          return;
+        }
         const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
         addSamples(events.length ? events : [event]);
         const lastSample = events[events.length - 1];
@@ -1058,6 +1370,30 @@
         for (const sample of [...events, event]) {
           gesture.metrics.samples++;
           eraseAt(M.point(sample.clientX, sample.clientY, canvas.getBoundingClientRect(), active().view));
+        }
+      } else if (gesture.tool === "scratch-eraser") {
+        const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+        scratchEraseAt(point);
+      } else if (gesture.tool === "select-ink") {
+        const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+        if (gesture.moveSelection) {
+          const dx = point.x - gesture.moveStart.x, dy = point.y - gesture.moveStart.y;
+          for (const item of gesture.moveSelection) {
+            const stroke = active().strokes[item.index];
+            stroke.points = item.points.map(value => ({ x: value.x + dx, y: value.y + dy }));
+            boundsCache.delete(stroke);
+          }
+          scheduleRender();
+        } else {
+          gesture.selectEnd = point;
+          selection.region = {
+            left: Math.min(gesture.selectStart.x, point.x),
+            top: Math.min(gesture.selectStart.y, point.y),
+            right: Math.max(gesture.selectStart.x, point.x),
+            bottom: Math.max(gesture.selectStart.y, point.y)
+          };
+          clear("drawing");
+          drawSelectionOverlay();
         }
       } else {
         gesture.metrics.samples++;
@@ -1077,6 +1413,9 @@
       render();
     }, { passive: false });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, event => {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      longPressOrigin = null;
       if (event.pointerType === "touch") {
         touches.delete(event.pointerId);
         if (pinch) {
@@ -1094,9 +1433,15 @@
       render();
     }).observe(canvas);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") { finish(null, "pagina verborgen"); persist(); }
+      if (document.visibilityState === "hidden") {
+        finish(null, "pagina verborgen");
+        persist();
+      }
     });
-    window.addEventListener("pagehide", () => { finish(null, "pagina verlaten"); persist(); });
+    window.addEventListener("pagehide", () => {
+      finish(null, "pagina verlaten");
+      persist();
+    });
     $("export").addEventListener("click", async () => {
       finish();
       $("export").disabled = true;

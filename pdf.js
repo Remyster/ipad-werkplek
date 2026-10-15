@@ -26,6 +26,32 @@
   const put = (id, value) => transaction("readwrite", store => store.put(value, id));
   const remove = id => transaction("readwrite", store => store.delete(id));
 
+  async function list() {
+    const db = await database();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("files", "readonly");
+      const store = tx.objectStore("files");
+      const keysRequest = store.getAllKeys();
+      const valuesRequest = store.getAll();
+      tx.oncomplete = () => resolve(keysRequest.result.map((id, index) => {
+        const file = valuesRequest.result[index];
+        return { id: String(id), name: file.name, pages: file.pages.length };
+      }).sort((a, b) => a.name.localeCompare(b.name, "nl")));
+      tx.onerror = () => reject(new Error("PDF-bibliotheek laden mislukt."));
+      tx.onabort = () => reject(new Error("PDF-bibliotheek laden afgebroken."));
+    });
+  }
+
+  async function reference(id) {
+    const file = await get(id);
+    if (!file) throw new Error("Deze PDF staat niet meer in de lokale bibliotheek.");
+    return {
+      id: String(id),
+      name: file.name,
+      pages: file.pages.map(({ width, height, top }) => ({ width, height, top }))
+    };
+  }
+
   async function importFile(file) {
     if (!(file instanceof Blob) || file.size > 20 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 20 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -157,5 +183,5 @@
     }
     return snapshot;
   }
-  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download };
+  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference };
 })();

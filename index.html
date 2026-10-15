@@ -109,6 +109,16 @@
             </div>
             <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
           </details>
+          <details class="workmap-menu" id="pdf-library">
+            <summary>PDF-bibliotheek</summary>
+            <p>Alle lokaal toegevoegde PDF-bestanden. Open een PDF opnieuw als apart bord in de huidige map.</p>
+            <div class="pdf-library-actions">
+              <select id="pdf-library-list" aria-label="Kies een opgeslagen PDF"></select>
+              <button id="pdf-library-open" type="button">Open als nieuw bord</button>
+              <button id="pdf-library-download" type="button">Download origineel</button>
+            </div>
+            <p id="pdf-library-status" role="status">Bibliotheek laden...</p>
+          </details>
         </div>
       </details>
       <div class="compact-actions writing-actions" id="writing-actions" aria-label="Nieuw, toevoegen, schrijven en AI">
@@ -146,14 +156,20 @@
           <div class="tools" aria-label="Tekengereedschap">
             <button id="pen" aria-pressed="true">Pen</button>
             <button id="eraser" aria-pressed="false" title="Wist alleen het geraakte stukje inkt">Gum</button>
+            <button id="scratch-eraser" aria-pressed="false" title="Streep door inkt om hele geraakte streken te verwijderen">Doorhalen</button>
             <button id="clear-page">Pagina leegmaken</button>
             <button id="move" aria-pressed="false">Verplaatsen</button>
-            <label>Pensoort <select id="brush"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option></select></label>
-            <label>Pendikte <input id="width" type="range" min="1" max="20" step="1" value="4"><output id="width-value">4</output></label>
+            <button id="select-ink" aria-pressed="false">Selecteer</button>
+            <label>Pensoort <select id="brush"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select></label>
+            <label>Vorm/pictogram <select id="shape"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select></label>
+            <label>Pendikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
             <label>Gumgrootte <select id="eraser-size"><option value="6">Klein (12 px)</option><option value="12" selected>Normaal (24 px)</option><option value="24">Groot (48 px)</option><option value="40">Extra groot (80 px)</option></select></label>
             <label>Kleur <input id="color" type="color" value="#173c39"></label>
             <button id="undo">Ongedaan</button>
             <button id="redo">Opnieuw</button>
+            <button id="selection-copy" disabled>Kopieer</button>
+            <button id="selection-cut" disabled>Knip</button>
+            <button id="selection-paste" disabled>Plak</button>
             <button id="zoom-out" aria-label="Uitzoomen">-</button>
             <output id="zoom">100%</output>
             <button id="zoom-in" aria-label="Inzoomen">+</button>
@@ -177,6 +193,14 @@
           <div id="surface">
             <canvas id="saved-drawing" aria-hidden="true"></canvas>
             <canvas id="drawing" role="img" aria-label="Schrijfoppervlak">Je browser ondersteunt het schrijfoppervlak niet.</canvas>
+            <div id="quick-tools" role="dialog" aria-label="Snelle pengereedschappen" hidden>
+              <button type="button" data-quick-brush="pen">Pen</button>
+              <button type="button" data-quick-brush="marker">Stift</button>
+              <button type="button" data-quick-brush="highlighter">Markeer</button>
+              <button type="button" data-quick-tool="eraser">Gum</button>
+              <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
+              <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
+            </div>
           </div>
           <details id="typed-notes">
             <summary>Getypte notities naast je handschrift</summary>
@@ -240,6 +264,7 @@
     <form id="writing-ai-form">
       <label id="writing-ai-prompt-label" for="writing-ai-prompt">Je vraag</label>
       <textarea id="writing-ai-prompt" rows="3" maxlength="6000" required placeholder="Typ een korte vraag." autofocus></textarea>
+      <label id="writing-ai-board-label" class="finger-option"><input id="writing-ai-board" type="checkbox"> Lees ook alle peninkt van dit blad of bord (geen PDF of getypte tekst)</label>
       <label class="finger-option"><input id="writing-ai-consent" type="checkbox" required> <span id="writing-ai-consent-label">Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag naar Claude te sturen.</span></label>
       <button id="writing-ai-send" type="submit">Stel vraag</button>
     </form>

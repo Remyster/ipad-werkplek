@@ -1,0 +1,29 @@
+IPAD WERKPLEK V20 INSTALLEREN
+=============================
+
+1. APP PUBLICEREN
+- Pak ipad-werkplek-v20-update.zip uit.
+- Vervang daarmee de bestanden in de hoofdmap van repository ipad-werkplek.
+- Behoud de bestaande vendor-map.
+- Verwijder geen browseropslag: lokale notities en PDF's moeten blijven staan.
+
+2. AI-BACKEND PUBLICEREN
+- Pak ipad-werkplek-v20-backend.zip uit.
+- Publiceer de actuele index.ts als nieuwe versie van Supabase Edge Function
+  werkplek-ai.
+- Bestaande secrets niet wijzigen. Deel nooit keys/tokens in chat.
+- De nieuwe backendtaak board-question is nodig voor:
+  AI Vraag > Lees ook alle peninkt van dit blad of bord.
+
+3. CONTROLEREN MET FICTIEVE TEKST
+- Herlaad de live app nadat de nieuwe service worker klaarstaat.
+- Controleer stift, markeerstift, vormen en pictogrammen.
+- Controleer Gum voor een deel en Doorhalen voor een hele streek.
+- Selecteer inkt, versleep, kopieer, knip en plak.
+- Open een eerder toegevoegde PDF vanuit PDF-bibliotheek.
+- Schrijf op verschillende plekken van een groot bord en gebruik Herken >
+  Selecteer alle. Het voorbeeld moet alle inkt bevatten, zonder PDF.
+- Gebruik AI Vraag met het inktvinkje uitsluitend met fictieve tekst.
+
+Lokale controle: 223 browsercontroles geslaagd.
+Nog niet bewezen: fysieke iPad-prestaties en live Gemini-resultaat.

@@ -711,3 +711,42 @@ maar wordt niet meer door de interface aangeroepen.
 De Chrome-regressiesuite is na deze wijziging volledig geslaagd. Cache v19.
 Upload de veertien assets uit `../ipad-werkplek-v19-update.zip` en behoud de
 bestaande vendor-map.
+
+## Versie 20: grote borden, gereedschappen, selectie en PDF-bibliotheek
+
+De oude grens van 100.000 penpunten is vervangen door een veiligheidsgrens van
+1.000.000 punten. Nieuwe vrije penstreken worden na afronden geometrisch
+vereenvoudigd, met behoud van begin- en eindpunt. Tijdens tekenen blijft alleen
+de nieuwe streek live; bij opnieuw tekenen worden alleen streken en PDF-pagina's
+in het zichtbare gebied gerenderd. Gumbewegingen worden per animation frame
+samengevoegd. Dit vermindert vertraging, maar extreem grote localStorage-
+documenten blijven begrensd door de browseropslag. Maak dus nog steeds back-ups.
+
+Nieuwe tekengereedschappen:
+- stift en transparante markeerstift;
+- lijn, pijl, rechthoek/vierkant en cirkel/ovaal;
+- pictogramstempels voor vinkje, waarschuwing en ster;
+- gewone gum voor gedeelten en `Doorhalen` voor complete geraakte streken;
+- rechthoekige inktselectie met verslepen, kopieren, knippen en plakken;
+- lang indrukken op een stil punt van het schrijfvlak opent een compact palet
+  voor pen, stift, markeerstift, gum, kleur en dikte.
+
+De PDF-bibliotheek toont alle lokaal verwerkte PDF-bestanden uit IndexedDB.
+Een bestand kan opnieuw als apart bord in de huidige map worden geopend of als
+origineel worden gedownload. Een bord weggooien verwijdert het gedeelde
+PDF-bestand daarom niet meer stilzwijgend uit de bibliotheek.
+
+`Herken` maakt nu een begrensd beeld van alle peninkt op het blad of whiteboard,
+niet alleen de huidige viewport. PDF-achtergrond en getypte tekst blijven buiten
+het beeld. Bij `AI Vraag` kan de gebruiker expliciet aanvinken dat Gemini alle
+peninkt als context mag lezen. Het beeld wordt tot maximaal 1600 px verkleind,
+toestemming blijft verplicht en de backend behandelt tekst in het beeld als
+onbetrouwbare inhoud, niet als instructie.
+
+De bestaande opslag blijft versie 1 en oude documenten blijven geldig. De
+uitbreiding voegt alleen optionele brush- en shape-waarden toe. 223 lokale
+Chrome-regressiecontroles geslaagd. Cache v20. Upload de veertien app-assets uit
+`../ipad-werkplek-v20.2-update.zip`, behoud de bestaande vendor-map en deploy
+daarnaast de actuele backend uit `../ipad-werkplek-v20.2-backend.zip`. Echte
+iPad-prestaties en live Gemini-herkenning moeten daarna nog fysiek worden
+gecontroleerd met uitsluitend fictieve tekst.

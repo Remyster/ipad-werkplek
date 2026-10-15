@@ -66,6 +66,11 @@
     return { provider: "gemini", task: "handwriting", image: { mimeType: "image/png", data: image.data } };
   }
 
+  function boardQuestionBody(image, prompt) {
+    const body = handwritingBody(image);
+    return { ...body, task: "board-question", prompt: validatePrompt(prompt) };
+  }
+
   function cropInk(source, region) {
     if (!region || ![region.x, region.y, region.width, region.height].every(Number.isFinite) ||
         region.x < 0 || region.y < 0 || region.width < 8 || region.height < 8 ||
@@ -134,12 +139,16 @@
     return sendBody(handwritingBody(image), storage, request);
   }
 
+  async function askBoard(image, prompt, storage = localStorage, request = fetch) {
+    return sendBody(boardQuestionBody(image, prompt), storage, request);
+  }
+
   // Pure helpers exposed for inspection/testing, mirroring the
   // WorkplaceConnections pattern already used by connections.js.
   window.AiChat = {
     PROVIDERS, PROMPT_LIMIT, ENDPOINT,
     validateProvider, validatePrompt, requireConsent, requestBody, answerText,
-    sessionToken, sendPrompt, cropInk, handwritingBody, recognizeHandwriting
+    sessionToken, sendPrompt, cropInk, handwritingBody, boardQuestionBody, recognizeHandwriting, askBoard
   };
 
   const dialog = document.getElementById("writing-ai-dialog");
@@ -150,6 +159,8 @@
     const quickSend = document.getElementById("writing-ai-send");
     const quickStatus = document.getElementById("writing-ai-status");
     const quickAnswer = document.getElementById("writing-ai-answer");
+    const boardCheckbox = document.getElementById("writing-ai-board");
+    const boardLabel = document.getElementById("writing-ai-board-label");
     const insertButton = document.getElementById("writing-ai-insert");
     const openButton = document.getElementById("writing-ai-open");
     const recognizeButton = document.getElementById("writing-ai-recognize");
@@ -187,11 +198,12 @@
       quickForm.reset();
       quickPrompt.required = !recognizing;
       quickPrompt.hidden = recognizing;
+      boardLabel.hidden = recognizing;
       document.getElementById("writing-ai-prompt-label").hidden = recognizing;
       document.getElementById("writing-ai-heading").textContent = recognizing ? "Herken handschrift met Gemini" : "Vraag aan Claude";
       document.getElementById("writing-ai-consent-label").textContent = recognizing
         ? "De selectie bevat uitsluitend openbare of fictieve informatie, geen interne PWN-gegevens of persoonsgegevens; ik geef toestemming om dit beeld naar Gemini te sturen."
-        : "Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag naar Claude te sturen.";
+        : "Alleen openbare of fictieve informatie; ik geef toestemming om deze vraag en eventueel gekozen peninkt naar de AI-dienst te sturen.";
       dialog.classList.toggle("recognizing", recognizing);
       imagePanel.hidden = !recognizing;
       quickAnswer.hidden = recognizing;
@@ -200,7 +212,7 @@
       selectAll.disabled = false;
       insertButton.disabled = true;
       quickAnswer.textContent = "";
-      quickStatus.textContent = recognizing ? "Selecteer eerst inkt. Er wordt nog niets verstuurd." : "Alleen je getypte vraag wordt verstuurd, niet je handschrift of PDF.";
+      quickStatus.textContent = recognizing ? "Selecteer eerst inkt. Er wordt nog niets verstuurd." : "Kies zelf of Gemini ook alle peninkt leest. PDF en getypte tekst worden nooit meegestuurd.";
       try {
         if (recognizing) {
           inkSource = window.WorkplaceWriting.captureInk();
@@ -217,6 +229,12 @@
     }
     openButton.addEventListener("click", () => openQuick(false));
     recognizeButton.addEventListener("click", () => openQuick(true));
+    boardCheckbox.addEventListener("change", () => {
+      quickConsent.checked = false;
+      quickStatus.textContent = boardCheckbox.checked
+        ? "Alle peninkt van dit blad wordt verkleind naar maximaal 1600 px. PDF en getypte tekst blijven lokaal."
+        : "Alleen je getypte vraag wordt verstuurd.";
+    });
     function chooseRegion(region) {
       generation++;
       result = "";
@@ -295,7 +313,16 @@
         quickSend.disabled = true;
         selectAll.disabled = true;
         quickStatus.textContent = recognizing ? "Gemini leest je selectie. Je kunt het venster sluiten en verder schrijven." : "Claude denkt na. Je kunt het venster sluiten en verder schrijven.";
-        const answer = recognizing ? await recognizeHandwriting(selectedImage) : await sendPrompt("anthropic", quickPrompt.value);
+        let answer;
+        if (recognizing) {
+          answer = await recognizeHandwriting(selectedImage);
+        } else if (boardCheckbox.checked) {
+          const source = window.WorkplaceWriting.captureInk();
+          const image = cropInk(source, { x: 0, y: 0, width: source.width, height: source.height });
+          answer = await askBoard(image, quickPrompt.value);
+        } else {
+          answer = await sendPrompt("anthropic", quickPrompt.value);
+        }
         if (requestGeneration !== generation || !dialog.open) return;
         result = answer;
         quickAnswer.textContent = answer;
