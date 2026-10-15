@@ -382,5 +382,31 @@
   $("wh-pull").addEventListener("click", event => run(event.currentTarget, pull));
   $("wh-pull").disabled = true;
 
-  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline };
+  // Eén taak maken en het id teruggeven (voor taakvakjes in het schrift).
+  async function createOne(titel, type = "taak", deadline = "") {
+    const clean = cleanLine(String(titel || "")).slice(0, 200);
+    if (!clean) throw new Error("Geen taaktekst.");
+    const row = { project: "pwn", titel: clean, waar: "", wie: "", notitie: "Uit de iPad Werkplek (taakvakje).", status: "backlog",
+      deadline: type === "subtaak" ? null : (deadline || null), updated_at: new Date().toISOString(),
+      ...(type === "subtaak" ? { taaktype: "subtaak" } : {}) };
+    const rows = await call("work_tasks?select=id", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([row]) });
+    if (!Array.isArray(rows) || !rows[0] || typeof rows[0].id !== "string") throw new Error("WerkHub gaf geen taak-id terug.");
+    return rows[0].id;
+  }
+
+  async function setTaskStatus(id, status) {
+    if (!["backlog", "bezig", "klaar"].includes(status)) throw new Error("Onbekende status.");
+    await call(`work_tasks?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status, updated_at: new Date().toISOString() }) });
+  }
+
+  async function openTasks() {
+    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,project&status=neq.klaar&order=deadline.asc.nullslast&limit=60");
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function hasAiConsent() { return aiConsent(); }
+  function giveAiConsent() { try { localStorage.setItem(CONSENT_KEY, "1"); } catch (error) { /* alleen gemak */ } }
+
+  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline, createOne, setTaskStatus, openTasks, hasAiConsent, giveAiConsent, call };
 })();

@@ -21,6 +21,8 @@
   <script src="./ai.js" defer></script>
   <script src="./werkhub.js" defer></script>
   <script src="./agenda.js" defer></script>
+  <script src="./slim.js" defer></script>
+  <script src="./nu.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -51,6 +53,27 @@
     <section id="today">
       <p class="eyebrow" id="today-date"></p>
       <h2>Een rustige start</h2>
+      <article id="nu-card" class="nu-card" aria-labelledby="nu-task">
+        <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-done-count"></span><button id="nu-refresh" type="button" title="Ververs taken en agenda" aria-label="Ververs">↻</button></div>
+        <h3 id="nu-task">Volgende taak laden…</h3>
+        <p id="nu-meta"></p>
+        <div class="nu-actions">
+          <button id="nu-start" type="button" class="nu-primary">▶ Start 25 min</button>
+          <button id="nu-done" type="button" disabled>✓ Klaar</button>
+          <button id="nu-skip" type="button" disabled>Andere taak</button>
+        </div>
+        <div id="nu-durations" class="nu-durations" role="group" aria-label="Focusduur">
+          <button type="button" data-nu-minutes="10">10</button><button type="button" data-nu-minutes="25">25</button><button type="button" data-nu-minutes="45">45</button><span>min</span>
+          <button id="nu-fit" type="button" class="nu-fit" hidden></button>
+        </div>
+        <div id="nu-timer" class="nu-timer" hidden>
+          <output id="nu-clock">25:00</output>
+          <div class="nu-bar"><span id="nu-progress"></span></div>
+          <div class="nu-actions"><button id="nu-plus" type="button">+5 min</button><button id="nu-stop" type="button">Stop</button></div>
+        </div>
+        <p id="nu-event" class="nu-event"></p>
+        <p id="nu-status" role="status"></p>
+      </article>
       <div class="cards">
         <article>
           <h3>Werk en priveagenda</h3>
@@ -92,9 +115,28 @@
         <h2>Schrijven, meetlijsten &amp; werkmappen</h2>
         <div class="autosave-state"><strong>Automatisch opslaan aan</strong><button id="save-now" type="button">Nu opslaan</button></div>
       </div>
+      <div class="note-search">
+        <input id="note-search" type="search" placeholder="🔎 Zoek in je schriften en borden…" autocomplete="off" aria-label="Zoek in je notities">
+        <div id="note-results" hidden></div>
+        <details class="smart-options">
+          <summary>Slim: AI-titels, zoeken in handschrift, taakvakjes</summary>
+          <label class="finger-option"><input id="ai-notes-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen, zodat schriften vanzelf een titel krijgen en doorzoekbaar worden</label>
+          <label class="finger-option"><input id="boxes-on" type="checkbox" checked> Taakvakjes: teken ☐ voor een regel → taak in WerkHub; vink het vakje af → klaar</label>
+          <label>Vakjes worden <select id="box-type"><option value="taak">taak</option><option value="subtaak">subtaak (tussendoor)</option></select></label>
+          <p id="smart-status" role="status">Tip: lang drukken met de pen → "☐ Taakvakje hier" zet een vakje voor je neer.</p>
+        </details>
+      </div>
       <details class="workmap-menu" open>
         <summary>Werkmappen</summary>
         <div id="folder-buttons" class="folder-grid" aria-label="Vaste werkmappen"></div>
+      </details>
+      <details class="workmap-menu" id="vangnet">
+        <summary>Vangnet: prullenbak &amp; oude versies</summary>
+        <h4>Oude versies van dit blad</h4>
+        <p class="smart-empty">Elke 10 minuten dat je schrijft wordt een versie bewaard (laatste 20 per blad).</p>
+        <div class="drive-actions"><select id="version-list" aria-label="Versies"></select><button id="version-restore" type="button" disabled>Zet deze versie terug</button></div>
+        <h4>Prullenbak (30 dagen)</h4>
+        <div id="trash-list"></div>
       </details>
       <details class="workmap-menu" id="content-backup">
         <summary>Back-up</summary>
@@ -238,6 +280,7 @@
               <button type="button" data-quick-brush="marker">Stift</button>
               <button type="button" data-quick-brush="highlighter">Markeer</button>
               <button type="button" data-quick-tool="eraser">Gum</button>
+              <button type="button" class="quick-task" data-quick-box="1">☐ Taakvakje hier</button>
               <button type="button" class="quick-task" data-quick-task="taak">Opslaan als taak</button>
               <button type="button" class="quick-task" data-quick-task="subtaak">Opslaan als subtaak</button>
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
@@ -344,5 +387,7 @@
     </form>
     <p id="task-status" role="status"></p>
   </dialog>
+  <button id="focus-pill" type="button" hidden></button>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

@@ -34,6 +34,12 @@
       }
       folderIds.add(folder.id);
     }
+    if (data.trash !== undefined && (!Array.isArray(data.trash) || data.trash.length > 100 || data.trash.some(item =>
+        !item || !finite(item.deletedAt) || (item.folderTitle !== null && typeof item.folderTitle !== "string") ||
+        !item.doc || typeof item.doc.id !== "string" || !["page", "board"].includes(item.doc.kind) ||
+        typeof item.doc.title !== "string" || !Array.isArray(item.doc.strokes)))) {
+      throw new Error("De prullenbak is ongeldig; de opslag is niet overschreven.");
+    }
     const ids = new Set();
     let totalPoints = 0;
     for (const doc of data.documents) {
@@ -56,6 +62,10 @@
         throw new Error("Een opgeslagen meetlijst is ongeldig; de opslag is niet overschreven.");
       }
       ids.add(doc.id);
+      if ((doc.transcript !== undefined && (typeof doc.transcript !== "string" || doc.transcript.length > 20000)) ||
+          (doc.transcriptStrokes !== undefined && !Number.isInteger(doc.transcriptStrokes))) {
+        throw new Error("Een opgeslagen notitie-index is ongeldig; de opslag is niet overschreven.");
+      }
       if (doc.textBlocks !== undefined && (!Array.isArray(doc.textBlocks) ||
           doc.textBlocks.length > 100 || doc.textBlocks.some(block => !block ||
             !finite(block.x) || !finite(block.y) || typeof block.text !== "string" ||
@@ -73,6 +83,10 @@
             (stroke.brush !== undefined && !["pen", "fineliner", "dashed", "marker", "highlighter"].includes(stroke.brush)) ||
             (stroke.shape !== undefined && !["line", "rectangle", "ellipse", "arrow", "check", "warning", "star"].includes(stroke.shape)) ||
             stroke.width <= 0 || stroke.width > 40 || !Array.isArray(stroke.points) ||
+            (stroke.box !== undefined && (!stroke.box || typeof stroke.box.id !== "string" || stroke.box.id.length > 64 ||
+              (stroke.box.taskId !== undefined && (typeof stroke.box.taskId !== "string" || stroke.box.taskId.length > 64)) ||
+              (stroke.box.done !== undefined && typeof stroke.box.done !== "boolean") ||
+              (stroke.box.title !== undefined && (typeof stroke.box.title !== "string" || stroke.box.title.length > 200)))) ||
             !stroke.points.length || stroke.points.some(p => !p || !finite(p.x) || !finite(p.y))) {
           throw new Error("Opgeslagen penstreken zijn ongeldig; de opslag is niet overschreven.");
         }

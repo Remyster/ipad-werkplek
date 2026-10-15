@@ -61,6 +61,8 @@
       if (response.status === 401) { status.textContent = "WerkHub-login verlopen. Log opnieuw in."; return; }
       if (!response.ok || !Array.isArray(body.items)) throw new Error(body.error || `HTTP ${response.status}`);
       render(body.items);
+      window.WorkplaceAgenda.items = body.items;
+      document.dispatchEvent(new CustomEvent("agenda-updated"));
       const stamp = new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
       status.textContent = (body.items.length ? `Bijgewerkt om ${stamp}.` : "Geen afspraken de komende twee weken.") +
         (body.errors?.length ? ` Let op: ${body.errors.join("; ")}` : "");
@@ -72,6 +74,6 @@
   $("agenda-refresh").addEventListener("click", load);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
   setInterval(load, 15 * 60 * 1000);
+  window.WorkplaceAgenda = { load, render, items: null };
   load();
-  window.WorkplaceAgenda = { load, render };
 })();

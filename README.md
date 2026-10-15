@@ -816,3 +816,11 @@ zijn nog niet geverifieerd.
   - Authorized JavaScript origins: https://remyster.github.io
   - Authorized redirect URIs: https://remyster.github.io/ipad-werkplek/
   - Google Drive API aan, en je account bij Test users (OAuth consent screen).
+
+## Versie 22
+
+- Wat nu (Vandaag): je volgende WerkHub-taak (te laat eerst, dan mee bezig, dan deadline), je volgende afspraak en een focustimer (10/25/45 min, of "past tot afspraak"). Start zet de taak op bezig, Klaar zet hem op klaar. Zwevende timer onderin op elke tab, zacht geluid en melding als de tijd om is, teller "vandaag al X af".
+- Zoeken: zoekbalk boven Werkmap zoekt in titels, getypte tekst en (na AI-lezen) in je handschrift.
+- AI-titels: met het vinkje onder "Slim" leest AI op de achtergrond je schriften; "Nieuw schriftblad" krijgt vanzelf een titel uit de eerste regel.
+- Vangnet: Weggooien vraagt niks meer en zet het document 30 dagen in de prullenbak (met "Zet terug" in de melding). Elke 10 minuten schrijven bewaart een versie (laatste 20 per blad), terug te zetten via Werkmap > Vangnet.
+- Taakvakjes: teken een vierkantje (of lang drukken > "Taakvakje hier") en schrijf er een taak achter. Na een paar tellen staat hij in WerkHub (groen bolletje). Vink het vakje af: klaar in WerkHub. Uit te zetten onder "Slim".

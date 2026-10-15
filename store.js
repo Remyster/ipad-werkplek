@@ -14,8 +14,14 @@
   function openDb() {
     if (!("indexedDB" in window)) return Promise.reject(new Error("IndexedDB is niet beschikbaar in deze browser."));
     if (!dbPromise) dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("state");
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("state")) db.createObjectStore("state");
+        if (!db.objectStoreNames.contains("versions")) {
+          db.createObjectStore("versions", { keyPath: "key", autoIncrement: true }).createIndex("doc", "docId");
+        }
+      };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => { dbPromise = null; reject(new Error("Werkplek-opslag (IndexedDB) openen mislukt.")); };
     });
@@ -96,9 +102,41 @@
 
   function onError(listener) { listeners.add(listener); }
 
+  // ---- Versies per document (vangnet): laatste 20 per document, in IndexedDB ----
+  const MAX_VERSIONS = 20;
+  async function saveVersion(docId, title, json) {
+    const db = await openDb();
+    const existing = await listVersions(docId);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("versions", "readwrite");
+      const store = tx.objectStore("versions");
+      store.add({ docId, title, at: Date.now(), size: json.length, json });
+      existing.slice(MAX_VERSIONS - 1).forEach(item => store.delete(item.key));
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error("Versie bewaren mislukt."));
+    });
+  }
+  // Nieuwste eerst, zonder de inhoud (die haal je op met getVersion).
+  async function listVersions(docId) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const request = db.transaction("versions", "readonly").objectStore("versions").index("doc").getAll(docId);
+      request.onsuccess = () => resolve((request.result || []).map(({ json, ...meta }) => meta).sort((a, b) => b.at - a.at));
+      request.onerror = () => reject(new Error("Versies lezen mislukt."));
+    });
+  }
+  async function getVersion(key) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const request = db.transaction("versions", "readonly").objectStore("versions").get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(new Error("Versie lezen mislukt."));
+    });
+  }
+
   if (navigator.storage && typeof navigator.storage.persist === "function") {
     navigator.storage.persist().catch(() => {});
   }
 
-  window.WorkplaceStore = { KEY, load, save, saveNow, flush: () => writing || Promise.resolve(), onError };
+  window.WorkplaceStore = { KEY, load, save, saveNow, flush: () => writing || Promise.resolve(), onError, saveVersion, listVersions, getVersion };
 })();

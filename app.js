@@ -411,6 +411,28 @@
   }
 
   // Tekent achtergrond, PDF, inkt en tekstblokken die het gegeven gebied (wereldcoordinaten) raken.
+  // Taakvakje: klein bolletje rechtsboven. Grijs = wacht op tekst, groen = taak in WerkHub, met vinkje = klaar.
+  function drawBoxBadge(ctx, stroke) {
+    const bounds = strokeBounds(stroke);
+    const r = 7;
+    const x = bounds.right + 4, y = bounds.top - 4;
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = stroke.box.done ? "#2e7d4f" : stroke.box.taskId ? "#3a9d6a" : "#ffffff";
+    ctx.strokeStyle = stroke.box.taskId ? "#2e7d4f" : "#8ca49d";
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (stroke.box.done) { ctx.moveTo(x - 3.5, y); ctx.lineTo(x - 1, y + 3); ctx.lineTo(x + 4, y - 3); ctx.stroke(); }
+    else if (stroke.box.taskId) { ctx.moveTo(x - 3, y + 3); ctx.lineTo(x + 3, y - 3); ctx.moveTo(x - 1, y - 3); ctx.lineTo(x + 3, y - 3); ctx.lineTo(x + 3, y + 1); ctx.stroke(); }
+    ctx.restore();
+  }
+
   function paintScene(ctx, doc, viewport) {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
@@ -438,6 +460,9 @@
     }
     for (const stroke of doc.strokes) {
       if (M.intersectsBounds(strokeBounds(stroke), viewport)) drawStroke(ctx, stroke);
+    }
+    for (const stroke of doc.strokes) {
+      if (stroke.box && M.intersectsBounds(strokeBounds(stroke), viewport)) drawBoxBadge(ctx, stroke);
     }
     for (const block of doc.textBlocks || []) {
       if (block.y <= viewport.bottom && block.y + 1000 >= viewport.top) drawTextBlock(ctx, block);
@@ -798,9 +823,13 @@
   async function deleteActiveDocument() {
     finish();
     const removed = active();
-    if (!removed || !window.confirm(`"${removed.title || "Zonder titel"}" weggooien? Dit verwijdert het hele ${removed.formType ? "meetformulier" : removed.kind === "page" ? "schrift" : "bord"} van dit apparaat.`)) return;
+    if (!removed) return;
+    // Vangnet: niets is meteen weg. Het document gaat 30 dagen naar de prullenbak.
     const previousDocuments = data.documents;
     const previousId = data.activeId;
+    const previousTrash = data.trash;
+    data.trash = [{ deletedAt: Date.now(), folderTitle: removed.folderId ? folderTitle(removed.folderId) : null,
+      doc: { ...removed, folderId: null } }, ...(data.trash || [])].slice(0, 100);
     let remaining = data.documents.filter(doc => doc.id !== removed.id);
     if (!remaining.length) {
       const replacement = M.createDocument("page", crypto.randomUUID());
@@ -811,12 +840,55 @@
     if (!persist()) {
       data.documents = previousDocuments;
       data.activeId = previousId;
+      data.trash = previousTrash;
       selectDocument();
       report(new Error("Inhoud niet weggegooid: lokale opslag mislukt. Download eerst een back-up."));
       return;
     }
     selectDocument();
-    $("save-status").textContent = `"${removed.title || "Zonder titel"}" is weggegooid.`;
+    notify(`"${removed.title || "Zonder titel"}" staat in de prullenbak.`, "Zet terug", () => restoreFromTrash(removed.id));
+  }
+
+  // Korte melding onderin met optioneel een knop (bijv. "Zet terug"). Verdwijnt vanzelf.
+  let toastTimer = null;
+  function notify(text, actionLabel = "", action = null, ms = 7000) {
+    const toast = $("toast");
+    if (!toast) { $("save-status").textContent = text; return; }
+    const message = document.createElement("span");
+    message.textContent = text;
+    const parts = [message];
+    if (actionLabel && action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = actionLabel;
+      button.addEventListener("click", () => { toast.hidden = true; try { action(); } catch (error) { report(error); } });
+      parts.push(button);
+    }
+    toast.replaceChildren(...parts);
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, ms);
+  }
+
+  function restoreFromTrash(id) {
+    finish();
+    const item = (data.trash || []).find(entry => entry.doc.id === id);
+    if (!item) throw new Error("Dit document staat niet meer in de prullenbak.");
+    const folder = item.folderTitle ? data.folders.find(entry => normalizedFolderTitle(entry.title) === normalizedFolderTitle(item.folderTitle)) : null;
+    const doc = { ...item.doc, folderId: folder ? folder.id : null };
+    if (data.documents.some(entry => entry.id === doc.id)) doc.id = crypto.randomUUID();
+    const previous = data;
+    data = { ...data, documents: [...data.documents, doc], trash: data.trash.filter(entry => entry !== item), activeId: doc.id };
+    try { M.validate(data); } catch (error) { data = previous; throw error; }
+    if (!persist()) { data = previous; throw new Error("Terugzetten mislukt: opslag vol."); }
+    selectDocument();
+    notify(`"${doc.title || "Zonder titel"}" is terug${folder ? ` in ${folder.title}` : ""}.`);
+    return doc.id;
+  }
+
+  function purgeOldTrash() {
+    const limit = Date.now() - 30 * 24 * 3600 * 1000;
+    if ((data.trash || []).some(item => item.deletedAt < limit)) data.trash = data.trash.filter(item => item.deletedAt >= limit);
   }
 
   function finish(event, reason = "bediening") {
@@ -846,6 +918,7 @@
         remember(active().strokes.slice());
         active().strokes.push(old.stroke);
         drawStroke(worldContext("saved-drawing"), old.stroke);
+        old.committed = true;
       }
     } else if (old.tool === "eraser" && old.changed) {
       remember(old.before);
@@ -867,6 +940,10 @@
     updateControls();
     updateSelectionButtons();
     if (!old.stroke || old.scratched) render();
+    if (old.committed && window.WorkplaceSmart) {
+      try { window.WorkplaceSmart.afterStroke(active(), old.stroke); }
+      catch (error) { console.warn("Werkplek: vakjes:", error.message); }
+    }
   }
 
   function autoScratchEnabled() {
@@ -1068,6 +1145,7 @@
       data = { version: 1, activeId: doc.id, documents: [doc], folders: [] };
     }
     data.folders = data.folders || [];
+    purgeOldTrash();
     ensureDefaultFolders();
     persist();
   } catch (error) {
@@ -1098,6 +1176,82 @@
         });
       },
       hasDocument(id) { return data.documents.some(doc => doc.id === id); },
+      // ---- voor slim.js / nu.js (zoeken, prullenbak, versies, vakjes) ----
+      notify,
+      activeDocumentId() { return data.activeId; },
+      isDrawing() { return !!gesture; },
+      listDocuments() {
+        return data.documents.filter(doc => !doc.formType).map(doc => ({
+          id: doc.id, title: doc.title || "", kind: doc.kind, folder: folderTitle(doc.folderId),
+          text: [doc.text || "", ...(doc.textBlocks || []).map(block => block.text)].join("\n"),
+          transcript: doc.transcript || "", strokes: doc.strokes.length, transcriptStrokes: doc.transcriptStrokes || 0,
+          defaultTitle: !doc.title || /^Nieuw (schriftblad|whiteboard)$/.test(doc.title) || / - notities$/.test(doc.title)
+        }));
+      },
+      openDocument(id) {
+        finish();
+        if (!data.documents.some(doc => doc.id === id)) throw new Error("Dit document bestaat niet meer.");
+        data.activeId = id;
+        persist();
+        tab("writing");
+        selectDocument();
+      },
+      documentCanvas(id) {
+        const doc = data.documents.find(item => item.id === id);
+        if (!doc || doc.formType) return null;
+        return doc.strokes.length ? inkCanvas(doc.strokes) : null;
+      },
+      setTranscript(id, transcript, title) {
+        const doc = data.documents.find(item => item.id === id);
+        if (!doc) return false;
+        doc.transcript = String(transcript || "").slice(0, 20000);
+        doc.transcriptStrokes = doc.strokes.length;
+        if (title) {
+          doc.title = String(title).slice(0, 120);
+          if (doc.id === data.activeId && document.activeElement !== $("title")) $("title").value = doc.title;
+          list();
+        }
+        return persist();
+      },
+      trashList() {
+        return (data.trash || []).map(item => ({ id: item.doc.id, title: item.doc.title || "", kind: item.doc.kind, folder: item.folderTitle, deletedAt: item.deletedAt }));
+      },
+      restoreFromTrash,
+      purgeFromTrash(id) {
+        const previous = data.trash;
+        data.trash = (data.trash || []).filter(item => item.doc.id !== id);
+        if (!persist()) { data.trash = previous; throw new Error("Opslaan mislukt."); }
+      },
+      documentSnapshot(id) {
+        const doc = data.documents.find(item => item.id === id);
+        return doc && !doc.formType ? JSON.stringify(doc) : null;
+      },
+      restoreVersion(id, json) {
+        finish();
+        const doc = data.documents.find(item => item.id === id);
+        if (!doc) throw new Error("Dit document bestaat niet meer.");
+        const version = JSON.parse(json);
+        if (!version || version.id !== id || !Array.isArray(version.strokes)) throw new Error("Deze versie hoort niet bij dit document.");
+        const before = JSON.stringify(doc);
+        const next = { ...version, id: doc.id, folderId: doc.folderId, pdf: doc.pdf };
+        if (!next.pdf) delete next.pdf;
+        const documents = data.documents.map(item => item.id === id ? next : item);
+        const candidate = { ...data, documents };
+        M.validate(candidate);
+        const previous = data;
+        data = candidate;
+        if (!persist()) { data = previous; throw new Error("Terugzetten mislukt: opslag vol."); }
+        if (data.activeId === id) selectDocument();
+        return before;
+      },
+      // Streken in een gebied (wereldcoördinaten) van het open document, als plaatje voor AI.
+      inkIn(rect, exclude = null) {
+        const doc = active();
+        const strokes = doc.strokes.filter(stroke => stroke !== exclude && !stroke.box && M.intersectsBounds(strokeBounds(stroke), rect));
+        return strokes.length ? { canvas: inkCanvas(strokes), count: strokes.length } : null;
+      },
+      strokeBounds,
+      changed() { persist(); render(); },
       importFromSync(row) {
         finish();
         if (!row || typeof row.id !== "string" || !row.data || typeof row.data !== "object") throw new Error("WerkHub gaf een ongeldig document.");
@@ -1536,6 +1690,7 @@
         clear("drawing");
         if (canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
       }
+      quickPoint = M.point(clientX, clientY, $("drawing").getBoundingClientRect(), active().view);
       const rect = $("surface").getBoundingClientRect();
       quickTools.style.left = `${Math.max(10, Math.min(rect.width - 340, clientX - rect.left))}px`;
       quickTools.style.top = `${Math.max(10, Math.min(rect.height - 230, clientY - rect.top))}px`;
@@ -1548,6 +1703,21 @@
       activateBrush(button.dataset.quickBrush);
       hideQuickTools();
     }));
+    let quickPoint = null;
+    quickTools.querySelector("[data-quick-box]").addEventListener("click", () => {
+      hideQuickTools();
+      if (!quickPoint || isMeasurement()) return;
+      // Taakvakje stempelen: een vierkantje waar je de taak achter schrijft.
+      const size = 26, { x, y } = quickPoint;
+      const points = [{ x, y: y - size / 2 }, { x: x + size, y: y + size / 2 }];
+      const stroke = { color: $("color").value, width: Math.max(2, Math.min(4, Number($("width").value) || 3)), brush: "pen", shape: "rectangle", points,
+        box: { id: crypto.randomUUID() } };
+      remember(active().strokes.slice());
+      active().strokes.push(stroke);
+      persist();
+      render();
+      notify("Taakvakje geplaatst. Schrijf je taak erachter; na een paar tellen staat hij in WerkHub.");
+    });
     quickTools.querySelectorAll("[data-quick-task]").forEach(button => button.addEventListener("click", () => {
       hideQuickTools();
       window.WorkplaceWerkhub?.taskFromInk(button.dataset.quickTask);

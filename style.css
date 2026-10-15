@@ -29,6 +29,51 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 #task-list p { margin-bottom: 0; font-size: .85rem; }
 #hub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
 #workhub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; margin-top: 12px; }
+/* Wat nu */
+.nu-card { margin: 0 0 18px; padding: 18px; border-radius: 18px; background: linear-gradient(135deg, #173c39, #24564f); color: #f4f8f2; box-shadow: 0 10px 28px rgb(23 60 57 / 25%); }
+.nu-card .eyebrow { color: #b9d8c9; }
+.nu-head { display: flex; align-items: center; gap: 10px; }
+.nu-head #nu-done-count { flex: 1; font-size: .85rem; color: #d7ecc8; }
+.nu-head button { min-height: 36px; min-width: 36px; padding: 4px 10px; background: transparent; color: #f4f8f2; border-color: rgb(255 255 255 / 35%); }
+#nu-task { font-size: clamp(1.3rem, 3.2vw, 1.9rem); margin: 6px 0 4px; line-height: 1.25; }
+#nu-meta { margin: 0 0 12px; color: #cfe3da; }
+#nu-meta.late { color: #ffd38a; font-weight: 600; }
+.nu-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.nu-card button { min-height: 48px; padding: 8px 16px; border-radius: 12px; font-size: 1rem; }
+.nu-card .nu-primary { background: #f4c96b; color: #1d2b28; border-color: #f4c96b; font-weight: 700; padding: 8px 22px; }
+.nu-card .nu-actions button:not(.nu-primary) { background: rgb(255 255 255 / 12%); color: #fff; border-color: rgb(255 255 255 / 30%); }
+.nu-durations { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; color: #cfe3da; }
+.nu-durations button { min-height: 36px !important; min-width: 46px; padding: 4px 10px !important; background: transparent; color: #fff; border-color: rgb(255 255 255 / 30%); }
+.nu-durations button[aria-pressed="true"] { background: rgb(255 255 255 / 22%); border-color: #fff; }
+.nu-durations .nu-fit { margin-left: auto; border-color: #f4c96b; color: #f4c96b; }
+.nu-timer output { display: block; font-size: clamp(3rem, 10vw, 5rem); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; margin: 4px 0; }
+.nu-bar { height: 8px; border-radius: 99px; background: rgb(255 255 255 / 15%); overflow: hidden; margin-bottom: 12px; }
+.nu-bar span { display: block; height: 100%; width: 0; background: #f4c96b; transition: width 1s linear; }
+.nu-event { margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: rgb(255 255 255 / 10%); }
+.nu-event:empty { display: none; }
+.nu-event.soon { background: #f4c96b; color: #1d2b28; font-weight: 600; }
+#nu-status { margin: 8px 0 0; font-size: .85rem; color: #cfe3da; }
+#nu-status:empty { display: none; }
+.nu-card.cheer { animation: cheer .7s ease; }
+@keyframes cheer { 0% { transform: scale(1); } 30% { transform: scale(1.025); box-shadow: 0 0 0 6px rgb(244 201 107 / 45%); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .nu-card.cheer { animation: none; } .nu-bar span { transition: none; } }
+#focus-pill { position: fixed; z-index: 30; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); min-height: 44px; padding: 8px 18px; border-radius: 99px; background: #173c39; color: #fff; border: 0; box-shadow: 0 6px 18px rgb(0 0 0 / 25%); font-variant-numeric: tabular-nums; max-width: calc(100% - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toast { position: fixed; z-index: 31; left: 50%; transform: translateX(-50%); bottom: max(68px, calc(env(safe-area-inset-bottom) + 60px)); display: flex; align-items: center; gap: 12px; max-width: min(560px, calc(100% - 32px)); padding: 10px 12px 10px 16px; border-radius: 14px; background: #1d2b28; color: #fff; box-shadow: 0 10px 28px rgb(0 0 0 / 30%); }
+#toast button { min-height: 40px; padding: 6px 14px; background: #f4c96b; color: #1d2b28; border: 0; border-radius: 10px; font-weight: 700; white-space: nowrap; }
+/* Zoeken en slim */
+.note-search { position: relative; margin-bottom: 10px; }
+#note-search { width: 100%; min-height: 48px; padding: 10px 14px; font-size: 1.05rem; border-radius: 12px; }
+#note-results { position: absolute; z-index: 6; left: 0; right: 0; top: 52px; max-height: 60vh; overflow: auto; padding: 6px; border: 1px solid #b4c4b9; border-radius: 12px; background: #fff; box-shadow: 0 10px 28px rgb(23 60 57 / 20%); display: grid; gap: 4px; }
+.note-hit { display: grid; gap: 2px; justify-items: start; justify-content: stretch; text-align: left; width: 100%; min-height: 48px; padding: 8px 12px; border-radius: 10px; background: #f6f9f5; border: 1px solid transparent; }
+.note-hit:hover, .note-hit:focus { border-color: #8ca49d; }
+.note-hit small { color: #5d736d; }
+.note-hit span { font-size: .85rem; color: #33504a; }
+.smart-options { margin-top: 6px; }
+.smart-empty { color: #5d736d; font-size: .9rem; margin: 4px 0 8px; }
+#vangnet h4 { margin: 12px 0 4px; }
+#version-list { flex: 1; min-width: 0; min-height: 44px; }
+.trash-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e1e8e3; }
+.trash-row span { flex: 1 1 220px; }
 #agenda-list { margin-top: 10px; display: grid; gap: 10px; }
 .agenda-day h4 { margin: 0 0 4px; font-size: .9rem; color: #4d6660; text-transform: capitalize; }
 .agenda-item { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 8px 10px; border: 1px solid #d4ddd6; border-radius: 10px; background: #fff; }
