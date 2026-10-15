@@ -13,7 +13,7 @@
   let renderedWidth = 0;
   let renderedHeight = 0;
   let selection = null;
-  let inkClipboard = [];
+  let inkClipboard = { strokes: [], blocks: [] };
   let longPressTimer = null;
   let longPressOrigin = null;
   const boundsCache = new WeakMap();
@@ -187,14 +187,27 @@
     ctx.restore();
   }
 
+  function blockBounds(block) {
+    const ctx = context("saved-drawing");
+    ctx.save();
+    ctx.font = "18px system-ui, sans-serif";
+    const lines = textLines(ctx, block.text).length;
+    ctx.restore();
+    return { left: block.x - 8, top: block.y - 8, right: block.x + 608, bottom: block.y + lines * 24 + 8 };
+  }
+
   function selectionBounds() {
-    if (!selection?.indexes?.length) return null;
-    const bounds = selection.indexes.map(index => strokeBounds(active().strokes[index]));
+    const strokes = selection?.indexes || [], blocks = selection?.blocks || [];
+    if (!strokes.length && !blocks.length) return null;
+    const all = [
+      ...strokes.map(index => strokeBounds(active().strokes[index])),
+      ...blocks.map(index => blockBounds(active().textBlocks[index]))
+    ];
     return {
-      left: Math.min(...bounds.map(value => value.left)),
-      top: Math.min(...bounds.map(value => value.top)),
-      right: Math.max(...bounds.map(value => value.right)),
-      bottom: Math.max(...bounds.map(value => value.bottom))
+      left: Math.min(...all.map(value => value.left)),
+      top: Math.min(...all.map(value => value.top)),
+      right: Math.max(...all.map(value => value.right)),
+      bottom: Math.max(...all.map(value => value.bottom))
     };
   }
 
@@ -202,25 +215,76 @@
     const ctx = worldContext("drawing");
     const bounds = selectionBounds();
     if (!bounds && !selection?.lasso?.length) return;
+    const scale = active().view.scale;
     ctx.save();
     ctx.strokeStyle = "#af6700";
-    ctx.lineWidth = 2 / active().view.scale;
-    ctx.setLineDash([8 / active().view.scale, 6 / active().view.scale]);
+    ctx.lineWidth = 2 / scale;
+    ctx.setLineDash([8 / scale, 6 / scale]);
     if (bounds) {
-      ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+      const width = bounds.right - bounds.left, height = bounds.bottom - bounds.top;
+      ctx.fillStyle = "rgb(175 103 0 / 7%)";
+      ctx.fillRect(bounds.left, bounds.top, width, height);
+      ctx.strokeRect(bounds.left, bounds.top, width, height);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#af6700";
+      const handle = 5 / scale;
+      for (const [x, y] of [[bounds.left, bounds.top], [bounds.right, bounds.top], [bounds.left, bounds.bottom], [bounds.right, bounds.bottom]]) {
+        ctx.fillRect(x - handle, y - handle, handle * 2, handle * 2);
+      }
     } else {
       ctx.beginPath();
       selection.lasso.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.closePath();
+      ctx.fillStyle = "rgb(175 103 0 / 8%)";
+      ctx.fill();
       ctx.stroke();
     }
     ctx.restore();
   }
 
+  function hasSelection() {
+    return !!(selection?.indexes?.length || selection?.blocks?.length);
+  }
+
   function updateSelectionButtons() {
-    const hasSelection = !!selection?.indexes?.length;
-    $("selection-copy").disabled = !hasSelection;
-    $("selection-cut").disabled = !hasSelection;
-    $("selection-paste").disabled = !inkClipboard.length;
+    const selected = hasSelection();
+    $("selection-copy").disabled = !selected;
+    $("selection-cut").disabled = !selected;
+    $("selection-paste").disabled = !(inkClipboard.strokes.length || inkClipboard.blocks.length);
+  }
+
+  // Wat zit er in de lasso: streken die voor minstens de helft binnen de lus liggen en
+  // tekstblokken waarvan het midden erin ligt. Een tik (geen lus) kiest de streek of het blok eronder.
+  function selectWithLasso(polygon) {
+    const doc = active();
+    const blocks = doc.textBlocks || [];
+    const xs = polygon.map(point => point.x), ys = polygon.map(point => point.y);
+    const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    if (polygon.length < 3 || size < 8 / doc.view.scale) {
+      const point = polygon[0];
+      const reach = 10 / doc.view.scale;
+      for (let index = doc.strokes.length - 1; index >= 0; index--) {
+        const stroke = doc.strokes[index];
+        if (M.intersectsBounds(strokeBounds(stroke), { left: point.x - reach, top: point.y - reach, right: point.x + reach, bottom: point.y + reach }) &&
+            M.hitStroke(stroke, point, point, reach)) return { indexes: [index], blocks: [] };
+      }
+      for (let index = blocks.length - 1; index >= 0; index--) {
+        const bounds = blockBounds(blocks[index]);
+        if (point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top && point.y <= bounds.bottom) return { indexes: [], blocks: [index] };
+      }
+      return null;
+    }
+    const box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    const indexes = [];
+    doc.strokes.forEach((stroke, index) => {
+      if (M.intersectsBounds(strokeBounds(stroke), box) && M.strokeInsideFraction(stroke, polygon) >= .5) indexes.push(index);
+    });
+    const chosen = [];
+    blocks.forEach((block, index) => {
+      const bounds = blockBounds(block);
+      if (M.pointInPolygon({ x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 }, polygon)) chosen.push(index);
+    });
+    return indexes.length || chosen.length ? { indexes, blocks: chosen } : null;
   }
 
   function clearSelection() {
@@ -255,8 +319,8 @@
     lines.forEach((line, index) => ctx.fillText(line, block.x, block.y + index * 24));
   }
 
-  function snapshot(strokes = active().strokes) {
-    return { strokes: strokes.slice(), textBlocks: (active().textBlocks || []).slice() };
+  function snapshot(strokes = active().strokes, blocks = active().textBlocks || []) {
+    return { strokes: strokes.slice(), textBlocks: blocks.slice() };
   }
 
   function restore(state) {
@@ -298,36 +362,13 @@
     updateDiagnostics();
   }
 
-  function render() {
-    frame = null;
-    const doc = active();
-    if (isMeasurement(doc)) return;
-    const rect = $("drawing").getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    renderedWidth = rect.width;
-    renderedHeight = rect.height;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    for (const id of ["drawing", "saved-drawing"]) {
-      const width = Math.round(rect.width * ratio);
-      const height = Math.round(rect.height * ratio);
-      if ($(id).width !== width || $(id).height !== height) {
-        $(id).width = width;
-        $(id).height = height;
-      }
-      clear(id);
-    }
-    const ctx = worldContext("saved-drawing");
-    const viewport = {
-      left: doc.view.x,
-      top: doc.view.y,
-      right: doc.view.x + rect.width / doc.view.scale,
-      bottom: doc.view.y + rect.height / doc.view.scale
-    };
+  // Tekent achtergrond, PDF, inkt en tekstblokken die het gegeven gebied (wereldcoordinaten) raken.
+  function paintScene(ctx, doc, viewport) {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
     if (doc.kind === "page") {
-      const first = Math.max(0, Math.floor(doc.view.y / 1144));
-      const last = Math.min((doc.pages || 1) - 1, Math.floor((doc.view.y + rect.height / doc.view.scale) / 1144));
+      const first = Math.max(0, Math.floor(viewport.top / 1144));
+      const last = Math.min((doc.pages || 1) - 1, Math.floor(viewport.bottom / 1144));
       for (let page = first; page <= last; page++) {
         const top = page * 1144;
         ctx.strokeStyle = "#bbc9c5";
@@ -353,6 +394,57 @@
     for (const block of doc.textBlocks || []) {
       if (block.y <= viewport.bottom && block.y + 1000 >= viewport.top) drawTextBlock(ctx, block);
     }
+  }
+
+  // Alleen een klein stuk van de opgeslagen laag opnieuw tekenen (gum): veel sneller dan het hele blad.
+  function renderRegion(box) {
+    const doc = active();
+    if (isMeasurement(doc)) return;
+    const pad = 3;
+    const region = { left: box.left - pad, top: box.top - pad, right: box.right + pad, bottom: box.bottom + pad };
+    const ctx = worldContext("saved-drawing");
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(region.left, region.top, region.right - region.left, region.bottom - region.top);
+    ctx.clip();
+    ctx.clearRect(region.left, region.top, region.right - region.left, region.bottom - region.top);
+    paintScene(ctx, doc, region);
+    ctx.restore();
+  }
+
+  let dirtyBox = null;
+  function markDirty(box) {
+    if (!box) return;
+    dirtyBox = dirtyBox
+      ? { left: Math.min(dirtyBox.left, box.left), top: Math.min(dirtyBox.top, box.top), right: Math.max(dirtyBox.right, box.right), bottom: Math.max(dirtyBox.bottom, box.bottom) }
+      : { ...box };
+  }
+
+  function render() {
+    frame = null;
+    const doc = active();
+    if (isMeasurement(doc)) return;
+    const rect = $("drawing").getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    renderedWidth = rect.width;
+    renderedHeight = rect.height;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    for (const id of ["drawing", "saved-drawing"]) {
+      const width = Math.round(rect.width * ratio);
+      const height = Math.round(rect.height * ratio);
+      if ($(id).width !== width || $(id).height !== height) {
+        $(id).width = width;
+        $(id).height = height;
+      }
+      clear(id);
+    }
+    const ctx = worldContext("saved-drawing");
+    paintScene(ctx, doc, {
+      left: doc.view.x,
+      top: doc.view.y,
+      right: doc.view.x + rect.width / doc.view.scale,
+      bottom: doc.view.y + rect.height / doc.view.scale
+    });
     livePoints = 0;
     drawLive();
     updateControls();
@@ -362,7 +454,14 @@
     if (frame === null) frame = requestAnimationFrame(() => {
       frame = null;
       if (gesture && gesture.stroke) drawLive();
-      else render();
+      else if (dirtyBox && gesture && (gesture.tool === "eraser" || gesture.tool === "scratch-eraser")) {
+        const box = dirtyBox;
+        dirtyBox = null;
+        renderRegion(box);
+      } else {
+        dirtyBox = null;
+        render();
+      }
     });
   }
 
@@ -705,10 +804,11 @@
     } else if (old.tool === "scratch-eraser" && old.changed) {
       remember(old.before);
     } else if (old.tool === "select-ink" && old.moveSelection) {
-      remember(old.before);
-    } else if (old.tool === "select-ink" && old.lassoPoints?.length >= 3) {
-      const indexes = active().strokes.map((stroke, index) => M.strokeInPolygon(stroke, old.lassoPoints) ? index : -1).filter(index => index >= 0);
-      selection = indexes.length ? { indexes } : null;
+      if (old.moved) remember(old.before, old.beforeBlocks);
+    } else if (old.tool === "select-ink" && old.lassoPoints?.length && (!event || event.type !== "pointercancel")) {
+      selection = selectWithLasso(old.lassoPoints);
+    } else if (old.tool === "select-ink") {
+      selection = null;
     }
     gesture = null;
     clear("drawing");
@@ -725,18 +825,19 @@
     try { return localStorage.getItem("remy-ipad-auto-scratch") !== "0"; } catch (error) { return true; }
   }
 
-  function remember(before) {
-    undo.push(snapshot(before));
+  function remember(before, beforeBlocks) {
+    undo.push(snapshot(before, beforeBlocks));
     if (undo.length > 50) undo.shift();
     redo = [];
   }
 
   function eraseAt(point) {
-    const result = M.erase(active().strokes, gesture.lastPoint, point, gesture.eraserRadius / active().view.scale);
+    const result = M.erase(active().strokes, gesture.lastPoint, point, gesture.eraserRadius / active().view.scale, strokeBounds);
     gesture.lastPoint = point;
     if (result.changed) {
       gesture.changed = true;
       active().strokes = result.strokes;
+      markDirty(result.dirty);
       scheduleRender();
     }
   }
@@ -745,22 +846,35 @@
     const before = active().strokes;
     const from = gesture.lastPoint;
     const radius = Math.max(12, gesture.eraserRadius / active().view.scale);
-    const kept = before.filter(stroke => stroke.shape || !M.hitStroke(stroke, from, point, radius));
+    const box = { left: Math.min(from.x, point.x) - radius, top: Math.min(from.y, point.y) - radius,
+      right: Math.max(from.x, point.x) + radius, bottom: Math.max(from.y, point.y) + radius };
+    const removed = [];
+    const kept = before.filter(stroke => {
+      const drop = !stroke.shape && M.intersectsBounds(strokeBounds(stroke), box) && M.hitStroke(stroke, from, point, radius);
+      if (drop) removed.push(strokeBounds(stroke));
+      return !drop;
+    });
     gesture.lastPoint = point;
     if (kept.length !== before.length) {
       gesture.changed = true;
       active().strokes = kept;
+      for (const bounds of removed) markDirty(bounds);
       scheduleRender();
     }
   }
 
   function copySelection(cut = false) {
-    if (!selection?.indexes?.length) return;
-    const selected = new Set(selection.indexes);
-    inkClipboard = active().strokes.filter((_, index) => selected.has(index)).map(stroke => JSON.parse(JSON.stringify(stroke)));
+    if (!hasSelection()) return;
+    const doc = active();
+    const picked = new Set(selection.indexes), pickedBlocks = new Set(selection.blocks || []);
+    inkClipboard = {
+      strokes: doc.strokes.filter((_, index) => picked.has(index)).map(stroke => JSON.parse(JSON.stringify(stroke))),
+      blocks: (doc.textBlocks || []).filter((_, index) => pickedBlocks.has(index)).map(block => ({ ...block }))
+    };
     if (cut) {
-      remember(active().strokes.slice());
-      active().strokes = active().strokes.filter((_, index) => !selected.has(index));
+      remember(doc.strokes.slice(), (doc.textBlocks || []).slice());
+      doc.strokes = doc.strokes.filter((_, index) => !picked.has(index));
+      if (pickedBlocks.size) doc.textBlocks = doc.textBlocks.filter((_, index) => !pickedBlocks.has(index));
       selection = null;
       persist();
       render();
@@ -769,16 +883,21 @@
   }
 
   function pasteSelection() {
-    if (!inkClipboard.length) return;
-    remember(active().strokes.slice());
-    const pasted = inkClipboard.map(stroke => ({
+    const doc = active();
+    const room = Math.max(0, 100 - (doc.textBlocks || []).length);
+    const blocks = inkClipboard.blocks.slice(0, room);
+    if (!inkClipboard.strokes.length && !blocks.length) return;
+    remember(doc.strokes.slice(), (doc.textBlocks || []).slice());
+    const pasted = inkClipboard.strokes.map(stroke => ({
       ...JSON.parse(JSON.stringify(stroke)),
       points: stroke.points.map(point => ({ x: point.x + 24, y: point.y + 24 }))
     }));
-    const start = active().strokes.length;
-    active().strokes.push(...pasted);
-    selection = { indexes: pasted.map((_, index) => start + index) };
-    inkClipboard = pasted;
+    const pastedBlocks = blocks.map(block => ({ ...block, x: block.x + 24, y: block.y + 24 }));
+    const start = doc.strokes.length, blockStart = (doc.textBlocks || []).length;
+    doc.strokes = [...doc.strokes, ...pasted];
+    if (pastedBlocks.length) doc.textBlocks = [...(doc.textBlocks || []), ...pastedBlocks];
+    selection = { indexes: pasted.map((_, index) => start + index), blocks: pastedBlocks.map((_, index) => blockStart + index) };
+    inkClipboard = { strokes: pasted, blocks: pastedBlocks };
     persist();
     updateSelectionButtons();
     render();
@@ -910,6 +1029,45 @@
   if (!blocked) {
     window.WorkplaceWriting = {
       currentId() { finish(); return active().id; },
+      // Documenten voor opslag in WerkHub. Meetlijsten blijven lokaal; PDF-bestanden gaan niet mee.
+      exportForSync(all) {
+        finish();
+        const docs = (all ? data.documents : [active()]).filter(doc => !doc.formType);
+        return docs.map(doc => {
+          const copy = JSON.parse(JSON.stringify(doc));
+          delete copy.pdf;
+          delete copy.folderId;
+          return { id: doc.id, title: doc.title || "", kind: doc.kind, folder_title: doc.folderId ? folderTitle(doc.folderId) : null,
+            data: copy, had_pdf: !!doc.pdf };
+        });
+      },
+      hasDocument(id) { return data.documents.some(doc => doc.id === id); },
+      importFromSync(row) {
+        finish();
+        if (!row || typeof row.id !== "string" || !row.data || typeof row.data !== "object") throw new Error("WerkHub gaf een ongeldig document.");
+        const doc = { ...row.data, id: row.id, title: typeof row.title === "string" ? row.title : row.data.title };
+        delete doc.pdf;
+        delete doc.formType;
+        delete doc.formData;
+        let folder = null;
+        if (row.folder_title) {
+          const target = normalizedFolderTitle(row.folder_title);
+          folder = data.folders.find(item => normalizedFolderTitle(item.title) === target) || null;
+        }
+        const folders = folder || !row.folder_title ? data.folders : [...data.folders, { id: crypto.randomUUID(), title: String(row.folder_title).slice(0, 120) }];
+        if (!folder && row.folder_title) folder = folders[folders.length - 1];
+        doc.folderId = folder ? folder.id : null;
+        const documents = data.documents.some(item => item.id === doc.id)
+          ? data.documents.map(item => item.id === doc.id ? doc : item)
+          : [...data.documents, doc];
+        const next = { ...data, folders, documents, activeId: doc.id };
+        M.validate(next);
+        const previous = data;
+        data = next;
+        if (!persist()) { data = previous; throw new Error("Lokaal opslaan mislukt. Download eerst een back-up."); }
+        selectDocument();
+        return doc.title || "Zonder titel";
+      },
       async createBackup() {
         finish();
         const snapshot = JSON.parse(JSON.stringify(data));
@@ -1238,6 +1396,8 @@
     $("selection-paste").addEventListener("click", pasteSelection);
     $("undo").addEventListener("click", () => {
       finish();
+      selection = null;
+      updateSelectionButtons();
       if (undo.length) {
         redo.push(snapshot());
         restore(undo.pop());
@@ -1250,6 +1410,8 @@
     });
     $("redo").addEventListener("click", () => {
       finish();
+      selection = null;
+      updateSelectionButtons();
       if (redo.length) {
         undo.push(snapshot());
         restore(redo.pop());
@@ -1350,8 +1512,8 @@
     canvas.addEventListener("pointerdown", event => {
       event.preventDefault();
       hideQuickTools();
-      const selection = window.getSelection();
-      if (selection && !selection.isCollapsed) selection.removeAllRanges();
+      const pageSelection = window.getSelection();
+      if (pageSelection && !pageSelection.isCollapsed) pageSelection.removeAllRanges();
       if (document.activeElement instanceof HTMLElement && document.activeElement.matches("input, textarea, select")) document.activeElement.blur();
       const kind = ["pen", "touch", "mouse"].includes(event.pointerType) ? event.pointerType : "other";
       diagnostics[kind]++;
@@ -1410,17 +1572,18 @@
       }
       if (inputTool === "select-ink") {
         const bounds = selectionBounds();
-        if (bounds && point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top && point.y <= bounds.bottom) {
-          gesture.before = JSON.parse(JSON.stringify(active().strokes));
-          gesture.moveSelection = selection.indexes.map(index => ({
-            index,
-            points: active().strokes[index].points.map(value => ({ ...value }))
-          }));
+        const margin = 12 / active().view.scale;
+        if (bounds && point.x >= bounds.left - margin && point.x <= bounds.right + margin && point.y >= bounds.top - margin && point.y <= bounds.bottom + margin) {
+          // Verplaatsen: de oude streken blijven ongewijzigd bewaard (voor Ongedaan); alleen kopieen schuiven mee.
+          gesture.before = active().strokes;
+          gesture.beforeBlocks = active().textBlocks || [];
+          gesture.moveSelection = {
+            strokes: selection.indexes.map(index => ({ index, points: active().strokes[index].points })),
+            blocks: (selection.blocks || []).map(index => ({ index, x: gesture.beforeBlocks[index].x, y: gesture.beforeBlocks[index].y }))
+          };
           gesture.moveStart = point;
         } else {
-          clearSelection();
-          gesture.lassoPoints = [point];
-          selection = { indexes: [], lasso: gesture.lassoPoints };
+          selection = { indexes: [], blocks: [], lasso: gesture.lassoPoints = [point] };
         }
       }
       if (inputTool === "pen" && !$("shape").value) {
@@ -1485,10 +1648,15 @@
         const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
         if (gesture.moveSelection) {
           const dx = point.x - gesture.moveStart.x, dy = point.y - gesture.moveStart.y;
-          for (const item of gesture.moveSelection) {
-            const stroke = active().strokes[item.index];
-            stroke.points = item.points.map(value => ({ x: value.x + dx, y: value.y + dy }));
-            boundsCache.delete(stroke);
+          if (dx || dy) gesture.moved = true;
+          const strokes = gesture.before.slice();
+          for (const item of gesture.moveSelection.strokes) {
+            strokes[item.index] = { ...gesture.before[item.index], points: item.points.map(value => ({ x: value.x + dx, y: value.y + dy })) };
+          }
+          active().strokes = strokes;
+          if (gesture.moveSelection.blocks.length) {
+            const moving = new Map(gesture.moveSelection.blocks.map(item => [item.index, item]));
+            active().textBlocks = gesture.beforeBlocks.map((block, index) => moving.has(index) ? { ...block, x: moving.get(index).x + dx, y: moving.get(index).y + dy } : block);
           }
           scheduleRender();
         } else {

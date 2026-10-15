@@ -768,3 +768,38 @@ gecontroleerd met uitsluitend fictieve tekst.
   gumgrootte nu zichtbaar zodra Gum actief is. Een tweede aanraking (handpalm) midden
   in een gumbeweging met aanraking breekt de gum niet meer af.
 - Cache v22. Upload alle app-assets en behoud de bestaande vendor-map.
+
+## Versie 20.5: snellere gum, lasso hersteld, taken en notities via WerkHub
+
+- **Gum sneller.** De gum rekent alleen nog streken door die in de buurt van de gum
+  liggen en tekent bij het gummen alleen het geraakte stukje opnieuw in plaats van
+  het hele blad. Op een testbord met 1800 streken ging dat van ruim 9 naar ruim 2
+  seconden voor 120 gumbewegingen; de rekenstap zelf van 17 seconden naar 0,1 seconde
+  op 4000 streken. Het beeld is pixel voor pixel gelijk aan een volledig herteken.
+- **Lasso hersteld en beter.** De lasso crashte bij de eerste aanraking (een variabele
+  met dezelfde naam als de selectie). Nu: streken die voor minstens de helft in de lus
+  liggen worden gekozen, een tik kiest één streek of tekstblok, getypte tekstblokken
+  (ook AI-antwoorden) gaan mee, en je versleept de selectie door ergens in het
+  oranje vak te slepen. Verplaatsen, knippen, kopieren en plakken zijn met Ongedaan
+  terug te draaien. Verplaatsen kopieert geen hele bord meer, dus het blijft vlot.
+- **Taak aanmaken in WerkHub.** Ronde knop Taak (✓) naast Vraag/Herken. Eerste regel
+  wordt de taak, de rest de notitie; optioneel een deadline, of kies Subtaak voor
+  tussendoor (geen datum). Met het vinkje worden alle regels aparte taken (maximaal 20).
+  Onder een AI-antwoord of herkende handschrifttekst staat Maak taak in WerkHub van
+  dit antwoord. De taak komt als PWN-taak, status Nog beginnen, in WerkHub. Gebruikt de
+  bestaande WerkHub-login; er gaat niets naar AI. Subtaken vereisen
+  TAKEN-SUBTAKEN-MIGRATIE.sql (staat in de solo-leveling repo).
+- **Notities opslaan in WerkHub, ook voor de pc.** Onder Back-up staat WerkHub: notities
+  delen. Bewaar dit in WerkHub of Bewaar alles zet schriften en borden (penstreken en
+  tekstblokken) in WerkHub; Lijst uit WerkHub en Haal geselecteerde op zet ze op een
+  ander apparaat terug. Op de pc open je dezelfde Werkplek-link, log je op Vandaag in bij
+  WerkHub en schrijf je met de muis. Alleen na een klik; PDF-bestanden en meetlijsten
+  blijven lokaal. Bestaat het document al lokaal dan vraagt de app eerst bevestiging
+  voordat de WerkHub-versie het vervangt. Vereist eenmalig
+  WERKPLEK-NOTITIES-MIGRATIE.sql in Supabase (nieuwe tabel werkplek_documents, alleen de
+  eigenaar heeft toegang).
+- Cache v23; werkhub.js is nieuw. Upload alle app-assets, behoud de vendor-map.
+
+Getest met nagebootste WerkHub/Supabase-antwoorden in Chrome: gum, lasso, taken,
+subtaken, opslaan en ophalen. Echte Supabase-tabel, live WerkHub-login en fysieke iPad
+zijn nog niet geverifieerd.

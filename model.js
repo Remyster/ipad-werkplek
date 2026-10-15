@@ -202,26 +202,40 @@
     return { changed, strokes: changed ? result : strokes };
   }
 
-  function erase(strokes, from, to, radius) {
+  function erase(strokes, from, to, radius, boundsOf = strokeBounds) {
     const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
     const local = p => ({ x: length ? ((p.x - from.x) * dx + (p.y - from.y) * dy) / length : 0,
       y: length ? (-(p.x - from.x) * dy + (p.y - from.y) * dx) / length : 0 });
-    let changed = false;
-    const result = strokes.flatMap(stroke => {
-      if (stroke.shape) {
-        if (hitStroke(stroke, from, to, radius)) { changed = true; return []; }
-        return [stroke];
+    // Alleen streken in de buurt van de gum worden doorgerekend: dat houdt de gum snel op grote borden.
+    const box = { left: Math.min(from.x, to.x) - radius, top: Math.min(from.y, to.y) - radius,
+      right: Math.max(from.x, to.x) + radius, bottom: Math.max(from.y, to.y) + radius };
+    let result = null, dirty = null;
+    for (let index = 0; index < strokes.length; index++) {
+      const stroke = strokes[index];
+      let replacement = null;
+      const bounds = boundsOf(stroke);
+      if (intersectsBounds(bounds, box)) {
+        if (stroke.shape) {
+          if (hitStroke(stroke, from, to, radius)) replacement = [];
+        } else {
+          const r = radius + stroke.width / 2;
+          const clipped = splitStroke(stroke, (a, b) => [
+            ...circleInterval(a, b, from, r),
+            ...circleInterval(a, b, to, r),
+            ...(length ? rectangleInterval(local(a), local(b), 0, -r, length, r) : [])
+          ]);
+          if (clipped.changed) replacement = clipped.strokes;
+        }
       }
-      const r = radius + stroke.width / 2;
-      const clipped = splitStroke(stroke, (a, b) => [
-        ...circleInterval(a, b, from, r),
-        ...circleInterval(a, b, to, r),
-        ...(length ? rectangleInterval(local(a), local(b), 0, -r, length, r) : [])
-      ]);
-      changed = changed || clipped.changed;
-      return clipped.strokes;
-    });
-    return { changed, strokes: changed ? result : strokes };
+      if (replacement) {
+        dirty = dirty
+          ? { left: Math.min(dirty.left, bounds.left), top: Math.min(dirty.top, bounds.top), right: Math.max(dirty.right, bounds.right), bottom: Math.max(dirty.bottom, bounds.bottom) }
+          : { ...bounds };
+      }
+      if (replacement && !result) result = strokes.slice(0, index);
+      if (result) result.push(...(replacement || [stroke]));
+    }
+    return result ? { changed: true, strokes: result, dirty } : { changed: false, strokes };
   }
 
   function clearPage(strokes, page) {
@@ -382,6 +396,27 @@
     return { scribble: true, changed, removed, strokes: changed ? result : strokes };
   }
 
+  // Aandeel van een streek (0-1) dat binnen de lasso valt; bemonstert langs de lijn,
+  // zodat een korte of lange streek hetzelfde telt en een rakelings geraakte streek niet meegaat.
+  function strokeInsideFraction(stroke, polygon) {
+    if (!stroke || !Array.isArray(stroke.points) || !stroke.points.length || !Array.isArray(polygon) || polygon.length < 3) return 0;
+    let samples = [];
+    if (stroke.shape && stroke.points.length >= 2) {
+      const a = stroke.points[0], b = stroke.points[stroke.points.length - 1];
+      samples = [a, b, { x: a.x, y: b.y }, { x: b.x, y: a.y }, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }];
+    } else {
+      samples.push(stroke.points[0]);
+      for (let index = 1; index < stroke.points.length; index++) {
+        const a = stroke.points[index - 1], b = stroke.points[index];
+        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6));
+        for (let step = 1; step <= steps; step++) samples.push({ x: a.x + (b.x - a.x) * step / steps, y: a.y + (b.y - a.y) * step / steps });
+      }
+    }
+    let inside = 0;
+    for (const sample of samples) if (pointInPolygon(sample, polygon)) inside++;
+    return inside / samples.length;
+  }
+
   function pinch(view, a, b, nextA, nextB, rect) {
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
     const scale = Math.max(.2, Math.min(4, view.scale * Math.hypot(nextB.x - nextA.x, nextB.y - nextA.y) / Math.max(1, distance)));
@@ -392,6 +427,6 @@
 
   window.IpadModel = {
     KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom,
-    hitStroke, erase, clearPage, scribbleInfo, scribbleErase, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon
+    hitStroke, erase, clearPage, scribbleInfo, scribbleErase, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon, strokeInsideFraction
   };
 })();

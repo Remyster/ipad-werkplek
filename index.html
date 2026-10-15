@@ -18,6 +18,7 @@
   <script src="./app.js" defer></script>
   <script src="./connections.js" defer></script>
   <script src="./ai.js" defer></script>
+  <script src="./werkhub.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -109,6 +110,18 @@
             </div>
             <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
           </details>
+          <details class="workmap-menu" id="werkhub-sync">
+            <summary>WerkHub: notities delen (iPad en pc)</summary>
+            <p>Bewaar een schrift of bord in WerkHub en haal het op een ander apparaat op, bijvoorbeeld op de pc: open daar dezelfde Werkplek-link, log in bij WerkHub op Vandaag en schrijf met de muis. Alleen na een klik; PDF-bestanden en meetlijsten blijven lokaal.</p>
+            <div class="drive-actions">
+              <button id="wh-push" type="button">Bewaar dit in WerkHub</button>
+              <button id="wh-push-all" type="button">Bewaar alles</button>
+              <button id="wh-list" type="button">Lijst uit WerkHub</button>
+            </div>
+            <select id="wh-docs" aria-label="Documenten in WerkHub"></select>
+            <div class="drive-actions"><button id="wh-pull" type="button" disabled>Haal geselecteerde op</button></div>
+            <p id="wh-status" role="status">Nog niets gedaan. Vereist de WerkHub-login en WERKPLEK-NOTITIES-MIGRATIE.sql in Supabase.</p>
+          </details>
           <details class="workmap-menu" id="pdf-library">
             <summary>PDF-bibliotheek</summary>
             <p>Alle lokaal toegevoegde PDF-bestanden. Open een PDF opnieuw als apart bord in de huidige map.</p>
@@ -127,6 +140,7 @@
         <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
         <label class="circle-file" title="PDF als achtergrond op het huidige lege whiteboard"><span>PDF</span><small>Achtergrond</small><input id="pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF als achtergrond op huidig leeg whiteboard"></label>
         <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>Nieuw bord</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF openen als nieuw bord in huidige map"></label>
+        <button id="task-open" aria-haspopup="dialog" title="Taak aanmaken in WerkHub"><span>✓</span><small>Taak</small></button>
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
         <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
         <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
@@ -290,7 +304,25 @@
       <textarea id="writing-ai-transcript" rows="4" maxlength="20000"></textarea>
     </div>
     <button id="writing-ai-insert" type="button" disabled>Voeg antwoord toe op blad / bord</button>
+    <button id="writing-ai-task" type="button" disabled>Maak taak in WerkHub van dit antwoord</button>
     <p class="dialog-help">AI-voorstel: controleer het antwoord. Toevoegen bewaart tekst lokaal; Ongedaan verwijdert de toevoeging.</p>
+  </dialog>
+  <dialog id="task-dialog" aria-labelledby="task-heading">
+    <div class="section-heading">
+      <h2 id="task-heading">Taak in WerkHub</h2>
+      <button id="task-close" type="button">Sluiten</button>
+    </div>
+    <form id="task-form">
+      <label for="task-text">Wat moet er gebeuren (eerste regel is de taak, rest is notitie)</label>
+      <textarea id="task-text" rows="5" maxlength="4000" required placeholder="Bijvoorbeeld: UF-membraan filter controleren"></textarea>
+      <label class="finger-option"><input id="task-split" type="checkbox"> Elke regel wordt een aparte taak</label>
+      <label for="task-type">Soort</label>
+      <select id="task-type"><option value="taak">Taak (PWN)</option><option value="subtaak">Subtaak voor tussendoor (geen datum)</option></select>
+      <label for="task-deadline">Deadline (optioneel)</label>
+      <input id="task-deadline" type="date">
+      <button id="task-send" type="submit">Maak taak in WerkHub</button>
+    </form>
+    <p id="task-status" role="status"></p>
   </dialog>
 </body>
 </html>

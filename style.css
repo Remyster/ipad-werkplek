@@ -34,8 +34,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ai-panel { min-height: 75dvh; }
 #ai-provider { min-height: 44px; padding: 8px; }
 #ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; min-height: 180px; }
-#writing-ai-dialog { width: min(520px, calc(100% - 24px)); max-height: 85dvh; overflow: auto; padding: 18px; border: 1px solid #b4c4b9; border-radius: 16px; color: #18312f; background: #fff; }
-#writing-ai-dialog::backdrop { background: rgb(24 49 47 / 25%); }
+#writing-ai-dialog, #task-dialog { width: min(520px, calc(100% - 24px)); max-height: 85dvh; overflow: auto; padding: 18px; border: 1px solid #b4c4b9; border-radius: 16px; color: #18312f; background: #fff; }
+#writing-ai-dialog::backdrop, #task-dialog::backdrop { background: rgb(24 49 47 / 25%); }
 #writing-ai-heading { margin: 0; font-size: 1.2rem; }
 #writing-ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; max-height: 28dvh; overflow: auto; }
 .dialog-help { font-size: .85rem; color: #50645c; }
@@ -179,3 +179,6 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
   .writing-actions span { font-size: .78rem; }
   .writing-actions small { font-size: .48rem; }
 }
+#task-form { display: grid; gap: 8px; }
+#task-form textarea, #task-form select, #task-form input[type="date"] { width: 100%; font: inherit; }
+#wh-docs { width: 100%; margin: 6px 0; }

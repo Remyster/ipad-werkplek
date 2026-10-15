@@ -59,7 +59,16 @@
     }
   }
 
-  window.WorkplaceConnections = { session, publicConfig, tasks, loadTasks };
+  let cachedConfig = null;
+  async function config(request = fetch) {
+    if (cachedConfig) return cachedConfig;
+    const source = await request(HUB, { cache: "no-store", credentials: "omit" });
+    if (!source.ok) throw new Error(`WerkHub-configuratie laden mislukt (HTTP ${source.status}).`);
+    cachedConfig = publicConfig(await source.text());
+    return cachedConfig;
+  }
+
+  window.WorkplaceConnections = { session, publicConfig, config, tasks, loadTasks };
   const workhubFrame = document.getElementById("workhub-frame");
   document.getElementById("close-workhub").addEventListener("click", () => {
     workhubFrame.hidden = true;
