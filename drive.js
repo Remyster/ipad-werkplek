@@ -128,22 +128,81 @@
     return gisPromise;
   }
 
-  async function authorize(clientId) {
-    if (accessToken && Date.now() < accessTokenExpiresAt - 60000) return accessToken;
-    await loadGoogleIdentity();
-    const result = await new Promise((resolve, reject) => {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: validateClientId(clientId),
+  // Inloggen bij Google moet direct vanuit de tik gebeuren, anders blokkeert Safari de pop-up.
+  // Daarom staat de Google-loginclient al klaar voordat je op een knop tikt.
+  let tokenClient = null, tokenClientId = "", pendingToken = null;
+  const standalone = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const REDIRECT_STATE = "remy-ipad-drive-redirect";
+
+  function popupError(type) {
+    if (type === "popup_failed_to_open") return "Google-loginvenster werd geblokkeerd. Zet pop-ups aan voor deze site (iPad: Instellingen > Apps > Safari > Blokkeer pop-ups uit) of gebruik Koppel via doorsturen.";
+    if (type === "popup_closed") return "Google-loginvenster is gesloten voordat het klaar was. Probeer opnieuw, of gebruik Koppel via doorsturen (werkt beter in de beginscherm-app).";
+    return "Google-login mislukt. Gebruik Koppel via doorsturen, of controleer in Google Cloud dat https://remyster.github.io bij Authorized JavaScript origins staat.";
+  }
+
+  function prepare(clientId) {
+    const id = validateClientId(clientId);
+    if (tokenClient && tokenClientId === id) return Promise.resolve();
+    return loadGoogleIdentity().then(() => {
+      tokenClientId = id;
+      tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: id,
         scope: DRIVE_SCOPE,
-        callback: response => response?.access_token ? resolve(response) :
-          reject(new Error(response?.error_description || "Google Drive-toestemming is niet verleend.")),
-        error_callback: () => reject(new Error("Google Drive-login is gesloten of geblokkeerd."))
+        callback: response => {
+          const pending = pendingToken; pendingToken = null;
+          if (!pending) return;
+          if (response?.access_token) pending.resolve(response);
+          else pending.reject(new Error(response?.error === "access_denied"
+            ? "Toegang geweigerd. Staat je Google-account bij Test users in Google Cloud (OAuth consent screen)?"
+            : (response?.error_description || "Google Drive-toestemming is niet verleend.")));
+        },
+        error_callback: error => {
+          const pending = pendingToken; pendingToken = null;
+          if (pending) pending.reject(new Error(popupError(error?.type)));
+        }
       });
-      client.requestAccessToken({ prompt: accessToken ? "" : "consent" });
     });
-    accessToken = result.access_token;
-    accessTokenExpiresAt = Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000;
+  }
+
+  function storeToken(token, expiresIn) {
+    accessToken = token;
+    accessTokenExpiresAt = Date.now() + Math.max(60, Number(expiresIn) || 3600) * 1000;
     return accessToken;
+  }
+
+  // Synchroon starten (binnen de tik), daarna pas wachten.
+  function authorize(clientId) {
+    if (accessToken && Date.now() < accessTokenExpiresAt - 60000) return Promise.resolve(accessToken);
+    if (!tokenClient || tokenClientId !== validateClientId(clientId)) {
+      return prepare(clientId).then(() => { throw new Error("Google-login is nu geladen. Tik nog een keer op de knop."); });
+    }
+    const promise = new Promise((resolve, reject) => { pendingToken = { resolve, reject }; });
+    tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+    return promise.then(result => storeToken(result.access_token, result.expires_in));
+  }
+
+  // Alternatief zonder pop-up: hele pagina naar Google en terug (werkt ook in de beginscherm-app).
+  // Vereist dat https://remyster.github.io/ipad-werkplek/ bij Authorized redirect URIs staat.
+  function redirectLogin(clientId) {
+    const id = validateClientId(clientId);
+    const state = crypto.randomUUID();
+    sessionStorage.setItem(REDIRECT_STATE, state);
+    const redirect = location.origin + location.pathname.replace(/index\.html$/, "");
+    const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    url.search = new URLSearchParams({ client_id: id, redirect_uri: redirect, response_type: "token", scope: DRIVE_SCOPE,
+      include_granted_scopes: "true", state, prompt: "select_account" }).toString();
+    location.assign(url.href);
+  }
+
+  function takeRedirectToken() {
+    if (!location.hash.includes("access_token=") && !location.hash.includes("error=")) return null;
+    const params = new URLSearchParams(location.hash.slice(1));
+    const expected = sessionStorage.getItem(REDIRECT_STATE);
+    sessionStorage.removeItem(REDIRECT_STATE);
+    history.replaceState(null, "", location.pathname + location.search);
+    if (params.get("error")) return { error: params.get("error") === "access_denied" ? "Toegang geweigerd bij Google." : `Google-login mislukt: ${params.get("error")}` };
+    if (!expected || params.get("state") !== expected) return { error: "Google-login kwam niet van deze app terug. Probeer opnieuw." };
+    return { token: storeToken(params.get("access_token"), params.get("expires_in")) };
   }
 
   window.WorkplaceDrive = {
@@ -160,17 +219,25 @@
   const backups = document.getElementById("drive-backups");
   const folderLink = document.getElementById("drive-folder-link");
   clientInput.value = localStorage.getItem(CLIENT_ID_KEY) || window.WorkplaceConfig?.googleDriveClientId || "";
+  const redirectButton = document.getElementById("drive-redirect");
+  // Google-login alvast laden, zodat de pop-up direct vanuit je tik opent.
+  const warmUp = () => { try { prepare(clientInput.value).catch(error => console.warn("Werkplek: Google-login voorladen:", error.message)); } catch (error) { /* ongeldige client-ID: melding bij koppelen */ } };
+  document.getElementById("drive-settings").addEventListener("toggle", event => { if (event.target.open) warmUp(); });
+  document.getElementById("content-backup")?.addEventListener("toggle", event => { if (event.target.open) warmUp(); });
+  clientInput.addEventListener("change", warmUp);
+  if (standalone()) status.textContent = "Beginscherm-app: gebruik Koppel via doorsturen als het loginvenster niet goed opent.";
 
   function showError(error) {
     status.textContent = error.message || String(error);
     console.error("Werkplek: Google Drive:", error.message || error);
   }
 
-  async function connect() {
+  async function connect(tokenPromise) {
     const clientId = validateClientId(clientInput.value);
     localStorage.setItem(CLIENT_ID_KEY, clientId);
     status.textContent = "Google Drive koppelen...";
-    const token = await authorize(clientId);
+    const token = await (tokenPromise || authorize(clientId));
+    if (folderId) return token;
     folderId = await findOrCreateFolder(token);
     backupButton.disabled = false;
     refreshButton.disabled = false;
@@ -180,8 +247,8 @@
     return token;
   }
 
-  async function refresh() {
-    const token = await connect();
+  async function refresh(tokenPromise) {
+    const token = await connect(tokenPromise);
     status.textContent = "Drive-back-ups laden...";
     const files = await listBackups(token, folderId);
     backups.replaceChildren(...files.map(file => {
@@ -195,37 +262,53 @@
     status.textContent = files.length ? `${files.length} Drive-back-up(s) gevonden.` : "Nog geen Werkplek-back-up in Google Drive.";
   }
 
+  // Elke knop vraagt het token synchroon aan (in de tik) en wacht pas daarna.
+  const startToken = () => { try { return authorize(clientInput.value); } catch (error) { return Promise.reject(error); } };
+  redirectButton?.addEventListener("click", () => {
+    try { redirectLogin(clientInput.value); } catch (error) { showError(error); }
+  });
+  const returned = takeRedirectToken();
+  if (returned) {
+    document.getElementById("content-backup")?.setAttribute("open", "");
+    document.getElementById("drive-settings").setAttribute("open", "");
+    if (returned.error) showError(new Error(returned.error));
+    else refresh(Promise.resolve(returned.token)).catch(showError);
+  }
   connectButton.addEventListener("click", async () => {
+    const tokenPromise = startToken();
     connectButton.disabled = true;
-    try { await connect(); await refresh(); }
+    try { await refresh(tokenPromise); }
     catch (error) { showError(error); }
     finally { connectButton.disabled = false; }
   });
   refreshButton.addEventListener("click", async () => {
+    const tokenPromise = startToken();
     refreshButton.disabled = true;
-    try { await refresh(); }
+    try { await refresh(tokenPromise); }
     catch (error) { showError(error); }
     finally { refreshButton.disabled = false; }
   });
   backupButton.addEventListener("click", async () => {
+    const tokenPromise = startToken();
     backupButton.disabled = true;
     try {
-      const token = await connect();
+      const token = await connect(tokenPromise);
       status.textContent = "Lokale gegevens en PDF's voorbereiden...";
       const backup = await window.WorkplaceWriting.createBackup();
       status.textContent = "Back-up naar Google Drive uploaden...";
       const file = await uploadBackup(token, folderId, backup);
       status.textContent = `${file.name} staat in Google Drive en is ook op je pc zichtbaar.`;
-      await refresh();
+      await refresh(Promise.resolve(token));
     } catch (error) { showError(error); }
     finally { backupButton.disabled = false; }
   });
   restoreButton.addEventListener("click", async () => {
     const fileId = backups.value;
     if (!fileId || !window.confirm("De gekozen Drive-back-up terugzetten? De huidige lokale Werkplek wordt vervangen. Download bij twijfel eerst een lokale back-up.")) return;
+    const tokenPromise = startToken();
     restoreButton.disabled = true;
     try {
-      const token = await connect();
+      const token = await connect(tokenPromise);
       status.textContent = "Drive-back-up downloaden en controleren...";
       const backup = await downloadBackup(token, fileId);
       await window.WorkplaceWriting.restoreBackup(backup);

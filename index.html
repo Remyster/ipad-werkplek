@@ -15,10 +15,12 @@
   <script src="./config.js" defer></script>
   <script src="./pdf.js" defer></script>
   <script src="./drive.js" defer></script>
+  <script src="./store.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./connections.js" defer></script>
   <script src="./ai.js" defer></script>
   <script src="./werkhub.js" defer></script>
+  <script src="./agenda.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -52,16 +54,21 @@
       <div class="cards">
         <article>
           <h3>Werk en priveagenda</h3>
-          <p>Beide via Google Calendar. Afspraken blijven in Google en worden hier alleen weergegeven.</p>
+          <p>Komende twee weken uit Google Calendar, via WerkHub. Geen Google-login of cookies nodig.</p>
           <div class="panel-actions" aria-label="Agenda-acties">
-            <button id="show-calendar">Toon widget</button>
+            <button id="agenda-refresh" type="button">Ververs agenda</button>
             <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Google Calendar openen</a>
-            <button id="hide-calendar">Weg</button>
           </div>
-          <p id="calendar-status" role="status">Alleen weergave. Privetoegang hangt af van je Google-login in Safari; maak je agenda niet openbaar.</p>
-          <iframe id="calendar-frame" title="Google Agenda widget" hidden referrerpolicy="no-referrer"></iframe>
+          <p id="agenda-status" role="status">Agenda laden...</p>
+          <div id="agenda-list" aria-live="polite"></div>
           <details>
-            <summary>Agenda-widget instellen</summary>
+            <summary>Oude Google-widget (cookies, werkt niet altijd in Safari)</summary>
+            <div class="panel-actions">
+              <button id="show-calendar">Toon oude widget</button>
+              <button id="hide-calendar">Weg</button>
+            </div>
+            <p id="calendar-status" role="status">Alleen als reserve.</p>
+            <iframe id="calendar-frame" title="Google Agenda widget" hidden referrerpolicy="no-referrer"></iframe>
             <label for="calendar-name">Naam werkagenda</label>
             <input id="calendar-name" placeholder="Bijvoorbeeld PWN werkagenda">
             <label for="calendar-id">Google agenda-ID (geen geheime ICS-link)</label>
@@ -93,12 +100,16 @@
         <summary>Back-up</summary>
         <div class="backup-actions">
           <button id="export">Download lokale back-up</button>
+          <button id="import-merge" type="button">Open back-up (toevoegen)</button>
+          <button id="import-replace" type="button">Zet back-up terug (vervangt alles)</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden>
           <details id="drive-settings">
             <summary>Google Drive-back-up</summary>
             <label for="drive-client-id">Google OAuth client-ID (openbare configuratie, geen sleutel)</label>
             <input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
             <div class="drive-actions">
               <button id="drive-connect" type="button">Koppel Drive</button>
+              <button id="drive-redirect" type="button">Koppel via doorsturen</button>
               <button id="drive-backup" type="button" disabled>Back-up maken</button>
               <button id="drive-refresh" type="button" disabled>Lijst verversen</button>
             </div>
@@ -113,6 +124,7 @@
           <details class="workmap-menu" id="werkhub-sync">
             <summary>WerkHub: notities delen (iPad en pc)</summary>
             <p>Bewaar een schrift of bord in WerkHub en haal het op een ander apparaat op, bijvoorbeeld op de pc: open daar dezelfde Werkplek-link, log in bij WerkHub op Vandaag en schrijf met de muis. Alleen na een klik; PDF-bestanden en meetlijsten blijven lokaal.</p>
+            <label class="finger-option"><input id="wh-auto" type="checkbox" checked> Automatisch bewaren in WerkHub (open schrift of bord, elke 30 seconden als er iets veranderd is)</label>
             <div class="drive-actions">
               <button id="wh-push" type="button">Bewaar dit in WerkHub</button>
               <button id="wh-push-all" type="button">Bewaar alles</button>
@@ -226,8 +238,14 @@
               <button type="button" data-quick-brush="marker">Stift</button>
               <button type="button" data-quick-brush="highlighter">Markeer</button>
               <button type="button" data-quick-tool="eraser">Gum</button>
+              <button type="button" class="quick-task" data-quick-task="taak">Opslaan als taak</button>
+              <button type="button" class="quick-task" data-quick-task="subtaak">Opslaan als subtaak</button>
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
+            </div>
+            <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>
+              <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button>
+              <button type="button" class="quick-task" data-sel-task="taak">Taak</button><button type="button" class="quick-task" data-sel-task="subtaak">Subtaak</button>
             </div>
           </div>
           <p id="drawing-help">Lasso: omcirkel zelf de inkt. Doorkrassen: krabbel met de pen snel heen en weer over een letter of woord, dan verdwijnt het (Ongedaan zet het terug). Houd de pen stil voor snelle peninstellingen.</p>
@@ -314,11 +332,13 @@
     </div>
     <form id="task-form">
       <label for="task-text">Wat moet er gebeuren (eerste regel is de taak, rest is notitie)</label>
-      <textarea id="task-text" rows="5" maxlength="4000" required placeholder="Bijvoorbeeld: UF-membraan filter controleren"></textarea>
+      <textarea id="task-text" rows="5" maxlength="4000" required placeholder="Bijvoorbeeld: UF-membraan filter controleren | 2026-10-20"></textarea>
+      <label class="finger-option" id="task-consent-row" hidden><input id="task-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen voor taken. Wordt onthouden.</label>
+      <button id="task-read" type="button" hidden>Lees handschrift met AI</button>
       <label class="finger-option"><input id="task-split" type="checkbox"> Elke regel wordt een aparte taak</label>
       <label for="task-type">Soort</label>
       <select id="task-type"><option value="taak">Taak (PWN)</option><option value="subtaak">Subtaak voor tussendoor (geen datum)</option></select>
-      <label for="task-deadline">Deadline (optioneel)</label>
+      <label for="task-deadline">Deadline (optioneel, voor regels zonder eigen | datum)</label>
       <input id="task-deadline" type="date">
       <button id="task-send" type="submit">Maak taak in WerkHub</button>
     </form>

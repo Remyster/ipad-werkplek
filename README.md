@@ -803,3 +803,16 @@ gecontroleerd met uitsluitend fictieve tekst.
 Getest met nagebootste WerkHub/Supabase-antwoorden in Chrome: gum, lasso, taken,
 subtaken, opslaan en ophalen. Echte Supabase-tabel, live WerkHub-login en fysieke iPad
 zijn nog niet geverifieerd.
+
+## Versie 21
+
+- Back-up openen: Werkmap > Back-up > "Open back-up (toevoegen)" voegt documenten uit een gedownload bestand toe zonder iets weg te halen. "Zet back-up terug" vervangt alles.
+- Lasso: boven de selectie verschijnt een menu met Kopieer, Knip, Taak en Subtaak. Lang drukken met de pen geeft ook "Opslaan als taak/subtaak".
+- Taak uit handschrift: AI (Gemini via werkplek-ai) leest de selectie of het hele blad en stelt taken voor, met deadline als die erin staat (regel: taak | JJJJ-MM-DD). Eerst eenmalig toestemming aanvinken; je controleert altijd voor het opslaan.
+- Opslag: notities staan nu in IndexedDB (veel meer ruimte), met localStorage als reservekopie zolang die past.
+- WerkHub: het open schrift/bord wordt automatisch elke 30 seconden bewaard als er iets veranderd is. Is het op een ander apparaat nieuwer bewaard, dan wordt niets overschreven en krijg je een melding. PDF's blijven lokaal.
+- Agenda op Vandaag: lijst via de edge function werkhub-agenda (geen Google-iframe, geen cookieproblemen). Instellen: secret AGENDA_ICS_URLS in Supabase (zie WerkHub TAKEN-INSTELLEN.txt). De oude widget staat nog onder "Oude Google-widget".
+- Google Drive: de login start nu direct vanuit je tik (geen geblokkeerde pop-up) en geeft duidelijke foutmeldingen. Nieuw: "Koppel via doorsturen" voor de beginscherm-app. Daarvoor moet in Google Cloud > Credentials bij de OAuth-client staan:
+  - Authorized JavaScript origins: https://remyster.github.io
+  - Authorized redirect URIs: https://remyster.github.io/ipad-werkplek/
+  - Google Drive API aan, en je account bij Test users (OAuth consent screen).

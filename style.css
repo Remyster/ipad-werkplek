@@ -29,6 +29,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 #task-list p { margin-bottom: 0; font-size: .85rem; }
 #hub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; border-radius: 12px; background: white; }
 #workhub-frame { width: 100%; height: 90dvh; min-height: 600px; border: 1px solid #b4c4b9; margin-top: 12px; }
+#agenda-list { margin-top: 10px; display: grid; gap: 10px; }
+.agenda-day h4 { margin: 0 0 4px; font-size: .9rem; color: #4d6660; text-transform: capitalize; }
+.agenda-item { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 8px 10px; border: 1px solid #d4ddd6; border-radius: 10px; background: #fff; }
+.agenda-item time { font-variant-numeric: tabular-nums; color: #173c39; font-weight: 600; }
+.agenda-item small { display: block; color: #5d736d; }
+.agenda-item.now { border-color: #af6700; box-shadow: 0 0 0 2px rgb(175 103 0 / 15%); }
 #calendar-frame { width: 100%; height: 75dvh; min-height: 520px; border: 0; margin-top: 12px; }
 #calendar-name, #calendar-name-private, #calendar-id, #calendar-id-private { width: 100%; padding: 10px; }
 .ai-panel { min-height: 75dvh; }
@@ -135,6 +141,10 @@ input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
 #quick-tools[hidden] { display: none; }
 #quick-tools button { min-height: 40px; padding: 7px 10px; }
 #quick-tools label { display: flex; align-items: center; gap: 4px; }
+#quick-tools .quick-task { flex: 1 1 140px; }
+.quick-task { background: #173c39; color: #fff; border-color: #173c39; }
+#selection-menu { position: absolute; z-index: 4; display: flex; gap: 6px; padding: 6px; border: 1px solid #8ca49d; border-radius: 12px; background: #fff; box-shadow: 0 8px 22px rgb(23 60 57 / 22%); }
+#selection-menu button { min-height: 40px; padding: 6px 12px; }
 #writing { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #writing input, #writing textarea, #writing select { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 summary { cursor: pointer; min-height: 44px; padding: 12px 0; }

@@ -134,7 +134,7 @@
     calendar.hidden = true;
     calendar.removeAttribute("src");
   });
-  if (savedCalendar["calendar-id"]) {
+  if (savedCalendar["calendar-id"] && localStorage.getItem("remy-ipad-old-calendar") === "1") {
     try {
       calendar.src = calendarUrl(savedCalendar["calendar-id"], savedCalendar["calendar-id-private"]);
       calendar.hidden = false;

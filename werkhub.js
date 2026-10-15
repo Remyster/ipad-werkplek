@@ -47,15 +47,25 @@
     return line.replace(/^\s*(?:[-*•]|\d{1,2}[.)])\s+/, "").trim();
   }
 
+  // Een regel mag eindigen op "| 2026-10-20": dat wordt de deadline van die taak (zo levert de AI ze aan).
+  function splitDeadline(line) {
+    const match = line.match(/^(.*?)\s*\|\s*(\d{4}-\d{2}-\d{2})?\s*$/);
+    if (!match) return { titel: line, deadline: "" };
+    return { titel: match[1].trim(), deadline: match[2] && !Number.isNaN(Date.parse(match[2])) ? match[2] : "" };
+  }
+
   function parseTasks(text, split) {
     const lines = String(text || "").split(/\r?\n/).map(cleanLine).filter(Boolean);
     if (!lines.length) throw new Error("Vul eerst in wat er moet gebeuren.");
     if (split) {
       if (lines.length > MAX_TASKS) throw new Error(`Maximaal ${MAX_TASKS} taken tegelijk. Verwijder regels of maak twee rondes.`);
-      return lines.map(line => ({ titel: line.slice(0, 200), notitie: line.length > 200 ? line : "" }));
+      return lines.map(splitDeadline).filter(task => task.titel).map(task =>
+        ({ titel: task.titel.slice(0, 200), notitie: task.titel.length > 200 ? task.titel : "", deadline: task.deadline }));
     }
+    const first = splitDeadline(lines[0]);
+    if (first.titel) lines[0] = first.titel;
     const rest = lines.slice(1).join("\n");
-    return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000) }];
+    return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000), deadline: first.deadline }];
   }
 
   async function createTasks(text, { split = false, type = "taak", deadline = "" } = {}) {
@@ -65,7 +75,7 @@
     const now = new Date().toISOString();
     const rows = tasks.map(task => ({
       project: "pwn", titel: task.titel, waar: "", wie: "", notitie: task.notitie, status: "backlog",
-      deadline: type === "subtaak" ? null : (deadline || null), updated_at: now,
+      deadline: type === "subtaak" ? null : (task.deadline || deadline || null), updated_at: now,
       ...(type === "subtaak" ? { taaktype: "subtaak" } : {})
     }));
     try {
@@ -85,6 +95,9 @@
 
   function openTask(text = "") {
     taskForm.reset();
+    pendingInk = null;
+    $("task-read").hidden = true;
+    $("task-consent-row").hidden = true;
     $("task-text").value = String(text || "").slice(0, 4000);
     const lines = $("task-text").value.split(/\r?\n/).map(cleanLine).filter(Boolean);
     $("task-split").checked = lines.length > 1 && lines.length <= MAX_TASKS && lines.every(line => line.length <= 200);
@@ -95,6 +108,79 @@
     $("task-text").focus();
   }
 
+  // ---- Taak uit handschrift (lasso-menu, lang drukken, knop Taak) ----
+
+  const CONSENT_KEY = "remy-ipad-ai-task-consent";
+  const aiConsent = () => { try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch (error) { return false; } };
+  let pendingInk = null;
+
+  function taskPrompt() {
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const day = today.toLocaleDateString("nl-NL", { weekday: "long" });
+    return "Haal de taken of actiepunten uit dit handschrift. Vandaag is " + day + " " + iso + ". " +
+      "Geef alleen regels in de vorm: taak | JJJJ-MM-DD. Zet een datum alleen als er een datum, dag of termijn in het handschrift staat " +
+      "(reken die om naar een echte datum), anders: taak | . Eén regel per taak, geen uitleg, geen opsommingstekens, geen Markdown. " +
+      "Staat er maar één ding, geef één regel. Onleesbare woorden: [onleesbaar].";
+  }
+
+  async function readInk() {
+    if (!pendingInk) return;
+    const ai = window.AiChat;
+    if (!ai) throw new Error("AI-module is niet geladen. Herlaad de app.");
+    $("task-read").disabled = true;
+    taskStatus.textContent = "Handschrift wordt gelezen...";
+    try {
+      const image = ai.cropInk(pendingInk, { x: 0, y: 0, width: pendingInk.width, height: pendingInk.height });
+      const answer = (await ai.askBoard(image, taskPrompt())).replace(/```[a-z]*\n?|```/gi, "").trim();
+      const lines = answer.split(/\r?\n/).map(cleanLine).filter(Boolean).slice(0, MAX_TASKS);
+      if (!lines.length) throw new Error("AI vond geen taak in het handschrift. Typ hem zelf in.");
+      const existing = $("task-text").value.trim();
+      $("task-text").value = [existing, ...lines].filter(Boolean).join("\n").slice(0, 4000);
+      $("task-split").checked = $("task-text").value.split(/\r?\n/).filter(line => line.trim()).length > 1;
+      taskStatus.textContent = lines.length === 1 ? "Gelezen. Controleer de tekst en tik op Maak taak." :
+        `${lines.length} taken gevonden. Haal weg wat niet klopt en tik op Maak taak.`;
+      pendingInk = null;
+      $("task-read").hidden = true;
+      $("task-consent-row").hidden = true;
+    } finally {
+      $("task-read").disabled = false;
+    }
+  }
+
+  async function taskFromInk(type = "taak") {
+    let source;
+    try { source = window.WorkplaceWriting.captureSelection(); }
+    catch (error) { openTask(""); taskStatus.textContent = error.message || String(error); return; }
+    openTask(source.text || "");
+    $("task-type").value = type === "subtaak" ? "subtaak" : "taak";
+    syncTaskType();
+    pendingInk = source.canvas;
+    const where = source.selected ? "de selectie" : "dit hele blad";
+    if (!pendingInk) {
+      taskStatus.textContent = source.text ? "Getypte tekst overgenomen. Controleer en tik op Maak taak." : "Geen handschrift gevonden. Typ de taak zelf in.";
+      return;
+    }
+    $("task-read").hidden = false;
+    $("task-consent-row").hidden = aiConsent();
+    $("task-consent").checked = aiConsent();
+    if (!aiConsent()) {
+      taskStatus.textContent = `Vink aan dat AI ${where} mag lezen (Gemini, buiten PWN), of typ de taak zelf.`;
+      return;
+    }
+    try { await readInk(); }
+    catch (error) { taskStatus.textContent = error.message || String(error); }
+  }
+
+  $("task-consent").addEventListener("change", () => {
+    try { localStorage.setItem(CONSENT_KEY, $("task-consent").checked ? "1" : "0"); } catch (error) { /* alleen gemak */ }
+  });
+  $("task-read").addEventListener("click", async () => {
+    if (!$("task-consent").checked) { taskStatus.textContent = "Vink eerst aan dat AI het handschrift mag lezen."; return; }
+    try { await readInk(); }
+    catch (error) { taskStatus.textContent = error.message || String(error); }
+  });
+
   function syncTaskType() {
     const subtask = $("task-type").value === "subtaak";
     $("task-deadline").disabled = subtask;
@@ -102,7 +188,7 @@
   }
 
   $("task-type").addEventListener("change", syncTaskType);
-  $("task-open").addEventListener("click", () => openTask(""));
+  $("task-open").addEventListener("click", () => taskFromInk("taak"));
   $("task-close").addEventListener("click", () => taskDialog.close());
   taskForm.addEventListener("submit", async event => {
     event.preventDefault();
@@ -163,10 +249,13 @@
     // Per document een eigen aanvraag: een mislukt groot bord blokkeert de rest niet.
     let saved = 0;
     for (const row of rows) {
+      conflictId = "";
       await call("werkplek_documents?on_conflict=id", {
         method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([row])
       });
       saved++;
+      const source = docs.find(doc => doc.id === row.id);
+      if (source) remember({ id: row.id, updated_at: now }, hashDoc(source));
       say(`Bewaren in WerkHub: ${saved} van ${rows.length}...`);
     }
     const pdfs = docs.filter(doc => doc.had_pdf).length;
@@ -205,6 +294,8 @@
       return "Niet opgehaald: lokale versie behouden.";
     }
     const title = writing.importFromSync(rows[0]);
+    const imported = writing.exportForSync(false, true);
+    if (imported && imported[0] && imported[0].id === rows[0].id) remember(rows[0], hashDoc(imported[0]));
     return `"${title}" opgehaald uit WerkHub en geopend.`;
   }
 
@@ -219,11 +310,77 @@
     }
   }
 
+  // ---- Automatisch bewaren in WerkHub ----
+  // Elke 30 s (en bij wegklikken van de app) wordt het open schrift/bord bewaard als het
+  // veranderd is. Is het op een ander apparaat nieuwer bewaard, dan wordt niets overschreven.
+  const AUTO_KEY = "remy-ipad-werkhub-auto";
+  const SYNC_KEY = "remy-ipad-werkhub-sync";
+  const autoBox = $("wh-auto");
+  const readJson = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; } catch (error) { return fallback; } };
+  const syncState = readJson(SYNC_KEY, {}); // id -> { hash, remote }
+  const saveSyncState = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncState)); } catch (error) { /* volgende keer opnieuw */ } };
+  let autoBusy = false, conflictId = "";
+
+  function hashDoc(doc) {
+    const { view, ...rest } = doc.data;
+    const text = JSON.stringify([doc.title, doc.folder_title, rest]);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index++) { hash ^= text.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+    return (hash >>> 0).toString(36) + ":" + text.length;
+  }
+
+  async function autoSync(force = false) {
+    if (autoBusy || !autoBox?.checked) return;
+    const writing = window.WorkplaceWriting;
+    if (!writing) return;
+    try { window.WorkplaceConnections.session(localStorage); } catch (error) { return; } // niet ingelogd: stil overslaan
+    const docs = writing.exportForSync(false, true);
+    if (!docs || !docs.length) return;
+    const doc = docs[0];
+    const hash = hashDoc(doc);
+    const known = syncState[doc.id];
+    if (known && known.hash === hash && !force) return;
+    if (JSON.stringify(doc).length > MAX_ROW_BYTES) return;
+    autoBusy = true;
+    try {
+      const rows = await call(`werkplek_documents?id=eq.${encodeURIComponent(doc.id)}&select=updated_at`);
+      const remote = Array.isArray(rows) && rows[0] ? rows[0].updated_at : null;
+      if (remote && (!known || remote !== known.remote)) {
+        conflictId = doc.id;
+        say(`"${doc.title || "Zonder titel"}" is op een ander apparaat nieuwer bewaard. Haal hem op via de lijst, of tik Bewaar dit in WerkHub om te overschrijven.`);
+        return;
+      }
+      const now = new Date().toISOString();
+      await call("werkplek_documents?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([{ id: doc.id, title: doc.title, kind: doc.kind, folder_title: doc.folder_title, data: doc.data, updated_at: now }]) });
+      syncState[doc.id] = { hash, remote: now };
+      saveSyncState();
+      conflictId = "";
+      say(`Automatisch bewaard in WerkHub om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}.`);
+    } catch (error) {
+      say(friendly(error));
+    } finally {
+      autoBusy = false;
+    }
+  }
+
+  function remember(row, hash) { syncState[row.id] = { hash, remote: row.updated_at }; saveSyncState(); }
+
+  if (autoBox) {
+    autoBox.checked = localStorage.getItem(AUTO_KEY) !== "0";
+    autoBox.addEventListener("change", () => {
+      try { localStorage.setItem(AUTO_KEY, autoBox.checked ? "1" : "0"); } catch (error) { /* alleen gemak */ }
+      if (autoBox.checked) autoSync();
+    });
+    setInterval(() => autoSync(), 30000);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autoSync(); });
+  }
+
   $("wh-push").addEventListener("click", event => run(event.currentTarget, () => push(false)));
   $("wh-push-all").addEventListener("click", event => run(event.currentTarget, () => push(true)));
   $("wh-list").addEventListener("click", event => run(event.currentTarget, async () => `${await refresh()} documenten in WerkHub.`));
   $("wh-pull").addEventListener("click", event => run(event.currentTarget, pull));
   $("wh-pull").disabled = true;
 
-  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask };
+  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline };
 })();

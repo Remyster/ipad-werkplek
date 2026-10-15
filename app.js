@@ -33,8 +33,8 @@
   function persist() {
     if (blocked) return false;
     try {
-      M.save(localStorage, data);
-      $("save-status").textContent = "Lokaal opgeslagen. Drive-back-up via Back-up.";
+      const result = window.WorkplaceStore.save(JSON.stringify(M.validate(data)));
+      $("save-status").textContent = result.localOk ? "Lokaal opgeslagen. Drive-back-up via Back-up." : "Lokaal opgeslagen (grote opslag). Drive-back-up via Back-up.";
       return true;
     } catch (error) {
       $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
@@ -211,9 +211,56 @@
     };
   }
 
+  function inkCanvas(strokes) {
+    if (!strokes.length) {
+      const empty = document.createElement("canvas");
+      empty.width = empty.height = 8;
+      const emptyContext = empty.getContext("2d");
+      emptyContext.fillStyle = "#ffffff";
+      emptyContext.fillRect(0, 0, 8, 8);
+      return empty;
+    }
+    const bounds = strokes.map(strokeBounds);
+    const margin = 24;
+    const left = Math.min(...bounds.map(value => value.left)) - margin;
+    const top = Math.min(...bounds.map(value => value.top)) - margin;
+    const right = Math.max(...bounds.map(value => value.right)) + margin;
+    const bottom = Math.max(...bounds.map(value => value.bottom)) + margin;
+    const worldWidth = Math.max(8, right - left);
+    const worldHeight = Math.max(8, bottom - top);
+    const scale = Math.min(2, 1600 / Math.max(worldWidth, worldHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(8, Math.ceil(worldWidth * scale));
+    canvas.height = Math.max(8, Math.ceil(worldHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Handschriftvoorbeeld maken is niet beschikbaar.");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
+    for (const stroke of strokes) drawStroke(ctx, stroke);
+    return canvas;
+  }
+
+  // Zwevend menu boven de lasso-selectie: kopieer, knip, taak, subtaak.
+  function placeSelectionMenu(bounds) {
+    const menu = $("selection-menu");
+    if (!menu) return;
+    if (!bounds || gesture?.moveSelection || gesture?.lassoPoints) { menu.hidden = true; return; }
+    const { x, y, scale } = active().view;
+    const surface = $("surface").getBoundingClientRect();
+    menu.hidden = false;
+    const width = menu.offsetWidth || 300, height = menu.offsetHeight || 48;
+    const left = (bounds.left - x) * scale;
+    let top = (bounds.top - y) * scale - height - 10;
+    if (top < 6) top = (bounds.bottom - y) * scale + 10;
+    menu.style.left = `${Math.max(6, Math.min(surface.width - width - 6, left))}px`;
+    menu.style.top = `${Math.max(6, Math.min(surface.height - height - 6, top))}px`;
+  }
+
   function drawSelectionOverlay() {
     const ctx = worldContext("drawing");
     const bounds = selectionBounds();
+    placeSelectionMenu(bounds);
     if (!bounds && !selection?.lasso?.length) return;
     const scale = active().view.scale;
     ctx.save();
@@ -251,6 +298,7 @@
     $("selection-copy").disabled = !selected;
     $("selection-cut").disabled = !selected;
     $("selection-paste").disabled = !(inkClipboard.strokes.length || inkClipboard.blocks.length);
+    if (!selected && $("selection-menu")) $("selection-menu").hidden = true;
   }
 
   // Wat zit er in de lasso: streken die voor minstens de helft binnen de lus liggen en
@@ -1007,8 +1055,14 @@
     selectDocument();
   }
 
+  (async () => {
   try {
-    data = M.load(localStorage);
+    window.WorkplaceStore.onError(error => {
+      $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
+      report(error);
+    });
+    const stored = await window.WorkplaceStore.load(localStorage);
+    data = stored === null ? null : M.validate(JSON.parse(stored));
     if (!data) {
       const doc = M.createDocument("page", crypto.randomUUID());
       data = { version: 1, activeId: doc.id, documents: [doc], folders: [] };
@@ -1030,8 +1084,10 @@
     window.WorkplaceWriting = {
       currentId() { finish(); return active().id; },
       // Documenten voor opslag in WerkHub. Meetlijsten blijven lokaal; PDF-bestanden gaan niet mee.
-      exportForSync(all) {
-        finish();
+      exportForSync(all, quiet = false) {
+        // quiet: automatische sync mag een lopende penstreek nooit afbreken.
+        if (quiet && gesture) return null;
+        if (!quiet) finish();
         const docs = (all ? data.documents : [active()]).filter(doc => !doc.formType);
         return docs.map(doc => {
           const copy = JSON.parse(JSON.stringify(doc));
@@ -1076,39 +1132,50 @@
       async restoreBackup(backup) {
         finish();
         const restored = await window.WorkplacePdf.restore(backup, M.validate);
-        M.save(localStorage, restored);
+        await window.WorkplaceStore.saveNow(JSON.stringify(M.validate(restored)));
         location.reload();
+      },
+      // Back-up openen zonder iets kwijt te raken: mappen op naam samenvoegen, documenten met
+      // hetzelfde id vervangen, de rest erbij zetten.
+      async mergeBackup(backup) {
+        finish();
+        const incoming = await window.WorkplacePdf.restore(backup, M.validate);
+        const folders = [...data.folders];
+        const folderMap = new Map();
+        for (const folder of incoming.folders || []) {
+          const match = folders.find(item => normalizedFolderTitle(item.title) === normalizedFolderTitle(folder.title));
+          if (match) folderMap.set(folder.id, match.id);
+          else { folders.push(folder); folderMap.set(folder.id, folder.id); }
+        }
+        const documents = [...data.documents];
+        let added = 0, replaced = 0;
+        for (const doc of incoming.documents || []) {
+          const copy = { ...doc, folderId: doc.folderId ? (folderMap.get(doc.folderId) || null) : doc.folderId };
+          const index = documents.findIndex(item => item.id === doc.id);
+          if (index >= 0) { documents[index] = copy; replaced++; } else { documents.push(copy); added++; }
+        }
+        const next = { ...data, folders, documents };
+        M.validate(next);
+        const previous = data;
+        data = next;
+        if (!persist()) { data = previous; throw new Error("Lokaal opslaan mislukt: de opslag is vol."); }
+        selectDocument();
+        return { added, replaced };
       },
       captureInk() {
         finish();
         if (isMeasurement()) throw new Error("Open een schrift of whiteboard om handschrift te selecteren.");
-        if (!active().strokes.length) {
-          const empty = document.createElement("canvas");
-          empty.width = empty.height = 8;
-          const emptyContext = empty.getContext("2d");
-          emptyContext.fillStyle = "#ffffff";
-          emptyContext.fillRect(0, 0, 8, 8);
-          return empty;
-        }
-        const bounds = active().strokes.map(strokeBounds);
-        const margin = 24;
-        const left = Math.min(...bounds.map(value => value.left)) - margin;
-        const top = Math.min(...bounds.map(value => value.top)) - margin;
-        const right = Math.max(...bounds.map(value => value.right)) + margin;
-        const bottom = Math.max(...bounds.map(value => value.bottom)) + margin;
-        const worldWidth = Math.max(8, right - left);
-        const worldHeight = Math.max(8, bottom - top);
-        const scale = Math.min(2, 1600 / Math.max(worldWidth, worldHeight));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(8, Math.ceil(worldWidth * scale));
-        canvas.height = Math.max(8, Math.ceil(worldHeight * scale));
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Handschriftvoorbeeld maken is niet beschikbaar.");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
-        for (const stroke of active().strokes) drawStroke(ctx, stroke);
-        return canvas;
+        return inkCanvas(active().strokes);
+      },
+      // Voor "Opslaan als taak": de lasso-selectie (of anders het hele blad) als plaatje plus getypte tekst.
+      captureSelection() {
+        finish();
+        if (isMeasurement()) throw new Error("Open een schrift of whiteboard om een taak uit te maken.");
+        const doc = active();
+        const selected = hasSelection();
+        const strokes = selected ? selection.indexes.map(index => doc.strokes[index]).filter(Boolean) : doc.strokes;
+        const blocks = selected ? selection.blocks.map(index => (doc.textBlocks || [])[index]).filter(Boolean) : (doc.textBlocks || []);
+        return { selected, canvas: strokes.length ? inkCanvas(strokes) : null, text: blocks.map(block => block.text).join("\n").trim() };
       },
       insertAnswer(documentId, text) {
         finish();
@@ -1471,7 +1538,7 @@
       }
       const rect = $("surface").getBoundingClientRect();
       quickTools.style.left = `${Math.max(10, Math.min(rect.width - 340, clientX - rect.left))}px`;
-      quickTools.style.top = `${Math.max(10, Math.min(rect.height - 150, clientY - rect.top))}px`;
+      quickTools.style.top = `${Math.max(10, Math.min(rect.height - 230, clientY - rect.top))}px`;
       $("quick-color").value = $("color").value;
       $("quick-width").value = $("width").value;
       quickTools.hidden = false;
@@ -1480,6 +1547,17 @@
     quickTools.querySelectorAll("[data-quick-brush]").forEach(button => button.addEventListener("click", () => {
       activateBrush(button.dataset.quickBrush);
       hideQuickTools();
+    }));
+    quickTools.querySelectorAll("[data-quick-task]").forEach(button => button.addEventListener("click", () => {
+      hideQuickTools();
+      window.WorkplaceWerkhub?.taskFromInk(button.dataset.quickTask);
+    }));
+    const selectionMenu = $("selection-menu");
+    selectionMenu.addEventListener("pointerdown", event => event.stopPropagation());
+    selectionMenu.querySelector("[data-sel='copy']").addEventListener("click", () => copySelection(false));
+    selectionMenu.querySelector("[data-sel='cut']").addEventListener("click", () => copySelection(true));
+    selectionMenu.querySelectorAll("[data-sel-task]").forEach(button => button.addEventListener("click", () => {
+      window.WorkplaceWerkhub?.taskFromInk(button.dataset.selTask);
     }));
     quickTools.querySelector("[data-quick-tool='eraser']").addEventListener("click", () => {
       activateTool("eraser");
@@ -1713,6 +1791,33 @@
       finish(null, "pagina verlaten");
       persist();
     });
+    let importMode = "merge";
+    const readBackupFile = file => new Promise((resolve, reject) => {
+      if (!file) return reject(new Error("Geen bestand gekozen."));
+      if (file.size > 150 * 1024 * 1024) return reject(new Error("Dit bestand is te groot voor een Werkplek-back-up."));
+      const reader = new FileReader();
+      reader.onload = () => { try { resolve(JSON.parse(reader.result)); } catch (error) { reject(new Error("Dit is geen geldige Werkplek-back-up (geen JSON).")); } };
+      reader.onerror = () => reject(new Error("Bestand lezen mislukt."));
+      reader.readAsText(file);
+    });
+    $("import-merge").addEventListener("click", () => { importMode = "merge"; $("import-file").value = ""; $("import-file").click(); });
+    $("import-replace").addEventListener("click", () => { importMode = "replace"; $("import-file").value = ""; $("import-file").click(); });
+    $("import-file").addEventListener("change", async () => {
+      const file = $("import-file").files[0];
+      if (!file) return;
+      try {
+        const backup = await readBackupFile(file);
+        if (importMode === "replace") {
+          if (!window.confirm(`Alles vervangen door ${file.name}? Wat nu op deze iPad staat en niet in de back-up zit, is daarna weg.`)) return;
+          $("save-status").textContent = "Back-up terugzetten...";
+          await window.WorkplaceWriting.restoreBackup(backup);
+          return;
+        }
+        $("save-status").textContent = "Back-up openen...";
+        const result = await window.WorkplaceWriting.mergeBackup(backup);
+        $("save-status").textContent = `Back-up geopend: ${result.added} nieuw, ${result.replaced} bijgewerkt. Niets anders is weggehaald.`;
+      } catch (error) { report(error); }
+    });
     $("export").addEventListener("click", async () => {
       finish();
       $("export").disabled = true;
@@ -1726,6 +1831,7 @@
       finally { $("export").disabled = false; }
     });
   }
+  })().catch(report);
 
   function addSamples(events) {
     const rect = $("drawing").getBoundingClientRect();
