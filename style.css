@@ -150,6 +150,8 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .writing-focus .writing-actions button, .writing-focus .writing-actions .circle-file { width: clamp(46px, 7.4vw, 54px); max-width: 54px; }
 .writing-focus #drawing-tools { margin: 0 0 4px; padding: 5px; flex-shrink: 0; }
 .writing-focus #drawing-tools .tool-options, .writing-focus #drawing-tools .edit-strip { display: none; }
+.writing-focus #drawing-tools[data-tool="eraser"] .tool-options { display: flex; min-height: 0; }
+.writing-focus #drawing-tools[data-tool="eraser"] .tool-options > :not(.eraser-tool) { display: none; }
 .writing-focus #input-options { display: none; }
 .writing-focus .workspace { flex: 1; min-height: 0; }
 .writing-focus .editor { display: flex; flex-direction: column; min-height: 0; }

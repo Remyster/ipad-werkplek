@@ -161,6 +161,30 @@
       livePoints = gesture.stroke.points.length;
     }
     if (selection) drawSelectionOverlay();
+    if (gesture && gesture.ring && (gesture.tool === "eraser" || gesture.tool === "scratch-eraser")) drawEraserRing();
+  }
+
+  // Cirkel op de gumgrootte rond de pen, zodat zichtbaar is wat de gum raakt.
+  function drawEraserRing() {
+    const canvas = $("drawing");
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    const ratio = canvas.width / rect.width;
+    const ctx = context("drawing");
+    const radius = Math.max(gesture.tool === "scratch-eraser" ? 12 : 3, gesture.eraserRadius);
+    ctx.save();
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(gesture.ring.x - rect.left, gesture.ring.y - rect.top, radius, 0, Math.PI * 2);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = "rgb(255 255 255 / 85%)";
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#af6700";
+    ctx.stroke();
+    ctx.restore();
   }
 
   function selectionBounds() {
@@ -659,11 +683,23 @@
       diagnostics.cancelled++;
     }
     endDiagnostics(old, event ? event.type : reason);
+    let scratchNote = "";
     if (old.stroke) {
-      if (!old.stroke.shape) old.stroke.points = M.simplifyPoints(old.stroke.points, Math.max(.55, old.stroke.width * .08));
-      remember(active().strokes.slice());
-      active().strokes.push(old.stroke);
-      drawStroke(worldContext("saved-drawing"), old.stroke);
+      const scratched = autoScratchEnabled() && !old.stroke.shape && old.stroke.brush !== "highlighter"
+        ? M.scribbleErase(active().strokes, old.stroke.points, old.stroke.width, strokeBounds) : null;
+      if (scratched && scratched.changed) {
+        // Doorgekrast: de krabbel zelf wordt niet bewaard, de inkt eronder verdwijnt in een ongedaan-stap.
+        remember(active().strokes.slice());
+        active().strokes = scratched.strokes;
+        if (selection) selection = null;
+        scratchNote = `Doorgekrast: ${scratched.removed} ${scratched.removed === 1 ? "streek" : "streken"} weg. Ongedaan zet ze terug.`;
+        old.scratched = true;
+      } else {
+        if (!old.stroke.shape) old.stroke.points = M.simplifyPoints(old.stroke.points, Math.max(.55, old.stroke.width * .08));
+        remember(active().strokes.slice());
+        active().strokes.push(old.stroke);
+        drawStroke(worldContext("saved-drawing"), old.stroke);
+      }
     } else if (old.tool === "eraser" && old.changed) {
       remember(old.before);
     } else if (old.tool === "scratch-eraser" && old.changed) {
@@ -679,9 +715,14 @@
     livePoints = 0;
     if ($("drawing").hasPointerCapture(old.id)) $("drawing").releasePointerCapture(old.id);
     persist();
+    if (scratchNote) $("save-status").textContent = scratchNote;
     updateControls();
     updateSelectionButtons();
-    if (!old.stroke) render();
+    if (!old.stroke || old.scratched) render();
+  }
+
+  function autoScratchEnabled() {
+    try { return localStorage.getItem("remy-ipad-auto-scratch") !== "0"; } catch (error) { return true; }
   }
 
   function remember(before) {
@@ -1144,6 +1185,7 @@
       $("highlighter-tool").setAttribute("aria-pressed", String(tool === "pen" && !shape && brush === "highlighter"));
       $("shape-tool").setAttribute("aria-pressed", String(tool === "pen" && !!shape));
       for (const id of ["move", "eraser", "scratch-eraser", "select-ink"]) $(id).setAttribute("aria-pressed", String(tool === id));
+      $("drawing-tools").dataset.tool = tool;
     };
     const syncColorSwatches = () => document.querySelectorAll("[data-color]").forEach(button =>
       button.setAttribute("aria-pressed", String(button.dataset.color.toLowerCase() === $("color").value.toLowerCase())));
@@ -1229,6 +1271,10 @@
       render();
     });
     $("finger").addEventListener("change", () => { finish(); });
+    $("auto-scratch").checked = autoScratchEnabled();
+    $("auto-scratch").addEventListener("change", () => {
+      try { localStorage.setItem("remy-ipad-auto-scratch", $("auto-scratch").checked ? "1" : "0"); } catch (error) { /* voorkeur blijft alleen in dit venster */ }
+    });
     $("clear-page").addEventListener("click", () => {
       finish();
       const doc = active();
@@ -1313,7 +1359,9 @@
       if (kind === "pen") { pinch = null; touches.clear(); }
       if (kind === "touch") {
         touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-        if (touches.size >= 2 && (!gesture || gesture.type !== "pen")) {
+        // Een tweede aanraking (handpalm) mag een lopende gumbeweging niet afbreken.
+        const erasing = gesture && gesture.type === "touch" && (gesture.tool === "eraser" || gesture.tool === "scratch-eraser");
+        if (touches.size >= 2 && !erasing && (!gesture || gesture.type !== "pen")) {
           canvas.setPointerCapture(event.pointerId);
           startPinch();
           updateDiagnostics();
@@ -1356,6 +1404,7 @@
         gesture.eraserRadius = Number($("eraser-size").value);
         gesture.before = active().strokes.slice();
         gesture.lastPoint = point;
+        gesture.ring = { x: event.clientX, y: event.clientY };
         if (inputTool === "eraser") eraseAt(point);
         else scratchEraseAt(point);
       }
@@ -1423,9 +1472,15 @@
           gesture.metrics.samples++;
           eraseAt(M.point(sample.clientX, sample.clientY, canvas.getBoundingClientRect(), active().view));
         }
+        gesture.ring = { x: event.clientX, y: event.clientY };
+        clear("drawing");
+        drawLive();
       } else if (gesture.tool === "scratch-eraser") {
         const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
         scratchEraseAt(point);
+        gesture.ring = { x: event.clientX, y: event.clientY };
+        clear("drawing");
+        drawLive();
       } else if (gesture.tool === "select-ink") {
         const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
         if (gesture.moveSelection) {

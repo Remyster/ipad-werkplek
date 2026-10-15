@@ -309,6 +309,79 @@
     }
     return false;
   }
+
+  // Herkent een snelle heen-en-weer-krabbel in ruwe penpunten. Handschrift loopt
+  // langs de hoofdrichting van links naar rechts; een krabbel gaat meerdere keren
+  // terug langs diezelfde hoofdas. Geeft null terug als het geen krabbel is.
+  function scribbleInfo(points, width = 4) {
+    if (!Array.isArray(points) || points.length < 10) return null;
+    let sx = 0, sy = 0, left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity, length = 0;
+    for (let index = 0; index < points.length; index++) {
+      const p = points[index];
+      sx += p.x; sy += p.y;
+      left = Math.min(left, p.x); top = Math.min(top, p.y);
+      right = Math.max(right, p.x); bottom = Math.max(bottom, p.y);
+      if (index) length += Math.hypot(p.x - points[index - 1].x, p.y - points[index - 1].y);
+    }
+    const mx = sx / points.length, my = sy / points.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const p of points) {
+      sxx += (p.x - mx) ** 2; syy += (p.y - my) ** 2; sxy += (p.x - mx) * (p.y - my);
+    }
+    const theta = .5 * Math.atan2(2 * sxy, sxx - syy);
+    const c = Math.cos(theta), s = Math.sin(theta);
+    const u = points.map(p => (p.x - mx) * c + (p.y - my) * s);
+    const span = Math.max(...u) - Math.min(...u);
+    const longest = Math.max(right - left, bottom - top), shortest = Math.min(right - left, bottom - top);
+    if (span < 18 || longest > 600 || shortest > 260 || length < span * 3.5) return null;
+    const minTravel = Math.max(8, span * .5);
+    let low = u[0], high = u[0], direction = 0, extreme = u[0], reversals = 0;
+    for (const value of u) {
+      if (direction === 0) {
+        low = Math.min(low, value); high = Math.max(high, value);
+        if (high - low >= minTravel) { direction = value >= high ? 1 : -1; extreme = value; }
+      } else if (direction === 1) {
+        if (value > extreme) extreme = value;
+        else if (extreme - value >= minTravel) { reversals++; direction = -1; extreme = value; }
+      } else {
+        if (value < extreme) extreme = value;
+        else if (value - extreme >= minTravel) { reversals++; direction = 1; extreme = value; }
+      }
+    }
+    if (reversals < 4) return null;
+    const pad = width / 2 + 5;
+    return { left: left - pad, top: top - pad, right: right + pad, bottom: bottom + pad, reversals, width };
+  }
+
+  // Verwijdert bestaande inkt onder een krabbel. Korte streken (letters/woorden)
+  // verdwijnen helemaal; een lange streek die er doorheen loopt wordt alleen
+  // binnen het krabbelvak afgeknipt. Vormen en markeerstift blijven staan.
+  function scribbleErase(strokes, points, width, boundsOf = strokeBounds) {
+    const box = scribbleInfo(points, width);
+    if (!box) return { scribble: false, changed: false, removed: 0, strokes };
+    const path = simplifyPoints(points, 2);
+    const radius = width / 2 + 2;
+    const big = Math.max(box.right - box.left, box.bottom - box.top) * 1.6 + 40;
+    const result = [];
+    let changed = false, removed = 0;
+    for (const stroke of strokes) {
+      if (stroke.shape || stroke.brush === "highlighter") { result.push(stroke); continue; }
+      const b = boundsOf(stroke);
+      if (!intersectsBounds(b, box)) { result.push(stroke); continue; }
+      const covered = b.left >= box.left && b.right <= box.right && b.top >= box.top && b.bottom <= box.bottom;
+      let hit = covered;
+      for (let index = 1; !hit && index < path.length; index++) hit = hitStroke(stroke, path[index - 1], path[index], radius);
+      if (!hit && path.length === 1) hit = hitStroke(stroke, path[0], path[0], radius);
+      if (!hit) { result.push(stroke); continue; }
+      changed = true;
+      if (covered || Math.max(b.right - b.left, b.bottom - b.top) <= big) { removed++; continue; }
+      const clipped = splitStroke(stroke, (a, d) => rectangleInterval(a, d, box.left, box.top, box.right, box.bottom));
+      removed++;
+      result.push(...clipped.strokes);
+    }
+    return { scribble: true, changed, removed, strokes: changed ? result : strokes };
+  }
+
   function pinch(view, a, b, nextA, nextB, rect) {
     const distance = Math.hypot(b.x - a.x, b.y - a.y);
     const scale = Math.max(.2, Math.min(4, view.scale * Math.hypot(nextB.x - nextA.x, nextB.y - nextA.y) / Math.max(1, distance)));
@@ -319,6 +392,6 @@
 
   window.IpadModel = {
     KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom,
-    hitStroke, erase, clearPage, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon
+    hitStroke, erase, clearPage, scribbleInfo, scribbleErase, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon
   };
 })();

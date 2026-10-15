@@ -752,3 +752,19 @@ Cache v21. Upload de vijftien app-assets uit
 daarnaast de actuele backend uit `../ipad-werkplek-v20.2-backend.zip`. Echte
 iPad-prestaties en live Gemini-herkenning moeten daarna nog fysiek worden
 gecontroleerd met uitsluitend fictieve tekst.
+
+## Versie 20.4: Ongedaan terug in de balk, automatisch doorkrassen, gum met cirkel
+
+- Ongedaan en Opnieuw staan nu als grote knoppen in de pictogrammenbalk, dus ook
+  zichtbaar in brede schrijfmodus (daar was de oude Ongedaan-knop verborgen).
+- Doorkrassen wist automatisch: met Pen, Stift of Fineliner snel heen en weer
+  krabbelen over een letter of woord (minimaal vijf banen langs dezelfde hoofdrichting).
+  De krabbel zelf wordt niet bewaard; de inkt eronder verdwijnt in een Ongedaan-stap.
+  Korte streken verdwijnen helemaal, een lange streek die er doorheen loopt wordt
+  alleen binnen het krabbelvak afgeknipt. Vormen en markeerstift blijven staan.
+  Een krabbel waaronder geen inkt staat blijft gewone inkt. Uitzetten kan onder
+  Extra: aanraking & pencontrole > Doorkrassen wist automatisch.
+- Gum toont een cirkel op de gumgrootte rond de pen. In brede schrijfmodus is de
+  gumgrootte nu zichtbaar zodra Gum actief is. Een tweede aanraking (handpalm) midden
+  in een gumbeweging met aanraking breekt de gum niet meer af.
+- Cache v22. Upload alle app-assets en behoud de bestaande vendor-map.

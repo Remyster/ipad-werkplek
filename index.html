@@ -154,6 +154,7 @@
           <details id="input-options">
             <summary>Extra: aanraking &amp; pencontrole</summary>
             <label class="finger-option"><input id="finger" type="checkbox"> Tekenen met aanraking toestaan (uit: vinger schuift, pen schrijft)</label>
+            <label class="finger-option"><input id="auto-scratch" type="checkbox" checked> Doorkrassen wist automatisch (snel heen en weer krabbelen over een letter of woord met de pen)</label>
             <p>Alleen nodig als je pen of handpalm niet goed reageert. Herkende peninvoer krijgt voorrang op touch. Als pen en hand beide touch zijn, is betrouwbare handpalmherkenning niet mogelijk.</p>
             <output id="input-diagnostics" aria-label="Lokale invoermeter">Nog geen invoer. Deze meter verstuurt en bewaart geen gegevens.</output>
             <button id="reset-diagnostics">Start nieuwe meting</button>
@@ -170,6 +171,8 @@
               <button id="select-ink" class="icon-tool" aria-pressed="false" title="Omcirkel zelf wat je wilt selecteren"><span aria-hidden="true">◌</span><small>Lasso</small></button>
               <button id="move" class="icon-tool" aria-pressed="false" title="Schuif het blad of whiteboard"><span aria-hidden="true">✋</span><small>Schuif</small></button>
               <button id="shape-tool" class="icon-tool" aria-expanded="false" title="Vormen en pictogrammen"><span aria-hidden="true">○□</span><small>Vormen</small></button>
+              <button id="undo" class="icon-tool" title="Ongedaan: haal het laatst geschrevene weer weg" aria-label="Ongedaan"><span aria-hidden="true">↶</span><small>Ongedaan</small></button>
+              <button id="redo" class="icon-tool" title="Opnieuw: zet het ongedaan gemaakte terug" aria-label="Opnieuw"><span aria-hidden="true">↷</span><small>Opnieuw</small></button>
               <button id="clear-page" class="icon-tool danger-tool" title="Maak deze pagina leeg"><span aria-hidden="true">▧×</span><small>Leeg</small></button>
             </div>
             <div class="tool-options" aria-label="Instellingen van het actieve gereedschap">
@@ -194,7 +197,6 @@
               <button type="button" data-shape="star" title="Ster">★</button><button type="button" data-shape="" title="Terug naar vrij tekenen">Vrij</button>
             </div>
             <div class="edit-strip" role="toolbar" aria-label="Selectie, herstel en pagina">
-              <button id="undo" title="Ongedaan" aria-label="Ongedaan">↶</button><button id="redo" title="Opnieuw" aria-label="Opnieuw">↷</button>
               <button id="selection-copy" disabled title="Selectie kopiëren">Kopieer</button><button id="selection-cut" disabled title="Selectie knippen">Knip</button><button id="selection-paste" disabled title="Selectie plakken">Plak</button>
               <button id="zoom-out" aria-label="Uitzoomen">−</button><output id="zoom">100%</output><button id="zoom-in" aria-label="Inzoomen">＋</button>
               <button id="reset" title="Terug naar beginweergave">⌂</button><button id="previous-page" aria-label="Vorige pagina">‹</button><output id="page-number"></output><button id="next-page" aria-label="Volgende pagina">›</button><button id="add-page" title="Pagina erbij">＋ pagina</button>
@@ -214,7 +216,7 @@
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
             </div>
           </div>
-          <p id="drawing-help">Lasso: omcirkel zelf de inkt. Kras weg: krabbel door een woord. Houd de pen stil voor snelle peninstellingen.</p>
+          <p id="drawing-help">Lasso: omcirkel zelf de inkt. Doorkrassen: krabbel met de pen snel heen en weer over een letter of woord, dan verdwijnt het (Ongedaan zet het terug). Houd de pen stil voor snelle peninstellingen.</p>
           <details id="typed-notes">
             <summary>Getypte notities naast je handschrift</summary>
             <label for="text">Notities</label>
