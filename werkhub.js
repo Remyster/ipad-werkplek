@@ -48,10 +48,13 @@
   }
 
   // Een regel mag eindigen op "| 2026-10-20": dat wordt de deadline van die taak (zo levert de AI ze aan).
+  // Regel: "taak | 2026-10-20 | urgent" (datum en soort mogen ontbreken).
+  const KINDS = { urgent: "urgent", u: "urgent", belangrijk: "belangrijk", b: "belangrijk", subtaak: "subtaak", wel: "subtaak", "wel doen": "subtaak", s: "subtaak" };
   function splitDeadline(line) {
-    const match = line.match(/^(.*?)\s*\|\s*(\d{4}-\d{2}-\d{2})?\s*$/);
-    if (!match) return { titel: line, deadline: "" };
-    return { titel: match[1].trim(), deadline: match[2] && !Number.isNaN(Date.parse(match[2])) ? match[2] : "" };
+    const match = line.match(/^(.*?)\s*\|\s*(\d{4}-\d{2}-\d{2})?\s*(?:\|\s*([a-z ]+?))?\s*$/i);
+    if (!match) return { titel: line, deadline: "", kind: "" };
+    return { titel: match[1].trim(), deadline: match[2] && !Number.isNaN(Date.parse(match[2])) ? match[2] : "",
+      kind: KINDS[String(match[3] || "").trim().toLowerCase()] || "" };
   }
 
   function parseTasks(text, split) {
@@ -60,24 +63,29 @@
     if (split) {
       if (lines.length > MAX_TASKS) throw new Error(`Maximaal ${MAX_TASKS} taken tegelijk. Verwijder regels of maak twee rondes.`);
       return lines.map(splitDeadline).filter(task => task.titel).map(task =>
-        ({ titel: task.titel.slice(0, 200), notitie: task.titel.length > 200 ? task.titel : "", deadline: task.deadline }));
+        ({ titel: task.titel.slice(0, 200), notitie: task.titel.length > 200 ? task.titel : "", deadline: task.deadline, kind: task.kind }));
     }
     const first = splitDeadline(lines[0]);
     if (first.titel) lines[0] = first.titel;
     const rest = lines.slice(1).join("\n");
-    return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000), deadline: first.deadline }];
+    return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000), deadline: first.deadline, kind: first.kind }];
   }
 
-  async function createTasks(text, { split = false, type = "taak", deadline = "" } = {}) {
-    if (type !== "taak" && type !== "subtaak") throw new Error("Onbekend taaktype.");
+  // type: urgent | belangrijk | subtaak ("taak" = belangrijk, voor oude aanroepen).
+  async function createTasks(text, { split = false, type = "belangrijk", deadline = "" } = {}) {
+    if (type === "taak") type = "belangrijk";
+    if (!["urgent", "belangrijk", "subtaak"].includes(type)) throw new Error("Onbekend taaktype.");
     if (deadline && !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) throw new Error("Deadline is geen geldige datum.");
     const tasks = parseTasks(text, split);
     const now = new Date().toISOString();
-    const rows = tasks.map(task => ({
-      project: "pwn", titel: task.titel, waar: "", wie: "", notitie: task.notitie, status: "backlog",
-      deadline: type === "subtaak" ? null : (task.deadline || deadline || null), updated_at: now,
-      ...(type === "subtaak" ? { taaktype: "subtaak" } : {})
-    }));
+    const rows = tasks.map(task => {
+      const kind = task.kind || type;
+      return {
+        project: "pwn", titel: task.titel, waar: "", wie: "", notitie: task.notitie, status: "backlog",
+        deadline: kind === "subtaak" ? null : (task.deadline || deadline || null), updated_at: now,
+        taaktype: kind === "subtaak" ? "subtaak" : "taak", prioriteit: kind === "subtaak" ? null : kind
+      };
+    });
     try {
       await call("work_tasks", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(rows) });
     } catch (error) {
@@ -119,8 +127,10 @@
     const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     const day = today.toLocaleDateString("nl-NL", { weekday: "long" });
     return "Haal de taken of actiepunten uit dit handschrift. Vandaag is " + day + " " + iso + ". " +
-      "Geef alleen regels in de vorm: taak | JJJJ-MM-DD. Zet een datum alleen als er een datum, dag of termijn in het handschrift staat " +
-      "(reken die om naar een echte datum), anders: taak | . Eén regel per taak, geen uitleg, geen opsommingstekens, geen Markdown. " +
+      "Geef alleen regels in de vorm: taak | JJJJ-MM-DD | soort. Zet een datum alleen als er een datum, dag of termijn in het handschrift staat " +
+      "(reken die om naar een echte datum), anders laat je de datum leeg. Soort is precies één woord: urgent (moet zo snel mogelijk, vandaag of morgen), " +
+      "belangrijk (moet gebeuren maar kan ingepland worden) of subtaak (klein klusje, niet urgent en niet belangrijk, wel doen). " +
+      "Eén regel per taak, geen uitleg, geen opsommingstekens, geen Markdown. " +
       "Staat er maar één ding, geef één regel. Onleesbare woorden: [onleesbaar].";
   }
 
@@ -153,7 +163,7 @@
     try { source = window.WorkplaceWriting.captureSelection(); }
     catch (error) { openTask(""); taskStatus.textContent = error.message || String(error); return; }
     openTask(source.text || "");
-    $("task-type").value = type === "subtaak" ? "subtaak" : "taak";
+    $("task-type").value = type === "subtaak" ? "subtaak" : type === "urgent" ? "urgent" : "belangrijk";
     syncTaskType();
     pendingInk = source.canvas;
     const where = source.selected ? "de selectie" : "dit hele blad";
@@ -383,25 +393,26 @@
   $("wh-pull").disabled = true;
 
   // Eén taak maken en het id teruggeven (voor taakvakjes in het schrift).
-  async function createOne(titel, type = "taak", deadline = "") {
+  async function createOne(titel, type = "belangrijk", deadline = "") {
+    if (type === "taak") type = "belangrijk";
     const clean = cleanLine(String(titel || "")).slice(0, 200);
     if (!clean) throw new Error("Geen taaktekst.");
     const row = { project: "pwn", titel: clean, waar: "", wie: "", notitie: "Uit de iPad Werkplek (taakvakje).", status: "backlog",
       deadline: type === "subtaak" ? null : (deadline || null), updated_at: new Date().toISOString(),
-      ...(type === "subtaak" ? { taaktype: "subtaak" } : {}) };
+      taaktype: type === "subtaak" ? "subtaak" : "taak", prioriteit: type === "subtaak" ? null : (type === "urgent" ? "urgent" : "belangrijk") };
     const rows = await call("work_tasks?select=id", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([row]) });
     if (!Array.isArray(rows) || !rows[0] || typeof rows[0].id !== "string") throw new Error("WerkHub gaf geen taak-id terug.");
     return rows[0].id;
   }
 
   async function setTaskStatus(id, status) {
-    if (!["backlog", "bezig", "klaar"].includes(status)) throw new Error("Onbekende status.");
+    if (!["backlog", "bezig", "wacht_op", "klaar"].includes(status)) throw new Error("Onbekende status.");
     await call(`work_tasks?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ status, updated_at: new Date().toISOString() }) });
   }
 
   async function openTasks() {
-    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,project&status=neq.klaar&order=deadline.asc.nullslast&limit=60");
+    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
     return Array.isArray(rows) ? rows : [];
   }
 

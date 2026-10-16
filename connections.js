@@ -69,28 +69,11 @@
   }
 
   window.WorkplaceConnections = { session, publicConfig, config, tasks, loadTasks };
+  // WerkHub en AI Hub staan altijd open, naast elkaar op Vandaag.
   const workhubFrame = document.getElementById("workhub-frame");
-  document.getElementById("close-workhub").addEventListener("click", () => {
-    workhubFrame.hidden = true;
-    workhubFrame.removeAttribute("src");
-  });
-  workhubFrame.hidden = false;
   workhubFrame.src = HUB;
-
   const frame = document.getElementById("hub-frame");
-  document.getElementById("open-hub-panel").addEventListener("click", () => {
-    frame.hidden = false;
-    frame.src = "https://remyster.github.io/ai-hub-remy/";
-    document.getElementById("hub-panel-status").textContent = "AI Hub wordt geopend. Werkt de ingebouwde weergave niet, gebruik Open AI Hub. De hub gebruikt zijn eigen opslag en diensten.";
-  });
-  document.getElementById("close-hub-panel").addEventListener("click", () => {
-    frame.hidden = true;
-    frame.removeAttribute("src");
-    document.getElementById("hub-panel-status").textContent = "Ingebouwde AI Hub gesloten.";
-  });
-  frame.hidden = false;
-  frame.src = "https://remyster.github.io/ai-hub-remy/";
-  document.getElementById("hub-panel-status").textContent = "AI Hub staat standaard open. Werkt de ingebouwde weergave niet, gebruik Open AI Hub.";
+  if (frame) frame.src = "https://remyster.github.io/ai-hub-remy/";
 
   function calendarUrl(id, second = "") {
     for (const value of [id, ...(second ? [second] : [])]) {

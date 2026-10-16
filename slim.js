@@ -104,7 +104,7 @@
         const current = doc.strokes.find(stroke => stroke.box && stroke.box.id === box.box.id);
         if (!current || current.box.taskId || current.box.done) continue;
         if (!title) { W().notify("Kon de regel achter het vakje niet lezen. Schrijf iets duidelijker of gebruik Taak."); continue; }
-        const taskId = await H().createOne(title, read("remy-ipad-box-type", "taak"));
+        const taskId = await H().createOne(title, read("remy-ipad-box-type", "belangrijk"));
         current.box.taskId = taskId;
         current.box.title = title;
         W().changed();
@@ -343,7 +343,8 @@
     boxes.checked = boxesOn();
     boxes.addEventListener("change", () => write(BOX_KEY, boxes.checked ? "1" : "0"));
     const boxType = $("box-type");
-    boxType.value = read("remy-ipad-box-type", "taak") === "subtaak" ? "subtaak" : "taak";
+    const savedType = read("remy-ipad-box-type", "belangrijk");
+    boxType.value = ["urgent", "belangrijk", "subtaak"].includes(savedType) ? savedType : "belangrijk";
     boxType.addEventListener("change", () => write("remy-ipad-box-type", boxType.value));
     $("vangnet").addEventListener("toggle", event => {
       if (!event.target.open) return;

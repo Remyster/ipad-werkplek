@@ -824,3 +824,10 @@ zijn nog niet geverifieerd.
 - AI-titels: met het vinkje onder "Slim" leest AI op de achtergrond je schriften; "Nieuw schriftblad" krijgt vanzelf een titel uit de eerste regel.
 - Vangnet: Weggooien vraagt niks meer en zet het document 30 dagen in de prullenbak (met "Zet terug" in de melding). Elke 10 minuten schrijven bewaart een versie (laatste 20 per blad), terug te zetten via Werkmap > Vangnet.
 - Taakvakjes: teken een vierkantje (of lang drukken > "Taakvakje hier") en schrijf er een taak achter. Na een paar tellen staat hij in WerkHub (groen bolletje). Vink het vakje af: klaar in WerkHub. Uit te zetten onder "Slim".
+
+## Versie 23
+
+- Wat nu = drie bakken (Eisenhower), zonder timer: 🔥 Urgent (moet zsm), 📌 Belangrijk (inplannen, met knop 📅 Plan naar Google Agenda), 🧩 Wel doen (subtaken voor tussendoor). Wacht-op-iemand staat er klein onder. Vinkje = klaar in WerkHub en weg (met Ongedaan).
+- Taak maken (ook via AI en taakvakjes) kiest Urgent, Belangrijk of Subtaak; AI zet dat per regel ("taak | datum | urgent").
+- Agenda op Vandaag: alleen vandaag en morgen, compact.
+- WerkHub en AI Hub staan altijd open, naast elkaar op Vandaag.

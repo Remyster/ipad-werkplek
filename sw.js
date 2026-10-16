@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v25";
+const CACHE = "remy-ipad-werkplek-shell-v26";
 const PREFIX = "remy-ipad-werkplek-shell-";
 const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./store.js", "./config.js", "./app.js", "./pdf.js", "./drive.js", "./connections.js", "./ai.js", "./werkhub.js", "./agenda.js", "./slim.js", "./nu.js", "./lock.js", "./manifest.json", "./icon.svg",
   "./vendor/package/legacy/build/pdf.mjs", "./vendor/package/legacy/build/pdf.worker.mjs"];

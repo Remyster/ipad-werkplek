@@ -53,7 +53,7 @@
     status.textContent = "Agenda laden...";
     try {
       const config = await window.WorkplaceConnections.config();
-      const response = await fetch(`${ENDPOINT}?days=14`, {
+      const response = await fetch(`${ENDPOINT}?days=2`, {
         cache: "no-store", credentials: "omit", headers: { apikey: config.key, Authorization: `Bearer ${token}` }
       });
       const body = await response.json().catch(() => ({}));
@@ -64,7 +64,7 @@
       window.WorkplaceAgenda.items = body.items;
       document.dispatchEvent(new CustomEvent("agenda-updated"));
       const stamp = new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
-      status.textContent = (body.items.length ? `Bijgewerkt om ${stamp}.` : "Geen afspraken de komende twee weken.") +
+      status.textContent = (body.items.length ? `Bijgewerkt om ${stamp}.` : "Geen afspraken vandaag en morgen.") +
         (body.errors?.length ? ` Let op: ${body.errors.join("; ")}` : "");
     } catch (error) {
       status.textContent = `Agenda laden mislukt: ${error.message || error}`;

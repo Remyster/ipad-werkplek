@@ -53,31 +53,18 @@
     <section id="today">
       <p class="eyebrow" id="today-date"></p>
       <h2>Een rustige start</h2>
-      <article id="nu-card" class="nu-card" aria-labelledby="nu-task">
-        <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-done-count"></span><button id="nu-refresh" type="button" title="Ververs taken en agenda" aria-label="Ververs">↻</button></div>
-        <h3 id="nu-task">Volgende taak laden…</h3>
-        <p id="nu-meta"></p>
-        <div class="nu-actions">
-          <button id="nu-start" type="button" class="nu-primary">▶ Start 25 min</button>
-          <button id="nu-done" type="button" disabled>✓ Klaar</button>
-          <button id="nu-skip" type="button" disabled>Andere taak</button>
+      <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
+        <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
+        <div class="prio-grid">
+          <section class="prio prio-urgent"><h3>🔥 Urgent <small>moet zsm</small></h3><ul id="prio-urgent"></ul></section>
+          <section class="prio prio-belangrijk"><h3>📌 Belangrijk <small>inplannen in agenda</small></h3><ul id="prio-belangrijk"></ul></section>
+          <section class="prio prio-wel"><h3>🧩 Wel doen <small>niet urgent, tussendoor</small></h3><ul id="prio-wel"></ul></section>
         </div>
-        <div id="nu-durations" class="nu-durations" role="group" aria-label="Focusduur">
-          <button type="button" data-nu-minutes="10">10</button><button type="button" data-nu-minutes="25">25</button><button type="button" data-nu-minutes="45">45</button><span>min</span>
-          <button id="nu-fit" type="button" class="nu-fit" hidden></button>
-        </div>
-        <div id="nu-timer" class="nu-timer" hidden>
-          <output id="nu-clock">25:00</output>
-          <div class="nu-bar"><span id="nu-progress"></span></div>
-          <div class="nu-actions"><button id="nu-plus" type="button">+5 min</button><button id="nu-stop" type="button">Stop</button></div>
-        </div>
-        <p id="nu-event" class="nu-event"></p>
-        <p id="nu-status" role="status"></p>
+        <p id="prio-wacht" class="prio-wacht" hidden></p>
       </article>
       <div class="cards">
         <article>
           <h3>Werk en priveagenda</h3>
-          <p>Komende twee weken uit Google Calendar, via WerkHub. Geen Google-login of cookies nodig.</p>
           <div class="panel-actions" aria-label="Agenda-acties">
             <button id="agenda-refresh" type="button">Ververs agenda</button>
             <a class="action" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Google Calendar openen</a>
@@ -103,11 +90,16 @@
           </details>
         </article>
       </div>
-      <article class="task-panel">
-        <h3>WerkHub</h3>
-        <button id="close-workhub">Sluit WerkHub</button>
-        <iframe id="workhub-frame" title="WerkHub" referrerpolicy="no-referrer"></iframe>
-      </article>
+      <div class="hub-duo">
+        <article class="task-panel">
+          <h3>WerkHub</h3>
+          <iframe id="workhub-frame" title="WerkHub" referrerpolicy="no-referrer"></iframe>
+        </article>
+        <article class="task-panel">
+          <h3>AI Hub</h3>
+          <iframe id="hub-frame" title="Remy AI Hub" referrerpolicy="no-referrer"></iframe>
+        </article>
+      </div>
       <aside>Notities worden eerst lokaal opgeslagen. Maak daarnaast bewust een Google Drive-back-up via Werkmap &gt; Inhoud &amp; back-up. Wis geen browsergegevens voordat een back-up is gecontroleerd.</aside>
     </section>
     <section id="writing" hidden>
@@ -122,7 +114,7 @@
           <summary>Slim: AI-titels, zoeken in handschrift, taakvakjes</summary>
           <label class="finger-option"><input id="ai-notes-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen, zodat schriften vanzelf een titel krijgen en doorzoekbaar worden</label>
           <label class="finger-option"><input id="boxes-on" type="checkbox" checked> Taakvakjes: teken ☐ voor een regel → taak in WerkHub; vink het vakje af → klaar</label>
-          <label>Vakjes worden <select id="box-type"><option value="taak">taak</option><option value="subtaak">subtaak (tussendoor)</option></select></label>
+          <label>Vakjes worden <select id="box-type"><option value="urgent">urgent</option><option value="belangrijk">belangrijk</option><option value="subtaak">wel doen / subtaak</option></select></label>
           <p id="smart-status" role="status">Tip: lang drukken met de pen → "☐ Taakvakje hier" zet een vakje voor je neer.</p>
         </details>
       </div>
@@ -303,15 +295,12 @@
     </section>
     <section id="hubs" hidden>
       <h2>Je bestaande AI Hub</h2>
-      <p id="hub-panel-status" role="status">Open je bestaande hub hieronder; dit is geen nieuwe project-API.</p>
-      <iframe id="hub-frame" title="Remy AI Hub" hidden referrerpolicy="no-referrer"></iframe>
+      <p id="hub-panel-status" role="status">De AI Hub staat altijd open op Vandaag, naast WerkHub.</p>
       <div class="cards">
         <article>
           <h3>Agents en projecten</h3>
           <p>Gebruik je bestaande hub in een apart tabblad of binnen Werkplek. Geen nieuwe gedeelde project- of gespreksopslag.</p>
           <a class="action" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">Open AI Hub</a>
-          <button id="open-hub-panel">Open hub binnen Werkplek</button>
-          <button id="close-hub-panel">Sluit ingebouwde hub</button>
         </article>
       </div>
       <aside>Interne werknotities worden niet naar AI verstuurd. Een toekomstige koppeling vraagt eerst om toegestane verwerking en jouw bevestiging.</aside>
@@ -375,19 +364,18 @@
     </div>
     <form id="task-form">
       <label for="task-text">Wat moet er gebeuren (eerste regel is de taak, rest is notitie)</label>
-      <textarea id="task-text" rows="5" maxlength="4000" required placeholder="Bijvoorbeeld: UF-membraan filter controleren | 2026-10-20"></textarea>
+      <textarea id="task-text" rows="5" maxlength="4000" required placeholder="Bijvoorbeeld: UF-membraan filter controleren | 2026-10-20 | urgent"></textarea>
       <label class="finger-option" id="task-consent-row" hidden><input id="task-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen voor taken. Wordt onthouden.</label>
       <button id="task-read" type="button" hidden>Lees handschrift met AI</button>
       <label class="finger-option"><input id="task-split" type="checkbox"> Elke regel wordt een aparte taak</label>
       <label for="task-type">Soort</label>
-      <select id="task-type"><option value="taak">Taak (PWN)</option><option value="subtaak">Subtaak voor tussendoor (geen datum)</option></select>
+      <select id="task-type"><option value="urgent">🔥 Urgent (moet zsm)</option><option value="belangrijk" selected>📌 Belangrijk (inplannen)</option><option value="subtaak">🧩 Wel doen / subtaak (tussendoor, geen datum)</option></select>
       <label for="task-deadline">Deadline (optioneel, voor regels zonder eigen | datum)</label>
       <input id="task-deadline" type="date">
       <button id="task-send" type="submit">Maak taak in WerkHub</button>
     </form>
     <p id="task-status" role="status"></p>
   </dialog>
-  <button id="focus-pill" type="button" hidden></button>
   <div id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
