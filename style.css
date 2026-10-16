@@ -262,3 +262,5 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .prio-wacht { margin: 10px 0 0; font-size: .85rem; color: #cfe3da; }
 #nu-status { flex: 1; font-size: .85rem; color: #cfe3da; }
 #agenda-list { max-height: 260px; overflow: auto; }
+.prio li.prio-meer { background: none; min-height: 0; padding: 0; }
+.prio .prio-more { width: 100%; min-height: 36px; padding: 4px 10px; border-radius: 10px; background: transparent; color: #fff; border: 1px dashed rgb(255 255 255 / 40%); font-size: .85rem; }

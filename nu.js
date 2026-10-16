@@ -51,6 +51,8 @@
     return li;
   }
 
+  const MAX_SHOWN = 5;
+  const expanded = new Set();
   let tasks = [];
   function render() {
     const order = (a, b) => (a.deadline || "9999") < (b.deadline || "9999") ? -1 : (a.deadline || "9999") > (b.deadline || "9999") ? 1 : 0;
@@ -58,7 +60,19 @@
     for (const key of ["urgent", "belangrijk", "wel"]) {
       const list = $(`prio-${key}`);
       const items = open.filter(task => bucket(task) === key).sort(order);
-      list.replaceChildren(...(items.length ? items.map(row) : [Object.assign(document.createElement("li"), {
+      // Maximaal 5 per bak (eerstvolgende datum eerst). Vink je er een af, dan schuift de volgende omhoog.
+      const shown = expanded.has(key) ? items : items.slice(0, MAX_SHOWN);
+      const rows = shown.map(row);
+      if (items.length > MAX_SHOWN) {
+        const more = Object.assign(document.createElement("button"), { type: "button", className: "prio-more",
+          textContent: expanded.has(key) ? "Minder tonen" : `+ ${items.length - MAX_SHOWN} meer` });
+        more.addEventListener("click", () => { expanded.has(key) ? expanded.delete(key) : expanded.add(key); render(); });
+        const li = document.createElement("li");
+        li.className = "prio-meer";
+        li.append(more);
+        rows.push(li);
+      }
+      list.replaceChildren(...(items.length ? rows : [Object.assign(document.createElement("li"), {
         className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks om in te plannen." : "Geen klusjes voor tussendoor."
       })]));
     }
