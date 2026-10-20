@@ -1638,7 +1638,10 @@
     for (const [button, kind] of [["new-page", "page"], ["new-board", "board"]]) {
       $(button).addEventListener("click", () => {
         finish();
-        const folderId = active().folderId || null;
+        // Nieuw blad/bord komt in de map die je in "Map" hebt gekozen (ook als die nog leeg is).
+        const chosen = $("content-folder").value;
+        const folderId = chosen === noFolderValue ? null
+          : (chosen && data.folders.some(folder => folder.id === chosen) ? chosen : active().folderId || null);
         const doc = M.createDocument(kind, crypto.randomUUID());
         doc.folderId = folderId;
         data.documents.push(doc);

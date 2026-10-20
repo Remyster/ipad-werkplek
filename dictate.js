@@ -139,7 +139,8 @@
   }
 
   // ---- 🎤 bij tekstvelden ----
-  const SELECTOR = "#writing textarea, #measurement-editor input[type=text], #measurement-editor input:not([type]), #title, #task-text, #writing-ai-prompt, #ai-prompt";
+  // Alleen bij observaties en notities (meetstatus) en je getypte notities.
+  const SELECTOR = "#measurement-editor textarea, #text";
   function attach(field) {
     if (field.dataset.dictate === "1" || field.type === "hidden" || field.closest(".dictate-wrap")) return;
     field.dataset.dictate = "1";
