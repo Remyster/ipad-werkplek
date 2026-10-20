@@ -52,7 +52,7 @@
     };
   }
 
-  async function importFile(file) {
+  async function importFile(file, fixedId = null) {
     if (!(file instanceof Blob) || file.size > 20 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 20 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (!new TextDecoder().decode(bytes.slice(0, 5)).startsWith("%PDF-")) throw new Error("Dit bestand is geen PDF.");
@@ -82,7 +82,7 @@
         pages.push({ image, width: 800, height: canvas.height, top });
         top += canvas.height + 24;
       }
-      const id = crypto.randomUUID();
+      const id = fixedId || crypto.randomUUID();
       const name = typeof file.name === "string" ? file.name : "document.pdf";
       await put(id, { original: file, name, pages });
       return { id, name, pages: pages.map(({ width, height, top }) => ({ width, height, top })) };
@@ -91,8 +91,53 @@
     }
   }
 
-  async function images(id) {
+  // ---- PDF-originelen in de cloud (Supabase Storage, privé-bucket werkplek-pdf) ----
+  const BUCKET = "werkplek-pdf";
+  const UPLOADED_KEY = "remy-ipad-pdf-uploaded";
+  const uploadedSet = () => { try { return new Set(JSON.parse(localStorage.getItem(UPLOADED_KEY) || "[]")); } catch (error) { return new Set(); } };
+  const markUploaded = id => { try { const set = uploadedSet(); set.add(id); localStorage.setItem(UPLOADED_KEY, JSON.stringify([...set])); } catch (error) { /* volgende keer opnieuw */ } };
+  async function storageRequest(path, options = {}) {
+    const connections = window.WorkplaceConnections;
+    const token = await connections.freshSession(localStorage);
+    const settings = await connections.config();
+    return fetch(`${settings.url}/storage/v1/object/${BUCKET}/${path}`, { cache: "no-store", credentials: "omit", ...options,
+      headers: { apikey: settings.key, Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
+  }
+  const safeId = id => { if (!/^[a-zA-Z0-9-]{8,80}$/.test(String(id))) throw new Error("Ongeldig PDF-id."); return String(id); };
+  async function cloudUpload(id) {
     const file = await get(id);
+    if (!file) return false;
+    const response = await storageRequest(`${safeId(id)}.pdf`, { method: "POST", headers: { "Content-Type": "application/pdf", "x-upsert": "true" }, body: file.original });
+    if (!response.ok) throw new Error(`PDF naar de cloud mislukt (HTTP ${response.status}).`);
+    markUploaded(id);
+    return true;
+  }
+  async function cloudFetch(id, name) {
+    const response = await storageRequest(`${safeId(id)}.pdf`, { method: "GET" });
+    if (response.status === 404 || response.status === 400) throw new Error("Deze PDF staat (nog) niet in de cloud. Open hem op het apparaat waar je hem toevoegde, dan wordt hij geüpload.");
+    if (!response.ok) throw new Error(`PDF uit de cloud halen mislukt (HTTP ${response.status}).`);
+    const blob = await response.blob();
+    const file = new File([blob], name || "document.pdf", { type: "application/pdf" });
+    await importFile(file, id);
+    markUploaded(id);
+  }
+  // Alle lokale PDF's die nog niet in de cloud staan alsnog uploaden.
+  async function uploadPending(ids) {
+    const done = uploadedSet();
+    let count = 0;
+    for (const id of ids) {
+      if (done.has(id)) continue;
+      if (await cloudUpload(id)) count++;
+    }
+    return count;
+  }
+
+  async function images(id, name) {
+    let file = await get(id);
+    if (!file) {
+      await cloudFetch(id, name);
+      file = await get(id);
+    }
     if (!file) throw new Error("PDF-bestand ontbreekt in deze browser. De penstreken blijven bewaard.");
     const result = [];
     for (const page of file.pages) {
@@ -183,5 +228,5 @@
     }
     return snapshot;
   }
-  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference };
+  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference, cloudUpload, cloudFetch, uploadPending };
 })();

@@ -68,7 +68,31 @@
     return cachedConfig;
   }
 
-  window.WorkplaceConnections = { session, publicConfig, config, tasks, loadTasks };
+  // Geldige login, zo nodig zelf ververst met het refresh-token (zelfde login als WerkHub).
+  let refreshing = null;
+  async function freshSession(storage = localStorage, request = fetch) {
+    try { return session(storage); } catch (error) {
+      let value;
+      try { value = JSON.parse(storage.getItem("werkhub_auth") || "null"); } catch (parseError) { value = null; }
+      if (!value || typeof value.refresh_token !== "string" || !value.refresh_token) throw error;
+      if (!refreshing) refreshing = (async () => {
+        const settings = await config(request);
+        const response = await request(`${settings.url}/auth/v1/token?grant_type=refresh_token`, {
+          method: "POST", cache: "no-store", credentials: "omit",
+          headers: { apikey: settings.key, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: value.refresh_token })
+        });
+        if (!response.ok) throw new Error("WerkHub-login is verlopen. Log opnieuw in via WerkHub op Vandaag.");
+        const fresh = await response.json();
+        if (!fresh || typeof fresh.access_token !== "string") throw new Error("WerkHub gaf geen geldige login terug.");
+        storage.setItem("werkhub_auth", JSON.stringify(fresh));
+        return fresh.access_token;
+      })().finally(() => { refreshing = null; });
+      return refreshing;
+    }
+  }
+
+  window.WorkplaceConnections = { session, freshSession, publicConfig, config, tasks, loadTasks };
   // WerkHub en AI Hub staan altijd open, naast elkaar op Vandaag.
   const workhubFrame = document.getElementById("workhub-frame");
   workhubFrame.src = HUB;

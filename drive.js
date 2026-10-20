@@ -297,8 +297,8 @@
       const backup = await window.WorkplaceWriting.createBackup();
       status.textContent = "Back-up naar Google Drive uploaden...";
       const file = await uploadBackup(token, folderId, backup);
-      status.textContent = `${file.name} staat in Google Drive en is ook op je pc zichtbaar.`;
       await refresh(Promise.resolve(token));
+      status.textContent = `✓ Kopie staat in Google Drive (${file.name}).`;
     } catch (error) { showError(error); }
     finally { backupButton.disabled = false; }
   });

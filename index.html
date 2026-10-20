@@ -20,6 +20,8 @@
   <script src="./connections.js" defer></script>
   <script src="./ai.js" defer></script>
   <script src="./werkhub.js" defer></script>
+  <script src="./sync.js" defer></script>
+  <script src="./dictate.js" defer></script>
   <script src="./agenda.js" defer></script>
   <script src="./slim.js" defer></script>
   <script src="./nu.js" defer></script>
@@ -39,7 +41,7 @@
   </div>
   <header>
     <div><span class="eyebrow">REMYS WERKPLEK</span><h1>Ruimte voor je hoofd</h1></div>
-    <span id="save-status" role="status">Opslag controleren...</span>
+    <div class="status-stack"><button id="cloud-status" type="button" data-kind="busy" title="Nu synchroniseren">☁️ Cloud starten…</button><span id="save-status" role="status">Opslag controleren...</span></div>
   </header>
   <nav aria-label="Hoofdnavigatie">
     <button data-tab="today" aria-pressed="true">Vandaag</button>
@@ -100,7 +102,7 @@
           <iframe id="hub-frame" title="Remy AI Hub" referrerpolicy="no-referrer"></iframe>
         </article>
       </div>
-      <aside>Notities worden eerst lokaal opgeslagen. Maak daarnaast bewust een Google Drive-back-up via Werkmap &gt; Inhoud &amp; back-up. Wis geen browsergegevens voordat een back-up is gecontroleerd.</aside>
+      <aside>Alles wat je schrijft, typt of inspreekt wordt automatisch bewaard en staat op al je apparaten (log op elk apparaat één keer in bij WerkHub). Af en toe een kopie in Google Drive: Werkmap &gt; Extra.</aside>
     </section>
     <section id="writing" hidden>
       <div class="section-heading">
@@ -131,43 +133,32 @@
         <div id="trash-list"></div>
       </details>
       <details class="workmap-menu" id="content-backup">
-        <summary>Back-up</summary>
+        <summary>Extra: kopie en Google Drive</summary>
+        <p class="smart-empty">Je hoeft niets te doen: alles staat automatisch in de cloud en op je andere apparaten. Hieronder alleen voor een extra kopie.</p>
         <div class="backup-actions">
-          <button id="export">Download lokale back-up</button>
-          <button id="import-merge" type="button">Open back-up (toevoegen)</button>
-          <button id="import-replace" type="button">Zet back-up terug (vervangt alles)</button>
-          <input id="import-file" type="file" accept=".json,application/json" hidden>
-          <details id="drive-settings">
-            <summary>Google Drive-back-up</summary>
-            <label for="drive-client-id">Google OAuth client-ID (openbare configuratie, geen sleutel)</label>
-            <input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="...apps.googleusercontent.com">
+          <details id="drive-settings" open>
+            <summary>Kopie naar Google Drive</summary>
             <div class="drive-actions">
-              <button id="drive-connect" type="button">Koppel Drive</button>
-              <button id="drive-redirect" type="button">Koppel via doorsturen</button>
-              <button id="drive-backup" type="button" disabled>Back-up maken</button>
-              <button id="drive-refresh" type="button" disabled>Lijst verversen</button>
-            </div>
-            <label for="drive-backups">Back-up om terug te zetten</label>
-            <select id="drive-backups" aria-label="Google Drive back-ups"></select>
-            <div class="drive-actions">
-              <button id="drive-restore" type="button" disabled>Geselecteerde back-up herstellen</button>
+              <button id="drive-backup" type="button">Zet kopie in Google Drive</button>
+              <button id="drive-redirect" type="button">Lukt niet? Koppel via doorsturen</button>
+              <button id="drive-connect" type="button" hidden>Koppel Drive</button>
+              <button id="drive-refresh" type="button" hidden>Lijst verversen</button>
               <a id="drive-folder-link" class="action" target="_blank" rel="noopener noreferrer" hidden>Open Drive-map</a>
             </div>
-            <p id="drive-status" role="status">Nog niet gekoppeld. Toegangstokens worden alleen tijdelijk in het geheugen gehouden.</p>
+            <input id="drive-client-id" type="hidden">
+            <details>
+              <summary>Kopie uit Drive terugzetten</summary>
+              <select id="drive-backups" aria-label="Google Drive kopieën"></select>
+              <div class="drive-actions"><button id="drive-restore" type="button" disabled>Geselecteerde kopie terugzetten (vervangt alles)</button></div>
+            </details>
+            <p id="drive-status" role="status">Eén tik: alles (ook meetstatussen en PDF's) gaat als één bestand naar de map "Remy iPad Werkplek" in je Drive.</p>
           </details>
-          <details class="workmap-menu" id="werkhub-sync">
-            <summary>WerkHub: notities delen (iPad en pc)</summary>
-            <p>Bewaar een schrift of bord in WerkHub en haal het op een ander apparaat op, bijvoorbeeld op de pc: open daar dezelfde Werkplek-link, log in bij WerkHub op Vandaag en schrijf met de muis. Alleen na een klik; PDF-bestanden en meetlijsten blijven lokaal.</p>
-            <label class="finger-option"><input id="wh-auto" type="checkbox" checked> Automatisch bewaren in WerkHub (open schrift of bord, elke 30 seconden als er iets veranderd is)</label>
-            <div class="drive-actions">
-              <button id="wh-push" type="button">Bewaar dit in WerkHub</button>
-              <button id="wh-push-all" type="button">Bewaar alles</button>
-              <button id="wh-list" type="button">Lijst uit WerkHub</button>
-            </div>
-            <select id="wh-docs" aria-label="Documenten in WerkHub"></select>
-            <div class="drive-actions"><button id="wh-pull" type="button" disabled>Haal geselecteerde op</button></div>
-            <p id="wh-status" role="status">Nog niets gedaan. Vereist de WerkHub-login en WERKPLEK-NOTITIES-MIGRATIE.sql in Supabase.</p>
-          </details>
+          <div class="drive-actions">
+            <button id="export">Download kopie</button>
+            <button id="import-merge" type="button">Open kopie (toevoegen)</button>
+            <button id="import-replace" type="button" hidden>Zet kopie terug</button>
+          </div>
+          <input id="import-file" type="file" accept=".json,application/json" hidden>
           <details class="workmap-menu" id="pdf-library">
             <summary>PDF-bibliotheek</summary>
             <p>Alle lokaal toegevoegde PDF-bestanden. Open een PDF opnieuw als apart bord in de huidige map.</p>
@@ -185,9 +176,10 @@
         <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
         <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
         <label class="circle-file" title="PDF als achtergrond op het huidige lege whiteboard"><span>PDF</span><small>Achtergrond</small><input id="pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF als achtergrond op huidig leeg whiteboard"></label>
-        <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>Nieuw bord</small><input id="work-pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF openen als nieuw bord in huidige map"></label>
+        <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>PDF's erbij</small><input id="work-pdf-file" type="file" multiple accept="application/pdf,.pdf" aria-label="Eén of meer PDF's openen als nieuwe borden in de huidige map"></label>
         <button id="task-open" aria-haspopup="dialog" title="Taak aanmaken in WerkHub"><span>✓</span><small>Taak</small></button>
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
+        <button id="dictate-sheet" title="Inspreken: tekst op het blad"><span>🎤</span><small>Inspreek</small></button>
         <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
         <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
         <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>

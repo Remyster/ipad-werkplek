@@ -33,8 +33,9 @@
   function persist() {
     if (blocked) return false;
     try {
-      const result = window.WorkplaceStore.save(JSON.stringify(M.validate(data)));
-      $("save-status").textContent = result.localOk ? "Lokaal opgeslagen. Drive-back-up via Back-up." : "Lokaal opgeslagen (grote opslag). Drive-back-up via Back-up.";
+      window.WorkplaceStore.save(JSON.stringify(M.validate(data)));
+      $("save-status").textContent = "Opgeslagen op dit apparaat.";
+      window.WorkplaceSync?.markDirty();
       return true;
     } catch (error) {
       $("save-status").textContent = "Niet opgeslagen! Download een back-up.";
@@ -752,7 +753,7 @@
     title.textContent = active().formType === "dwat-akf" ? "Logboek DWAT / AKF-meetstaat" : "Logboek LWS Andijk";
     const help = document.createElement("p");
     help.className = "measurement-help";
-    help.textContent = "Vul deze vaste meetstatus in, neem de waarden over in het officiële logboek en maak de lijst daarna leeg. Opslag is lokaal en via jouw bewuste Drive-back-up.";
+    help.textContent = "Vul deze vaste meetstatus in, neem de waarden over in het officiële logboek en maak de lijst daarna leeg. Alles wordt automatisch bewaard en staat op al je apparaten. Tik op 🎤 om in te spreken.";
     const clearButton = document.createElement("button");
     clearButton.type = "button";
     clearButton.textContent = "Meetlijst leegmaken";
@@ -808,7 +809,8 @@
       : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.";
     if (!doc.pdf) return;
     try {
-      const images = await window.WorkplacePdf.images(doc.pdf.id);
+      if (!navigator.onLine) $("pdf-status").textContent = `PDF laden: ${doc.pdf.name} (offline: alleen als hij al op dit apparaat staat)`;
+      const images = await window.WorkplacePdf.images(doc.pdf.id, doc.pdf.name);
       if (generation !== pdfGeneration) return;
       pdfImages = images;
       $("pdf-status").textContent = `${doc.pdf.name}: ${images.length} pagina's. Schrijf erop of ernaast; PDF-achtergrond blijft intact.`;
@@ -1065,6 +1067,34 @@
     return String(value).trim().toLowerCase().replace(/\s*&\s*/g, " en ").replace(/\s*\/\s*/g, "/").replace(/\s+/g, " ");
   }
 
+  function fixedDocumentId(definition) {
+    return definition.formType ? `form-${definition.formType}` : `notes-${definition.key}`;
+  }
+
+  // Oude, willekeurige ids van vaste documenten omzetten naar vaste ids (eenmalig per apparaat).
+  // De oude ids worden onthouden zodat de sync ze in de cloud als verwijderd markeert.
+  function migrateFixedIds() {
+    const renamed = [];
+    for (const definition of defaultFolders) {
+      const fixedId = fixedDocumentId(definition);
+      if (data.documents.some(doc => doc.id === fixedId)) continue;
+      const folder = fixedFolder(definition);
+      const doc = definition.formType
+        ? data.documents.find(item => item.formType === definition.formType)
+        : data.documents.find(item => folder && item.folderId === folder.id && item.title === `${definition.title} - notities`);
+      if (!doc) continue;
+      renamed.push(doc.id);
+      if (data.activeId === doc.id) data.activeId = fixedId;
+      doc.id = fixedId;
+    }
+    if (renamed.length) {
+      try {
+        const old = JSON.parse(localStorage.getItem("remy-ipad-sync-renamed") || "[]");
+        localStorage.setItem("remy-ipad-sync-renamed", JSON.stringify([...new Set([...old, ...renamed])]));
+      } catch (error) { /* sync ruimt het dan niet op; geen dataverlies */ }
+    }
+  }
+
   function fixedFolder(definition) {
     const target = normalizedFolderTitle(definition.title);
     return data.folders.find(folder => normalizedFolderTitle(folder.title) === target) || null;
@@ -1120,9 +1150,11 @@
       ? data.documents.find(item => item.formType === definition.formType)
       : data.documents.find(item => item.folderId === folder.id);
     if (!doc) {
+      // Vaste ids, zodat elk apparaat hetzelfde meetformulier en notitieblad gebruikt (cloud-sync).
+      const fixedId = fixedDocumentId(definition);
       doc = definition.formType
-        ? M.createMeasurementDocument(definition.formType, crypto.randomUUID())
-        : M.createDocument("page", crypto.randomUUID());
+        ? M.createMeasurementDocument(definition.formType, fixedId)
+        : M.createDocument("page", fixedId);
       doc.folderId = folder.id;
       if (!definition.formType) doc.title = `${definition.title} - notities`;
       data.documents.push(doc);
@@ -1147,6 +1179,7 @@
     data.folders = data.folders || [];
     purgeOldTrash();
     ensureDefaultFolders();
+    migrateFixedIds();
     persist();
   } catch (error) {
     blocked = true;
@@ -1176,6 +1209,81 @@
         });
       },
       hasDocument(id) { return data.documents.some(doc => doc.id === id); },
+      // ---- cloud-sync (sync.js) ----
+      syncDocs() {
+        const isDefault = folder => defaultFolders.some(definition => normalizedFolderTitle(definition.title) === normalizedFolderTitle(folder.title));
+        const docs = data.documents.map(doc => {
+          const copy = { ...doc };
+          delete copy.view;
+          delete copy.folderId;
+          return { id: doc.id, kind: doc.formType ? "form" : doc.kind, title: doc.title || "",
+            folder_title: doc.folderId ? folderTitle(doc.folderId) : null, json: JSON.stringify(copy), pdf: doc.pdf || null,
+            empty: !doc.strokes.length && !(doc.textBlocks || []).length && !String(doc.text || "").trim() && !Object.keys(doc.formData || {}).length };
+        });
+        const custom = data.folders.filter(folder => !isDefault(folder)).map(folder => folder.title).sort();
+        docs.push({ id: "__folders__", kind: "meta", title: "Mappen", folder_title: null, json: JSON.stringify({ folders: custom }) });
+        return docs;
+      },
+      // Wijzigingen van een ander apparaat toepassen. Geeft per id terug: applied | busy | invalid.
+      applyRemote(rows) {
+        const result = {};
+        const typing = () => document.activeElement instanceof HTMLElement && document.activeElement.matches("#writing input, #writing textarea, #writing select");
+        let activeChanged = false, changed = false;
+        const folderFor = title => {
+          if (!title) return null;
+          const key = normalizedFolderTitle(title);
+          let folder = data.folders.find(item => normalizedFolderTitle(item.title) === key);
+          if (!folder && data.folders.length < 100) {
+            folder = { id: crypto.randomUUID(), title: String(title).slice(0, 120) };
+            data.folders.push(folder);
+          }
+          return folder ? folder.id : null;
+        };
+        for (const row of rows) {
+          if (row.kind === "meta") {
+            for (const title of (row.data && Array.isArray(row.data.folders) ? row.data.folders : [])) {
+              if (typeof title === "string" && title.trim()) folderFor(title);
+            }
+            result[row.id] = "applied";
+            changed = true;
+            continue;
+          }
+          const index = data.documents.findIndex(doc => doc.id === row.id);
+          const isActive = row.id === data.activeId;
+          if (isActive && (gesture || typing())) { result[row.id] = "busy"; continue; }
+          if (row.deleted) {
+            if (index >= 0) {
+              const removed = data.documents[index];
+              data.trash = [{ deletedAt: Date.now(), folderTitle: removed.folderId ? folderTitle(removed.folderId) : null, doc: { ...removed, folderId: null } }, ...(data.trash || [])].slice(0, 100);
+              data.documents.splice(index, 1);
+              if (!data.documents.length) data.documents.push(M.createDocument("page", crypto.randomUUID()));
+              if (isActive) { data.activeId = data.documents[0].id; activeChanged = true; }
+              changed = true;
+            }
+            result[row.id] = "applied";
+            continue;
+          }
+          const previous = index >= 0 ? data.documents[index] : null;
+          const doc = { ...(row.data || {}), id: row.id, folderId: folderFor(row.folder_title),
+            view: previous ? previous.view : (row.data && row.data.view) || { x: 0, y: 0, scale: 1 } };
+          try {
+            M.validate({ version: 1, activeId: doc.id, documents: [doc], folders: data.folders });
+          } catch (error) {
+            console.warn("Werkplek-sync: document overgeslagen:", row.id, error.message);
+            result[row.id] = "invalid";
+            continue;
+          }
+          if (index >= 0) data.documents[index] = doc; else data.documents.push(doc);
+          if (isActive) activeChanged = true;
+          result[row.id] = "applied";
+          changed = true;
+        }
+        if (changed) {
+          persist();
+          if (activeChanged) selectDocument(); else { list(); renderFolderButtons(); }
+        }
+        return result;
+      },
       // ---- voor slim.js / nu.js (zoeken, prullenbak, versies, vakjes) ----
       notify,
       activeDocumentId() { return data.activeId; },
@@ -1421,42 +1529,48 @@
 
     async function importPdfInput(input, createBoard) {
       finish();
-      const file = input.files[0];
-      if (!file) return;
+      const files = [...input.files];
+      if (!files.length) return;
       const original = active();
-      let doc = original;
-      if (!createBoard && (doc.kind !== "board" || doc.pdf || isMeasurement(doc))) {
+      if (!createBoard && (original.kind !== "board" || original.pdf || isMeasurement(original))) {
         $("pdf-status").textContent = "Maak of open een whiteboard zonder PDF om dit bestand toe te voegen.";
         input.value = "";
         return;
       }
       input.disabled = true;
-      $("pdf-status").textContent = "PDF lokaal verwerken...";
+      let added = 0, lastDoc = null;
+      const failed = [];
       try {
-        const reference = await window.WorkplacePdf.importFile(file);
-        const previousId = original.id;
-        if (createBoard) {
-          doc = M.createDocument("board", crypto.randomUUID());
-          doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "Werkbeschrijving";
-          doc.folderId = original.folderId || null;
-          data.documents.push(doc);
-          data.activeId = doc.id;
-        }
-        doc.pdf = reference;
-        if (!persist()) {
-          if (createBoard) {
-            data.documents = data.documents.filter(item => item.id !== doc.id);
-            data.activeId = previousId;
-          } else {
-            delete doc.pdf;
+        for (const [index, file] of (createBoard ? files : files.slice(0, 1)).entries()) {
+          $("pdf-status").textContent = files.length > 1 ? `PDF ${index + 1} van ${files.length} verwerken: ${file.name}` : "PDF verwerken...";
+          try {
+            const reference = await window.WorkplacePdf.importFile(file);
+            let doc = original;
+            if (createBoard) {
+              doc = M.createDocument("board", crypto.randomUUID());
+              doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "Werkbeschrijving";
+              doc.folderId = original.folderId || null;
+              data.documents.push(doc);
+            }
+            doc.pdf = reference;
+            if (!persist()) {
+              if (createBoard) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
+              throw new Error("lokale opslag vol");
+            }
+            added++;
+            lastDoc = doc;
+            window.WorkplacePdf.cloudUpload(reference.id).catch(error => console.warn("Werkplek: PDF-upload volgt later:", error.message));
+          } catch (error) {
+            failed.push(`${file.name}: ${error.message}`);
           }
-          throw new Error("PDF niet aan de werkmap toegevoegd: lokale opslag mislukt. Download eerst een back-up.");
         }
-        if (createBoard) selectDocument();
-        else await loadPdf();
+        if (lastDoc && createBoard) { data.activeId = lastDoc.id; persist(); selectDocument(); }
+        else if (lastDoc) await loadPdf();
         await refreshPdfLibrary();
-      } catch (error) { report(error); $("pdf-status").textContent = error.message; }
-      finally { input.disabled = false; input.value = ""; }
+        const folderName = folderTitle(original.folderId);
+        notify(`${added} PDF${added === 1 ? "" : "'s"} toegevoegd in ${folderName}${failed.length ? `. Niet gelukt: ${failed.join("; ")}` : ". Ze staan ook in de cloud en op je andere apparaten."}`, "", null, 9000);
+        if (failed.length) report(new Error(`Niet alle PDF's toegevoegd: ${failed.join("; ")}`));
+      } finally { input.disabled = false; input.value = ""; }
     }
     $("pdf-file").addEventListener("change", () => importPdfInput($("pdf-file"), false));
     $("work-pdf-file").addEventListener("change", () => importPdfInput($("work-pdf-file"), true));

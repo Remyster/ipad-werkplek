@@ -95,7 +95,8 @@
   }
 
   async function sendBody(body, storage, request) {
-    const token = sessionToken(storage);
+    const connections = window.WorkplaceConnections;
+    const token = connections && typeof connections.freshSession === "function" ? await connections.freshSession(storage) : sessionToken(storage);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     let response;
@@ -139,6 +140,13 @@
     return sendBody(handwritingBody(image), storage, request);
   }
 
+  // Inspreken: WAV-opname laten uitschrijven door Gemini.
+  async function transcribe(audio, storage = localStorage, request = fetch) {
+    if (!audio || audio.mimeType !== "audio/wav" || typeof audio.data !== "string" || !audio.data) throw new Error("Geen geldige opname.");
+    if (audio.data.length > 8 * 1024 * 1024) throw new Error("Opname te lang. Spreek in stukken van maximaal 2 minuten in.");
+    return sendBody({ provider: "gemini", task: "dictation", audio }, storage, request);
+  }
+
   async function askBoard(image, prompt, storage = localStorage, request = fetch) {
     return sendBody(boardQuestionBody(image, prompt), storage, request);
   }
@@ -148,7 +156,7 @@
   window.AiChat = {
     PROVIDERS, PROMPT_LIMIT, ENDPOINT,
     validateProvider, validatePrompt, requireConsent, requestBody, answerText,
-    sessionToken, sendPrompt, cropInk, handwritingBody, boardQuestionBody, recognizeHandwriting, askBoard
+    sessionToken, sendPrompt, cropInk, handwritingBody, boardQuestionBody, recognizeHandwriting, askBoard, transcribe
   };
 
   const dialog = document.getElementById("writing-ai-dialog");

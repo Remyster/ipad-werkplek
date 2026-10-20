@@ -264,3 +264,19 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 #agenda-list { max-height: 260px; overflow: auto; }
 .prio li.prio-meer { background: none; min-height: 0; padding: 0; }
 .prio .prio-more { width: 100%; min-height: 36px; padding: 4px 10px; border-radius: 10px; background: transparent; color: #fff; border: 1px dashed rgb(255 255 255 / 40%); font-size: .85rem; }
+
+/* Cloud-status */
+.status-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+#cloud-status { min-height: 36px; padding: 4px 12px; border-radius: 99px; font-size: .85rem; background: #e7f2ec; color: #173c39; border: 1px solid #b4c4b9; }
+#cloud-status[data-kind="error"], #cloud-status[data-kind="login"] { background: #fff1d6; border-color: #e0b04b; color: #6b4a00; }
+#cloud-status[data-kind="offline"] { background: #eceff1; color: #455a64; }
+/* Inspreken */
+.dictate-wrap { position: relative; display: block; }
+.dictate-btn { position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 40px; height: 40px; min-height: 40px; min-width: 40px; padding: 0; border-radius: 50%; background: #fff; border: 1px solid #8ca49d; font-size: 1.1rem; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); }
+.dictate-btn.rec { background: #d84315; color: #fff; border-color: #d84315; width: auto; padding: 0 12px; border-radius: 99px; font-size: .9rem; animation: pulse 1.2s infinite; }
+.dictate-btn.busy { width: auto; padding: 0 12px; border-radius: 99px; font-size: .85rem; }
+.dictate-wrap textarea { padding-bottom: 50px; }
+.dictate-wrap input { padding-right: 52px; }
+.dictate-wrap.inline .dictate-btn { bottom: 50%; transform: translateY(50%); width: 34px; height: 34px; min-height: 34px; min-width: 34px; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgb(216 67 21 / 25%); } }
+@media (prefers-reduced-motion: reduce) { .dictate-btn.rec { animation: none; } }

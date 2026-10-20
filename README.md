@@ -831,3 +831,11 @@ zijn nog niet geverifieerd.
 - Taak maken (ook via AI en taakvakjes) kiest Urgent, Belangrijk of Subtaak; AI zet dat per regel ("taak | datum | urgent").
 - Agenda op Vandaag: alleen vandaag en morgen, compact.
 - WerkHub en AI Hub staan altijd open, naast elkaar op Vandaag.
+
+## Versie 24
+
+- Alles automatisch in de cloud: schriften, borden, meetstatussen, getypte en ingesproken tekst, mappen en weggooien. Elk apparaat waar je één keer inlogt bij WerkHub (iPad, iPhone, pc, Android, Chrome) heeft binnen seconden hetzelfde. Status rechtsboven (☁️). Bij gelijktijdige wijzigingen wint dit apparaat; de andere versie staat in Vangnet. Vereist WERKPLEK-CLOUD-MIGRATIE.sql.
+- PDF's: meerdere tegelijk toevoegen (knop PDF's erbij). Originelen gaan naar de privé-bucket werkplek-pdf en worden op een ander apparaat vanzelf opgehaald.
+- Inspreken: 🎤 bij elk tekstveld (meetstatus, observaties, notities, taak, titel) en "Inspreek" op het blad. Gemini schrijft het uit (edge function werkplek-ai v12, taak dictation).
+- Back-up opgeruimd: alleen Extra > Kopie naar Google Drive (één tik) en Download/Open kopie.
+- WerkHub-knoppen "bewaar dit / lijst / ophalen" zijn weg: dat gaat nu vanzelf.
