@@ -280,3 +280,5 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .dictate-wrap.inline .dictate-btn { bottom: 50%; transform: translateY(50%); width: 34px; height: 34px; min-height: 34px; min-width: 34px; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgb(216 67 21 / 25%); } }
 @media (prefers-reduced-motion: reduce) { .dictate-btn.rec { animation: none; } }
+#text-editor { position: absolute; z-index: 5; min-height: 30px; padding: 0; margin: -2px 0 0 -2px; border: 2px solid #f4c96b; border-radius: 6px; background: rgb(255 255 255 / 96%); color: #173c39; font-family: system-ui, sans-serif; resize: none; overflow: hidden; outline: none; box-shadow: 0 4px 14px rgb(0 0 0 / 12%); }
+#drawing-tools[data-tool="text"] ~ #surface #drawing, .tool-text #drawing { cursor: text; }

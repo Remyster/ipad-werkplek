@@ -218,6 +218,7 @@
               <button id="pen" class="icon-tool" aria-pressed="true" title="Pen"><span aria-hidden="true">✒</span><small>Pen</small></button>
               <button id="marker-tool" class="icon-tool" aria-pressed="false" title="Dikke stift"><span aria-hidden="true">▰</span><small>Stift</small></button>
               <button id="highlighter-tool" class="icon-tool" aria-pressed="false" title="Transparante markeerstift"><span aria-hidden="true">▱</span><small>Markeer</small></button>
+              <button id="text-tool" class="icon-tool" aria-pressed="false" title="Typen op het blad (ook met je telefoontoetsenbord)"><span aria-hidden="true">T</span><small>Tekst</small></button>
               <button id="eraser" class="icon-tool" aria-pressed="false" title="Gum: wis alleen het geraakte stukje"><span aria-hidden="true">⌫</span><small>Gum</small></button>
               <button id="scratch-eraser" class="icon-tool" aria-pressed="false" title="Krabbel door een woord om de geraakte penstreken te verwijderen"><span aria-hidden="true">〽</span><small>Kras weg</small></button>
               <button id="select-ink" class="icon-tool" aria-pressed="false" title="Omcirkel zelf wat je wilt selecteren"><span aria-hidden="true">◌</span><small>Lasso</small></button>
@@ -270,6 +271,7 @@
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
             </div>
+            <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences"></textarea>
             <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>
               <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button>
               <button type="button" class="quick-task" data-sel-task="taak">Taak</button><button type="button" class="quick-task" data-sel-task="subtaak">Subtaak</button>

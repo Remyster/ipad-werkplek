@@ -412,6 +412,67 @@
   }
 
   // Tekent achtergrond, PDF, inkt en tekstblokken die het gegeven gebied (wereldcoordinaten) raken.
+  // ---- Typen op het blad (tool Tekst): werkt met elk toetsenbord, ook dat van je telefoon ----
+  let textEdit = null; // { docId, index (-1 = nieuw), x, y }
+  function openTextEditor(point) {
+    const doc = active();
+    if (!doc || isMeasurement(doc)) return;
+    const blocks = doc.textBlocks || [];
+    let index = -1;
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const b = blockBounds(blocks[i]);
+      if (point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom) { index = i; break; }
+    }
+    if (index < 0 && blocks.length >= 100) { notify("Maximaal 100 tekstblokken per blad. Maak een nieuw blad."); return; }
+    const x = index >= 0 ? blocks[index].x : point.x;
+    const y = index >= 0 ? blocks[index].y : point.y - 12;
+    textEdit = { docId: doc.id, index, x, y };
+    const editor = $("text-editor");
+    const { scale } = doc.view;
+    const surface = $("surface").getBoundingClientRect();
+    const left = (x - doc.view.x) * scale, top = (y - doc.view.y) * scale;
+    editor.style.left = `${Math.max(4, Math.min(surface.width - 120, left))}px`;
+    editor.style.top = `${Math.max(4, top)}px`;
+    editor.style.fontSize = `${18 * scale}px`;
+    editor.style.lineHeight = `${24 * scale}px`;
+    editor.style.width = `${Math.max(160, Math.min(600 * scale, surface.width - Math.max(4, left) - 8))}px`;
+    editor.value = index >= 0 ? blocks[index].text : "";
+    editor.hidden = false;
+    editor.style.height = "auto";
+    editor.style.height = `${Math.max(editor.scrollHeight, 30 * scale)}px`;
+    render();
+    editor.focus();
+    try { editor.setSelectionRange(editor.value.length, editor.value.length); } catch (error) { /* geen cursor */ }
+  }
+  function closeTextEditor(save = true) {
+    if (!textEdit) return;
+    const edit = textEdit;
+    textEdit = null;
+    const editor = $("text-editor");
+    const text = editor.value.replace(/\s+$/, "");
+    editor.hidden = true;
+    editor.value = "";
+    const doc = data.documents.find(item => item.id === edit.docId);
+    if (doc && save) {
+      const before = doc.textBlocks || [];
+      const blocks = before.slice();
+      let changed = false;
+      if (edit.index >= 0 && edit.index < blocks.length) {
+        if (!text.trim()) { blocks.splice(edit.index, 1); changed = true; }
+        else if (blocks[edit.index].text !== text) { blocks[edit.index] = { ...blocks[edit.index], text: text.slice(0, 20000) }; changed = true; }
+      } else if (text.trim()) {
+        blocks.push({ text: text.slice(0, 20000), x: edit.x, y: edit.y });
+        changed = true;
+      }
+      if (changed) {
+        if (doc.id === data.activeId) remember(doc.strokes.slice(), before);
+        doc.textBlocks = blocks;
+        persist();
+      }
+    }
+    if (doc && doc.id === data.activeId) render();
+  }
+
   // Taakvakje: klein bolletje rechtsboven. Grijs = wacht op tekst, groen = taak in WerkHub, met vinkje = klaar.
   function drawBoxBadge(ctx, stroke) {
     const bounds = strokeBounds(stroke);
@@ -465,9 +526,10 @@
     for (const stroke of doc.strokes) {
       if (stroke.box && M.intersectsBounds(strokeBounds(stroke), viewport)) drawBoxBadge(ctx, stroke);
     }
-    for (const block of doc.textBlocks || []) {
+    (doc.textBlocks || []).forEach((block, index) => {
+      if (textEdit && textEdit.docId === doc.id && textEdit.index === index) return; // wordt nu getypt
       if (block.y <= viewport.bottom && block.y + 1000 >= viewport.top) drawTextBlock(ctx, block);
-    }
+    });
   }
 
   // Alleen een klein stuk van de opgeslagen laag opnieuw tekenen (gum): veel sneller dan het hele blad.
@@ -775,6 +837,7 @@
   }
 
   function selectDocument() {
+    if (textEdit && textEdit.docId !== data.activeId) closeTextEditor(true);
     const doc = active();
     $("title").value = doc.title;
     $("text").value = doc.text;
@@ -933,6 +996,8 @@
     } else if (old.tool === "select-ink") {
       selection = null;
     }
+    const textTap = old.tool === "text-tap" && event && event.type === "pointerup" &&
+      Math.hypot(event.clientX - old.clientX, event.clientY - old.clientY) < 12;
     gesture = null;
     clear("drawing");
     livePoints = 0;
@@ -942,6 +1007,7 @@
     updateControls();
     updateSelectionButtons();
     if (!old.stroke || old.scratched) render();
+    if (textTap) openTextEditor(M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view));
     if (old.committed && window.WorkplaceSmart) {
       try { window.WorkplaceSmart.afterStroke(active(), old.stroke); }
       catch (error) { console.warn("Werkplek: vakjes:", error.message); }
@@ -1667,7 +1733,7 @@
       if (field === "title") list(active().folderId || null);
       persist();
     });
-    const drawingToolIds = ["pen", "marker-tool", "highlighter-tool", "move", "eraser", "scratch-eraser", "select-ink", "shape-tool"];
+    const drawingToolIds = ["pen", "marker-tool", "highlighter-tool", "text-tool", "move", "eraser", "scratch-eraser", "select-ink", "shape-tool"];
     const brushSettings = {
       pen: { color: "#173c39", width: 4 }, fineliner: { color: "#173c39", width: 2 },
       dashed: { color: "#173c39", width: 4 }, marker: { color: "#173c39", width: 10 },
@@ -1681,6 +1747,7 @@
       $("highlighter-tool").setAttribute("aria-pressed", String(tool === "pen" && !shape && brush === "highlighter"));
       $("shape-tool").setAttribute("aria-pressed", String(tool === "pen" && !!shape));
       for (const id of ["move", "eraser", "scratch-eraser", "select-ink"]) $(id).setAttribute("aria-pressed", String(tool === id));
+      $("text-tool").setAttribute("aria-pressed", String(tool === "text"));
       $("drawing-tools").dataset.tool = tool;
     };
     const syncColorSwatches = () => document.querySelectorAll("[data-color]").forEach(button =>
@@ -1710,6 +1777,23 @@
     $("marker-tool").addEventListener("click", () => activateBrush("marker"));
     $("highlighter-tool").addEventListener("click", () => activateBrush("highlighter"));
     for (const name of ["move", "eraser", "scratch-eraser", "select-ink"]) $(name).addEventListener("click", () => activateTool(name));
+    $("text-tool").addEventListener("click", () => {
+      activateTool("text");
+      notify("Tekst: tik op het blad waar je wilt typen. Tik op bestaande tekst om hem aan te passen.", "", null, 4000);
+    });
+    const textEditor = $("text-editor");
+    textEditor.addEventListener("pointerdown", event => event.stopPropagation());
+    textEditor.addEventListener("input", () => {
+      textEditor.style.height = "auto";
+      textEditor.style.height = `${textEditor.scrollHeight}px`;
+    });
+    textEditor.addEventListener("blur", () => closeTextEditor(true));
+    // iOS opent het toetsenbord soms pas bij de "click" na het tikken.
+    $("drawing").addEventListener("click", () => { if (textEdit && document.activeElement !== textEditor) textEditor.focus(); });
+    textEditor.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); closeTextEditor(false); }
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); textEditor.blur(); }
+    });
     $("shape-tool").addEventListener("click", () => {
       const palette = $("shape-palette");
       palette.hidden = !palette.hidden;
@@ -1917,7 +2001,8 @@
       canvas.setPointerCapture(event.pointerId);
       const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
       const now = performance.now();
-      const inputTool = kind === "touch" && !$("finger").checked ? "move" : tool;
+      // Tekst-tool: tikken (vinger, pen of muis) opent het typen; slepen schuift het blad.
+      const inputTool = tool === "text" ? "text-tap" : kind === "touch" && !$("finger").checked ? "move" : tool;
       gesture = { id: event.pointerId, type: event.pointerType, tool: inputTool, clientX: event.clientX, clientY: event.clientY, view: { ...active().view },
         metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
       if (inputTool === "pen") {

@@ -839,3 +839,7 @@ zijn nog niet geverifieerd.
 - Inspreken: 🎤 bij elk tekstveld (meetstatus, observaties, notities, taak, titel) en "Inspreek" op het blad. Gemini schrijft het uit (edge function werkplek-ai v12, taak dictation).
 - Back-up opgeruimd: alleen Extra > Kopie naar Google Drive (één tik) en Download/Open kopie.
 - WerkHub-knoppen "bewaar dit / lijst / ophalen" zijn weg: dat gaat nu vanzelf.
+
+## Versie 24.2
+
+- Tool **T Tekst** in schrift en whiteboard: tik waar je wilt typen (vinger, pen of muis) en typ met elk toetsenbord, ook dat van je telefoon. Tik op bestaande tekst om hem aan te passen; leegmaken haalt hem weg; Ongedaan werkt. Tekst gaat mee in de cloud-sync en het zoeken.
