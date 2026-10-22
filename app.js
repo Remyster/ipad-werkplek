@@ -30,7 +30,18 @@
     $("error").textContent = error.message || String(error);
   }
 
+  // Na een penstreek niet meteen alles wegschrijven maar 1 seconde bundelen: dat haalt de
+  // hapering weg bij de volgende letter. persist() zelf (en verbergen/sluiten van de app)
+  // schrijft altijd meteen alles wat nog openstaat.
+  let persistTimer = null;
+  function persistSoon() {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => { persistTimer = null; persist(); }, 1000);
+  }
+
   function persist() {
+    clearTimeout(persistTimer);
+    persistTimer = null;
     if (blocked) return false;
     try {
       window.WorkplaceStore.save(JSON.stringify(M.validate(data)));
@@ -76,6 +87,108 @@
     const { x, y, scale } = active().view;
     ctx.setTransform(ratio * scale, 0, 0, ratio * scale, -x * ratio * scale, -y * ratio * scale);
     return ctx;
+  }
+
+  // ---- Inkt (v24.4): vloeiende bochten en dikte per punt ----
+  // Bochten: een kwadratische curve door de middens van de punten, met het punt zelf als
+  // stuurpunt. Dikte: elk penpunt heeft een factor w (snelheid/druk); de streek wordt dan
+  // getekend als een aaneenschakeling van "capsules" (twee cirkels plus hun raaklijnen) in
+  // één gevuld pad. Zo zijn er geen knikjes of gaten, ook niet in scherpe haarspeldbochten.
+  const inkCache = new WeakMap();
+  const smoothBrush = brush => brush === "pen" || brush === "fineliner" || brush === "marker";
+
+  // Punten (met w) langs de vloeiende curve, fijn genoeg om als rechte stukjes te tekenen.
+  function densify(points) {
+    const out = [points[0]];
+    const w = p => p.w || 1;
+    const push = (x, y, width) => out.push({ x, y, w: width });
+    const n = points.length - 1;
+    for (let i = 1; i < n; i++) {
+      const a = points[i - 1], b = points[i], c = points[i + 1];
+      const sx = i === 1 ? a.x : (a.x + b.x) / 2, sy = i === 1 ? a.y : (a.y + b.y) / 2, sw = i === 1 ? w(a) : (w(a) + w(b)) / 2;
+      const ex = (b.x + c.x) / 2, ey = (b.y + c.y) / 2, ew = (w(b) + w(c)) / 2;
+      const steps = Math.max(1, Math.min(8, Math.ceil((Math.hypot(b.x - sx, b.y - sy) + Math.hypot(ex - b.x, ey - b.y)) / 3)));
+      for (let k = 1; k <= steps; k++) {
+        const t = k / steps, u = 1 - t;
+        push(u * u * sx + 2 * u * t * b.x + t * t * ex, u * u * sy + 2 * u * t * b.y + t * t * ey, u * u * sw + 2 * u * t * w(b) + t * t * ew);
+      }
+    }
+    const last = points[n];
+    push(last.x, last.y, w(last));
+    return out;
+  }
+
+  // Eén capsule tussen twee cirkels; altijd met oplopende hoeken, zodat alle capsules dezelfde
+  // draairichting hebben en de vulling (nonzero) ze netjes samenvoegt.
+  function addCapsule(path, a, ra, b, rb) {
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+    if (d <= Math.abs(ra - rb) + .01) {
+      const big = ra >= rb ? a : b, r = Math.max(ra, rb);
+      path.moveTo(big.x + r, big.y);
+      path.arc(big.x, big.y, r, 0, Math.PI * 2);
+      return;
+    }
+    const angle = Math.atan2(dy, dx), beta = Math.acos((ra - rb) / d);
+    path.moveTo(a.x + ra * Math.cos(angle + beta), a.y + ra * Math.sin(angle + beta));
+    path.arc(a.x, a.y, ra, angle + beta, angle - beta + Math.PI * 2);
+    path.arc(b.x, b.y, rb, angle - beta, angle + beta);
+    path.closePath();
+  }
+
+  function variablePath(points, width, path = new Path2D()) {
+    const dense = densify(points);
+    for (let i = 1; i < dense.length; i++) addCapsule(path, dense[i - 1], width / 2 * dense[i - 1].w, dense[i], width / 2 * dense[i].w);
+    return path;
+  }
+
+  function smoothPath(points, path = new Path2D()) {
+    path.moveTo(points[0].x, points[0].y);
+    if (points.length === 2) { path.lineTo(points[1].x, points[1].y); return path; }
+    for (let i = 1; i < points.length - 1; i++) {
+      const b = points[i], c = points[i + 1];
+      path.quadraticCurveTo(b.x, b.y, i === points.length - 2 ? c.x : (b.x + c.x) / 2, i === points.length - 2 ? c.y : (b.y + c.y) / 2);
+    }
+    return path;
+  }
+
+  const hasWidths = points => points.length > 1 && points[0].w !== undefined;
+
+  // true = getekend; false = oude manier (stippel, markeerstift, vormen).
+  function drawInk(ctx, stroke, from) {
+    const brush = stroke.brush || "pen";
+    const points = stroke.points;
+    if (!smoothBrush(brush) || stroke.shape || points.length < 2) return false;
+    const variable = hasWidths(points);
+    if (from > 0) {
+      // Live tekenen: alleen de staart, met twee punten overlap zodat de curve aansluit.
+      const tail = points.slice(Math.max(0, from - 3));
+      if (tail.length < 2) return true;
+      if (variable) ctx.fill(variablePath(tail, stroke.width));
+      else ctx.stroke(smoothPath(tail));
+      return true;
+    }
+    let cached = inkCache.get(points);
+    if (!cached || cached.width !== stroke.width) {
+      cached = { width: stroke.width, path: variable ? variablePath(points, stroke.width) : smoothPath(points) };
+      inkCache.set(points, cached);
+    }
+    if (variable) ctx.fill(cached.path);
+    else ctx.stroke(cached.path);
+    return true;
+  }
+
+  // Inktdikte uit schrijfsnelheid (en echte pendruk als de pen die doorgeeft).
+  // Snel = dunner, langzaam = voller, zoals bij een vulpen.
+  function inkWidth(previous, sample, last) {
+    let target = 1;
+    if (last && last.t !== undefined && sample.timeStamp > last.t) {
+      const speed = Math.hypot(sample.clientX - last.cx, sample.clientY - last.cy) / (sample.timeStamp - last.t);
+      target = Math.max(.6, Math.min(1.3, 1.3 - .4 * speed));
+    }
+    const pressure = sample.pointerType === "pen" ? sample.pressure : 0;
+    if (pressure > 0 && Math.abs(pressure - .5) > .02) target *= .6 + .8 * pressure;
+    const value = previous * .7 + Math.max(.4, Math.min(1.6, target)) * .3;
+    return Math.round(value * 100) / 100;
   }
 
   function drawStroke(ctx, stroke, from = 0) {
@@ -143,9 +256,10 @@
     }
     if (from === 0 && (brush === "pen" || points.length === 1)) {
       ctx.beginPath();
-      ctx.arc(points[0].x, points[0].y, stroke.width / 2, 0, Math.PI * 2);
+      ctx.arc(points[0].x, points[0].y, stroke.width / 2 * (points[0].w || 1), 0, Math.PI * 2);
       ctx.fill();
     }
+    if (drawInk(ctx, stroke, from)) { ctx.restore(); return; }
     if (points.length > 1) {
       ctx.beginPath();
       const start = Math.max(0, from - 1);
@@ -275,7 +389,7 @@
       ctx.strokeRect(bounds.left, bounds.top, width, height);
       ctx.setLineDash([]);
       ctx.fillStyle = "#af6700";
-      const handle = 5 / scale;
+      const handle = 8 / scale; // groot genoeg om met vinger of pen vast te pakken
       for (const [x, y] of [[bounds.left, bounds.top], [bounds.right, bounds.top], [bounds.left, bounds.bottom], [bounds.right, bounds.bottom]]) {
         ctx.fillRect(x - handle, y - handle, handle * 2, handle * 2);
       }
@@ -569,13 +683,30 @@
       : { ...box };
   }
 
+  // Zoomen/schuiven: eerst alleen het bestaande beeld meeschalen (CSS, vrijwel gratis), pas
+  // als je even stilhoudt of loslaat wordt alles scherp opnieuw getekend.
+  let renderedView = null, previewTimer = null;
+  function previewView() {
+    const base = renderedView, view = active().view, saved = $("saved-drawing");
+    if (!base) { render(); return; }
+    const k = view.scale / base.scale;
+    saved.style.transformOrigin = "0 0";
+    saved.style.transform = `translate(${(base.x - view.x) * view.scale}px, ${(base.y - view.y) * view.scale}px) scale(${k})`;
+    clear("drawing");
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => { if (!gesture || !gesture.stroke) render(); }, 140);
+  }
+
   function render() {
     frame = null;
+    clearTimeout(previewTimer);
+    $("saved-drawing").style.transform = "";
     const doc = active();
     if (isMeasurement(doc)) return;
     const rect = $("drawing").getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     renderedWidth = rect.width;
+    renderedView = { ...doc.view };
     renderedHeight = rect.height;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     for (const id of ["drawing", "saved-drawing"]) {
@@ -1015,7 +1146,7 @@
     clear("drawing");
     livePoints = 0;
     if ($("drawing").hasPointerCapture(old.id)) $("drawing").releasePointerCapture(old.id);
-    persist();
+    persistSoon();
     if (scratchNote) $("save-status").textContent = scratchNote;
     updateControls();
     updateSelectionButtons();
@@ -1088,6 +1219,93 @@
     updateSelectionButtons();
   }
 
+  // ---- ✨ Netjes: spelling verbeteren (Nederlands) ----
+  // Getypte tekst: spelling, hoofdletters en leestekens verbeterd, woorden blijven staan.
+  // Handschrift in de lasso: uitgeschreven als nette getypte tekst eronder.
+  const TIDY_RULES = "Verbeter alleen spelling, hoofdletters en leestekens volgens de Nederlandse spelling (Groene Boekje). " +
+    "Verander geen woorden, zinsbouw of betekenis. Laat namen, getallen, eenheden, afkortingen en vaktermen (zoals PWN, UF-RO, DWAT, AKF, LWS) precies staan. " +
+    "Behoud de regeleinden. Geef alleen de verbeterde tekst terug, zonder uitleg, aanhalingstekens of Markdown.";
+
+  function tidyAllowed(retry) {
+    const hub = window.WorkplaceWerkhub;
+    if (!window.AiChat || !hub) { notify("AI-module is niet geladen. Herlaad de app."); return false; }
+    if (hub.hasAiConsent()) return true;
+    notify("Mag AI (Gemini, buiten PWN) deze tekst lezen om de spelling te verbeteren?", "Ja, altijd", () => { hub.giveAiConsent(); retry(); }, 15000);
+    return false;
+  }
+
+  const cleanAnswer = text => String(text || "").replace(/```[a-z]*\n?|```/gi, "").trim();
+
+  async function tidyText(text) {
+    if (text.length > 5000) throw new Error("Te veel tekst in één keer (maximaal 5000 tekens). Selecteer minder.");
+    const answer = cleanAnswer(await window.AiChat.sendPrompt("gemini", `${TIDY_RULES}\n\nTekst:\n${text}`));
+    if (!answer) throw new Error("AI gaf geen tekst terug.");
+    return answer;
+  }
+
+  async function tidySelection() {
+    if (!hasSelection() || !tidyAllowed(tidySelection)) return;
+    const doc = active();
+    const strokes = selection.indexes.map(index => doc.strokes[index]).filter(stroke => stroke && !stroke.box);
+    const blockIndexes = (selection.blocks || []).filter(index => (doc.textBlocks || [])[index]);
+    const bounds = selectionBounds();
+    notify("✨ Bezig met netjes maken…", "", null, 20000);
+    try {
+      const beforeStrokes = doc.strokes.slice(), beforeBlocks = (doc.textBlocks || []).slice();
+      let blocks = beforeBlocks.slice(), changed = 0, written = "";
+      for (const index of blockIndexes) {
+        const fixed = await tidyText(blocks[index].text);
+        if (fixed !== blocks[index].text) { blocks[index] = { ...blocks[index], text: fixed.slice(0, 20000) }; changed++; }
+      }
+      if (strokes.length) {
+        if (blocks.length >= 100) throw new Error("Maximaal 100 tekstblokken per blad. Maak een nieuw blad.");
+        const canvas = inkCanvas(strokes);
+        const image = window.AiChat.cropInk(canvas, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+        written = cleanAnswer(await window.AiChat.askBoard(image, "Schrijf het handschrift uit. " + TIDY_RULES + " Onleesbare woorden: [onleesbaar]."));
+        if (written) blocks.push({ text: written.slice(0, 20000), x: bounds.left, y: bounds.bottom + 20 });
+      }
+      if (active() !== doc) throw new Error("Je bent van blad gewisseld; er is niets veranderd.");
+      if (!changed && !written) { notify(blockIndexes.length ? "Spelling was al goed. ✓" : "Geen tekst gevonden in de selectie."); return; }
+      remember(beforeStrokes, beforeBlocks);
+      doc.textBlocks = blocks;
+      persist();
+      render();
+      if (written) {
+        const ink = new Set(strokes);
+        notify("✨ Uitgeschreven tekst staat eronder. Handschrift weghalen?", "Weghalen", () => {
+          remember(doc.strokes.slice(), (doc.textBlocks || []).slice());
+          doc.strokes = doc.strokes.filter(stroke => !ink.has(stroke));
+          selection = null;
+          persist();
+          render();
+          updateSelectionButtons();
+        }, 12000);
+      } else {
+        notify(`✨ Spelling verbeterd in ${changed} tekstblok${changed === 1 ? "" : "ken"}. Ongedaan zet het terug.`);
+      }
+    } catch (error) {
+      notify(`Netjes maken mislukt: ${error.message || error}`);
+    }
+  }
+
+  async function tidyNotes() {
+    const field = $("text");
+    const text = field.value.trim();
+    if (!text) { notify("Typ eerst iets in de notities."); return; }
+    if (!tidyAllowed(tidyNotes)) return;
+    notify("✨ Bezig met netjes maken…", "", null, 20000);
+    try {
+      const fixed = await tidyText(field.value);
+      if (fixed === field.value.trim()) { notify("Spelling was al goed. ✓"); return; }
+      const before = field.value;
+      field.value = fixed;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      notify("✨ Spelling verbeterd.", "Ongedaan", () => { field.value = before; field.dispatchEvent(new Event("input", { bubbles: true })); });
+    } catch (error) {
+      notify(`Netjes maken mislukt: ${error.message || error}`);
+    }
+  }
+
   function pasteSelection() {
     const doc = active();
     const room = Math.max(0, 100 - (doc.textBlocks || []).length);
@@ -1096,7 +1314,7 @@
     remember(doc.strokes.slice(), (doc.textBlocks || []).slice());
     const pasted = inkClipboard.strokes.map(stroke => ({
       ...JSON.parse(JSON.stringify(stroke)),
-      points: stroke.points.map(point => ({ x: point.x + 24, y: point.y + 24 }))
+      points: stroke.points.map(point => ({ ...point, x: point.x + 24, y: point.y + 24 }))
     }));
     const pastedBlocks = blocks.map(block => ({ ...block, x: block.x + 24, y: block.y + 24 }));
     const start = doc.strokes.length, blockStart = (doc.textBlocks || []).length;
@@ -1374,6 +1592,28 @@
           transcript: doc.transcript || "", strokes: doc.strokes.length, transcriptStrokes: doc.transcriptStrokes || 0,
           defaultTitle: !doc.title || /^Nieuw (schriftblad|whiteboard)$/.test(doc.title) || / - notities$/.test(doc.title)
         }));
+      },
+      // Alle taakvakjes die nog open staan, over alle schriften en borden.
+      openBoxes() {
+        const list = [];
+        for (const doc of data.documents) {
+          if (doc.formType) continue;
+          for (const stroke of doc.strokes) {
+            if (!stroke.box || stroke.box.done) continue;
+            const b = strokeBounds(stroke);
+            list.push({ docId: doc.id, docTitle: doc.title || "Zonder titel", title: stroke.box.title || "", inWerkhub: !!stroke.box.taskId, x: b.left, y: b.top });
+          }
+        }
+        return list;
+      },
+      // Naar een plek op een blad springen (bijvoorbeeld een vakje).
+      goTo(id, x, y) {
+        this.openDocument(id);
+        const view = active().view;
+        view.x = x - 40 / view.scale;
+        view.y = y - 80 / view.scale;
+        persistSoon();
+        render();
       },
       openDocument(id) {
         finish();
@@ -1946,6 +2186,8 @@
     selectionMenu.addEventListener("pointerdown", event => event.stopPropagation());
     selectionMenu.querySelector("[data-sel='copy']").addEventListener("click", () => copySelection(false));
     selectionMenu.querySelector("[data-sel='cut']").addEventListener("click", () => copySelection(true));
+    selectionMenu.querySelector("[data-sel='tidy']").addEventListener("click", tidySelection);
+    $("text-tidy").addEventListener("click", tidyNotes);
     selectionMenu.querySelectorAll("[data-sel-task]").forEach(button => button.addEventListener("click", () => {
       // Zit er precies één taakvakje in de lasso, dan wordt de selectie de taak van dat vakje.
       if (window.WorkplaceSmart?.boxFromSelection()) return;
@@ -1988,7 +2230,11 @@
       const kind = ["pen", "touch", "mouse"].includes(event.pointerType) ? event.pointerType : "other";
       diagnostics[kind]++;
       diagnostics.last = kind;
-      if (kind === "pen") { pinch = null; touches.clear(); }
+      if (kind === "pen") {
+        pinch = null;
+        touches.clear();
+        if ($("saved-drawing").style.transform) render(); // nooit schrijven op een meegeschaald voorbeeld
+      }
       if (kind === "touch") {
         touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
         // Een tweede aanraking (handpalm) mag een lopende gumbeweging niet afbreken.
@@ -2028,6 +2274,11 @@
         metrics: { start: now, last: now, gap: 0, moves: 0, samples: 1 } };
       if (inputTool === "pen") {
         gesture.stroke = { color: $("color").value, width: Number($("width").value), brush: $("brush").value, points: [point] };
+        // Pen en fineliner krijgen dikte per punt; begint iets dunner, zoals een echte pen die neerkomt.
+        if (!$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
+          point.w = .85;
+          gesture.ink = { t: event.timeStamp, cx: event.clientX, cy: event.clientY };
+        }
         if ($("shape").value) {
           gesture.stroke.shape = $("shape").value;
           gesture.stroke.points.push({ ...point });
@@ -2044,7 +2295,21 @@
       if (inputTool === "select-ink") {
         const bounds = selectionBounds();
         const margin = 12 / active().view.scale;
-        if (bounds && point.x >= bounds.left - margin && point.x <= bounds.right + margin && point.y >= bounds.top - margin && point.y <= bounds.bottom + margin) {
+        const grab = 22 / active().view.scale;
+        const corners = bounds ? [[bounds.left, bounds.top, bounds.right, bounds.bottom], [bounds.right, bounds.top, bounds.left, bounds.bottom],
+          [bounds.left, bounds.bottom, bounds.right, bounds.top], [bounds.right, bounds.bottom, bounds.left, bounds.top]] : [];
+        const corner = corners.find(([cx, cy]) => Math.hypot(point.x - cx, point.y - cy) <= grab);
+        if (corner) {
+          // Hoekje vastpakken: vergroten/verkleinen vanaf de tegenoverliggende hoek, inkt wordt mee dikker/dunner.
+          gesture.before = active().strokes;
+          gesture.beforeBlocks = active().textBlocks || [];
+          gesture.moveSelection = {
+            strokes: selection.indexes.map(index => ({ index, points: active().strokes[index].points })),
+            blocks: (selection.blocks || []).map(index => ({ index, x: gesture.beforeBlocks[index].x, y: gesture.beforeBlocks[index].y }))
+          };
+          gesture.resize = { anchor: { x: corner[2], y: corner[3] }, start: { x: corner[0], y: corner[1] } };
+          gesture.moveStart = point;
+        } else if (bounds && point.x >= bounds.left - margin && point.x <= bounds.right + margin && point.y >= bounds.top - margin && point.y <= bounds.bottom + margin) {
           // Verplaatsen: de oude streken blijven ongewijzigd bewaard (voor Ongedaan); alleen kopieen schuiven mee.
           gesture.before = active().strokes;
           gesture.beforeBlocks = active().textBlocks || [];
@@ -2072,7 +2337,7 @@
         const [a, b] = touchPair();
         const rect = canvas.getBoundingClientRect();
         active().view = M.pinch(pinch.view, pinch.a, pinch.b, a, b, rect);
-        render();
+        if (frame === null) frame = requestAnimationFrame(() => { frame = null; previewView(); });
         return;
       }
       if (!gesture || gesture.id !== event.pointerId) return;
@@ -2117,12 +2382,31 @@
         drawLive();
       } else if (gesture.tool === "select-ink") {
         const point = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
-        if (gesture.moveSelection) {
+        if (gesture.moveSelection && gesture.resize) {
+          const { anchor, start } = gesture.resize;
+          const sx = start.x - anchor.x, sy = start.y - anchor.y;
+          const along = ((point.x - anchor.x) * sx + (point.y - anchor.y) * sy) / Math.max(1e-6, sx * sx + sy * sy);
+          const k = Math.max(.15, Math.min(8, along));
+          if (Math.abs(k - 1) > .001) gesture.moved = true;
+          const strokes = gesture.before.slice();
+          for (const item of gesture.moveSelection.strokes) {
+            const original = gesture.before[item.index];
+            strokes[item.index] = { ...original, width: Math.max(.5, Math.min(40, original.width * k)),
+              points: item.points.map(value => ({ ...value, x: anchor.x + (value.x - anchor.x) * k, y: anchor.y + (value.y - anchor.y) * k })) };
+          }
+          active().strokes = strokes;
+          if (gesture.moveSelection.blocks.length) {
+            const moving = new Map(gesture.moveSelection.blocks.map(item => [item.index, item]));
+            active().textBlocks = gesture.beforeBlocks.map((block, index) => moving.has(index)
+              ? { ...block, x: anchor.x + (moving.get(index).x - anchor.x) * k, y: anchor.y + (moving.get(index).y - anchor.y) * k } : block);
+          }
+          scheduleRender();
+        } else if (gesture.moveSelection) {
           const dx = point.x - gesture.moveStart.x, dy = point.y - gesture.moveStart.y;
           if (dx || dy) gesture.moved = true;
           const strokes = gesture.before.slice();
           for (const item of gesture.moveSelection.strokes) {
-            strokes[item.index] = { ...gesture.before[item.index], points: item.points.map(value => ({ x: value.x + dx, y: value.y + dy })) };
+            strokes[item.index] = { ...gesture.before[item.index], points: item.points.map(value => ({ ...value, x: value.x + dx, y: value.y + dy })) };
           }
           active().strokes = strokes;
           if (gesture.moveSelection.blocks.length) {
@@ -2141,7 +2425,7 @@
         gesture.metrics.samples++;
         active().view.x = gesture.view.x - (event.clientX - gesture.clientX) / gesture.view.scale;
         active().view.y = gesture.view.y - (event.clientY - gesture.clientY) / gesture.view.scale;
-        scheduleRender();
+        if (frame === null) frame = requestAnimationFrame(() => { frame = null; previewView(); });
       }
     });
     canvas.addEventListener("wheel", event => {
@@ -2162,7 +2446,7 @@
         touches.delete(event.pointerId);
         if (pinch) {
           if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-          if (touches.size < 2) { pinch = null; touches.clear(); persist(); }
+          if (touches.size < 2) { pinch = null; touches.clear(); render(); persistSoon(); }
           return;
         }
       }
@@ -2232,7 +2516,12 @@
       gesture.metrics.samples++;
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
-      if (point.x !== last.x || point.y !== last.y) gesture.stroke.points.push(point);
+      if (point.x === last.x && point.y === last.y) continue;
+      if (gesture.ink) {
+        point.w = inkWidth(last.w || 1, sample, gesture.ink);
+        gesture.ink = { t: sample.timeStamp, cx: sample.clientX, cy: sample.clientY };
+      }
+      gesture.stroke.points.push(point);
     }
   }
 

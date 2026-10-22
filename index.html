@@ -118,6 +118,8 @@
           <label class="finger-option"><input id="boxes-on" type="checkbox" checked> Taakvakjes: teken ☐ voor een regel → taak in WerkHub; vink het vakje af → klaar</label>
           <label>Vakjes worden <select id="box-type"><option value="urgent">urgent</option><option value="belangrijk">belangrijk</option><option value="subtaak">wel doen / subtaak</option></select></label>
           <p id="smart-status" role="status">Tip: lang drukken met de pen → "☐ Taakvakje hier" zet een vakje voor je neer.</p>
+          <h4>Open taakvakjes</h4>
+          <div id="box-list"></div>
         </details>
       </div>
       <details class="workmap-menu" open>
@@ -271,9 +273,9 @@
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
             </div>
-            <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences"></textarea>
+            <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences" lang="nl" spellcheck="true" autocorrect="on"></textarea>
             <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>
-              <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button>
+              <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button><button type="button" data-sel="tidy" title="Handschrift netjes uitschrijven of getypte tekst verbeteren (Nederlandse spelling)">✨ Netjes</button>
               <button type="button" class="quick-task" data-sel-task="taak">Taak</button><button type="button" class="quick-task" data-sel-task="subtaak">Subtaak</button>
             </div>
           </div>
@@ -281,7 +283,8 @@
           <details id="typed-notes">
             <summary>Getypte notities naast je handschrift</summary>
             <label for="text">Notities</label>
-            <textarea id="text" rows="4" placeholder="Typ hier je notities. Gebruik Herken handschrift om peninkt via Gemini om te zetten."></textarea>
+            <textarea id="text" rows="4" lang="nl" spellcheck="true" autocorrect="on" autocapitalize="sentences" placeholder="Typ hier je notities. Gebruik Herken handschrift om peninkt via Gemini om te zetten."></textarea>
+            <button id="text-tidy" type="button" title="Spelling, hoofdletters en leestekens verbeteren (Nederlands)">✨ Spelling verbeteren</button>
           </details>
           </div>
         </div>

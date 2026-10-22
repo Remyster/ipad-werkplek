@@ -850,3 +850,12 @@ zijn nog niet geverifieerd.
 - Schrijf je later verder onder een vakje dat al een taak is, dan wordt die taak bijgewerkt (titel en notitie). Een dun groen haakje links laat zien welke regels erbij horen.
 - Zelf kiezen: lasso om het vakje plus de tekst die erbij hoort en tik Taak in het lasso-menu. Dan geldt precies die selectie voor dat vakje.
 - Vakjes van vóór 24.3 die al een taak hebben worden niet opnieuw gelezen; pas als je eronder bijschrijft.
+
+## Versie 24.4
+
+- **Mooiere inkt.** Streken lopen in vloeiende bochten in plaats van rechte stukjes. Pen en fineliner worden dunner als je snel schrijft en voller als je langzaam gaat; geeft de pen echte druk door, dan telt die mee. De dikte staat per punt in de opslag (`w`), oude streken blijven zoals ze waren maar krijgen wel de vloeiende bochten.
+- **Soepel zoomen en schuiven.** Tijdens knijpen of slepen schaalt het bestaande beeld mee; zodra je even stilhoudt of loslaat wordt alles scherp opnieuw getekend.
+- **Opslaan gebundeld.** Na een penstreek wordt 1 seconde gewacht voordat er wordt opgeslagen, dus geen hapering meer bij de volgende letter. Verbergen of sluiten van de app slaat altijd meteen op.
+- **Lasso vergroten/verkleinen.** Pak een hoekje van de selectie vast; de inkt schaalt mee, ook in dikte.
+- **✨ Netjes** in het lasso-menu: handschrift wordt uitgeschreven als getypte tekst met Nederlandse spelling (eronder gezet, met "Weghalen" voor het handschrift); geselecteerde getypte tekst krijgt spelling, hoofdletters en leestekens verbeterd. Woorden, namen, getallen en vaktermen blijven staan. Ook een knop "✨ Spelling verbeteren" bij de getypte notities. Typvelden gebruiken het Nederlandse woordenboek van iPadOS.
+- **Taakvakjes:** eenmalig per vakje een "Nu lezen"-knop als je niet wilt wachten, en onder Slim een lijst met alle open vakjes (tik = erheen springen).

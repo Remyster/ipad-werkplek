@@ -87,7 +87,7 @@
               (stroke.box.taskId !== undefined && (typeof stroke.box.taskId !== "string" || stroke.box.taskId.length > 64)) ||
               (stroke.box.done !== undefined && typeof stroke.box.done !== "boolean") ||
               (stroke.box.title !== undefined && (typeof stroke.box.title !== "string" || stroke.box.title.length > 200)))) ||
-            !stroke.points.length || stroke.points.some(p => !p || !finite(p.x) || !finite(p.y))) {
+            !stroke.points.length || stroke.points.some(p => !p || !finite(p.x) || !finite(p.y) || (p.w !== undefined && (!finite(p.w) || p.w <= 0 || p.w > 3)))) {
           throw new Error("Opgeslagen penstreken zijn ongeldig; de opslag is niet overschreven.");
         }
         totalPoints += stroke.points.length;
@@ -160,7 +160,8 @@
       const a = stroke.points[i - 1], b = stroke.points[i];
       const ranges = intervals(a, b).sort((x, y) => x[0] - y[0]);
       let cursor = 0;
-      const at = t => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+      const at = t => a.w === undefined || b.w === undefined ? { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+        : { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: a.w + (b.w - a.w) * t };
       const append = (start, end) => {
         if (end <= start) return;
         const p = at(start);
@@ -297,9 +298,10 @@
   }
 
   function strokeBounds(stroke) {
-    const padding = stroke.width / 2;
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (const point of stroke.points) {
+      // w = inktdikte van dit punt (snelheid/druk), 1 als hij ontbreekt.
+      const padding = stroke.width / 2 * (point.w || 1);
       left = Math.min(left, point.x - padding);
       top = Math.min(top, point.y - padding);
       right = Math.max(right, point.x + padding);

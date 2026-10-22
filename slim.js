@@ -126,6 +126,7 @@
   }
 
   let boxTimer = null, boxDoc = null, boxBusy = false;
+  const offered = new Set();
   function scheduleBoxes(doc, delay = 6000) {
     boxDoc = doc;
     clearTimeout(boxTimer);
@@ -253,7 +254,30 @@
       return;
     }
     // Ook ná het aanmaken: schrijf je verder onder de taak, dan wordt hij bijgewerkt.
-    if (doc.strokes.some(box => box.box && !box.box.done && regionStrokes(doc, box).includes(stroke))) scheduleBoxes(doc);
+    const owner = doc.strokes.find(box => box.box && !box.box.done && regionStrokes(doc, box).includes(stroke));
+    if (!owner) return;
+    scheduleBoxes(doc);
+    // Eén keer per vakje: wil je niet wachten, dan meteen lezen.
+    if (!owner.box.taskId && !offered.has(owner.box.id)) {
+      offered.add(owner.box.id);
+      W().notify("Taak wordt gelezen zodra je even stopt met schrijven.", "Nu lezen", () => scheduleBoxes(doc, 10), 5000);
+    }
+  }
+
+  // Overzicht van open vakjes: tik = naar dat vakje springen.
+  function renderBoxList() {
+    const list = $("box-list");
+    const boxes = W().openBoxes ? W().openBoxes() : [];
+    if (!boxes.length) {
+      list.replaceChildren(Object.assign(document.createElement("p"), { className: "smart-empty", textContent: "Geen open vakjes. Teken ☐ voor een regel om er een taak van te maken." }));
+      return;
+    }
+    list.replaceChildren(...boxes.slice(0, 40).map(item => {
+      const button = Object.assign(document.createElement("button"), { type: "button", className: "box-row" });
+      button.textContent = `${item.inWerkhub ? "🟢" : "⚪"} ${item.title || "(nog niet gelezen)"} · ${item.docTitle}`;
+      button.addEventListener("click", () => { try { W().goTo(item.docId, item.x, item.y); } catch (error) { W().notify(error.message || String(error)); } });
+      return button;
+    }));
   }
 
   // ================= Vangnet: versies =================
@@ -450,6 +474,7 @@
     const savedType = read("remy-ipad-box-type", "belangrijk");
     boxType.value = ["urgent", "belangrijk", "subtaak"].includes(savedType) ? savedType : "belangrijk";
     boxType.addEventListener("change", () => write("remy-ipad-box-type", boxType.value));
+    $("box-list").closest("details").addEventListener("toggle", event => { if (event.target.open) renderBoxList(); });
     $("vangnet").addEventListener("toggle", event => {
       if (!event.target.open) return;
       renderTrash();
