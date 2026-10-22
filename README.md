@@ -859,3 +859,8 @@ zijn nog niet geverifieerd.
 - **Lasso vergroten/verkleinen.** Pak een hoekje van de selectie vast; de inkt schaalt mee, ook in dikte.
 - **✨ Netjes** in het lasso-menu: handschrift wordt uitgeschreven als getypte tekst met Nederlandse spelling (eronder gezet, met "Weghalen" voor het handschrift); geselecteerde getypte tekst krijgt spelling, hoofdletters en leestekens verbeterd. Woorden, namen, getallen en vaktermen blijven staan. Ook een knop "✨ Spelling verbeteren" bij de getypte notities. Typvelden gebruiken het Nederlandse woordenboek van iPadOS.
 - **Taakvakjes:** eenmalig per vakje een "Nu lezen"-knop als je niet wilt wachten, en onder Slim een lijst met alle open vakjes (tik = erheen springen).
+
+## Versie 24.5
+
+- **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt als een touwtje: het lijnpunt komt pas mee als de pen verder dan een kleine straal weg is, dus trillen en bibberen verdwijnen terwijl snelle halen direct blijven. De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
+- **📏 Recht** in het lasso-menu: zoekt de regels in je selectie, draait elke regel recht, maakt de lettergrootte gelijk (binnen 75–133%, het blijft jouw handschrift), zet ze op een schriftblad precies op de lijnen en op een bord op gelijke afstand, en lijnt de linkerkant uit (inspringingen blijven). Ongedaan zet het terug.

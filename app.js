@@ -1103,7 +1103,15 @@
   function finish(event, reason = "bediening") {
     if (!gesture || (event && gesture.id !== event.pointerId)) return;
     const old = gesture;
-    if (event && event.type === "pointerup" && old.stroke) addSamples([event]);
+    if (event && event.type === "pointerup" && old.stroke) {
+      addSamples([event]);
+      if (old.steady && !old.stroke.shape) {
+        // Het touwtje loopt achter: laat de lijn eindigen waar de pen echt van het scherm ging.
+        const tip = M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view);
+        const last = old.stroke.points[old.stroke.points.length - 1];
+        if (Math.hypot(tip.x - last.x, tip.y - last.y) > .3) old.stroke.points.push(last.w === undefined ? tip : { ...tip, w: last.w });
+      }
+    }
     if (event && event.type === "pointerup" && old.tool === "eraser") {
       eraseAt(M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view));
     }
@@ -1217,6 +1225,93 @@
       render();
     }
     updateSelectionButtons();
+  }
+
+  // ---- 📏 Recht: regels recht, letters even groot, netjes op de lijnen ----
+  // Het blijft jouw handschrift: elke regel wordt alleen gedraaid, geschaald en verschoven als geheel.
+  const percentile = (values, p) => { const sorted = values.slice().sort((a, b) => a - b); return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))))]; };
+
+  function straightenLines(strokes, kind) {
+    const info = strokes.map((stroke, index) => {
+      const b = strokeBounds(stroke);
+      return { index, stroke, b, cy: (b.top + b.bottom) / 2, h: b.bottom - b.top, ink: !stroke.shape && stroke.brush !== "highlighter" };
+    });
+    const inky = info.filter(item => item.ink);
+    if (!inky.length) return null;
+    const typical = Math.max(6, percentile(inky.map(item => item.h), .6));
+    // 1. Regels vinden: streken met ongeveer hetzelfde midden horen bij elkaar.
+    const lines = [];
+    for (const item of info.slice().sort((a, b) => a.cy - b.cy)) {
+      const line = lines[lines.length - 1];
+      if (line && item.cy - line.cy < typical * .8) {
+        line.items.push(item);
+        line.cy = line.items.reduce((sum, value) => sum + value.cy, 0) / line.items.length;
+      } else lines.push({ items: [item], cy: item.cy });
+    }
+    // 2. Per regel: scheefstand meten (lineaire regressie over alle inktpunten) en recht draaien.
+    for (const line of lines) {
+      const points = line.items.filter(item => item.ink).flatMap(item => item.stroke.points);
+      if (!points.length) { line.points = line.items.flatMap(item => item.stroke.points); }
+      const source = points.length ? points : line.points;
+      const mx = source.reduce((s, p) => s + p.x, 0) / source.length, my = source.reduce((s, p) => s + p.y, 0) / source.length;
+      let sxx = 0, sxy = 0;
+      for (const p of source) { sxx += (p.x - mx) ** 2; sxy += (p.x - mx) * (p.y - my); }
+      const width = Math.max(...source.map(p => p.x)) - Math.min(...source.map(p => p.x));
+      line.angle = width > typical * 3 && sxx ? Math.max(-.3, Math.min(.3, Math.atan(sxy / sxx))) : 0;
+      line.center = { x: mx, y: my };
+      const cos = Math.cos(-line.angle), sin = Math.sin(-line.angle);
+      line.rotate = p => ({ x: mx + (p.x - mx) * cos - (p.y - my) * sin, y: my + (p.x - mx) * sin + (p.y - my) * cos });
+      const ys = source.map(p => line.rotate(p).y);
+      line.body = Math.max(3, percentile(ys, .85) - percentile(ys, .15));
+      line.baseline = percentile(ys, .9);
+      line.left = Math.min(...line.items.flatMap(item => item.stroke.points.map(p => line.rotate(p).x)));
+    }
+    // 3. Letters even groot: elke regel naar de middelste lettergrootte (met grenzen, het blijft jouw schrift).
+    const target = percentile(lines.map(line => line.body), .5);
+    for (const line of lines) line.scale = Math.max(.75, Math.min(1.33, target / line.body));
+    // 4. Netjes onder elkaar: op een schriftblad op de lijnen, op een bord met gelijke afstand.
+    const minLeft = Math.min(...lines.map(line => line.left));
+    let previous = -Infinity;
+    const gaps = lines.slice(1).map((line, i) => line.baseline - lines[i].baseline);
+    const spacing = gaps.length ? Math.max(target * 1.6, percentile(gaps, .5)) : 0;
+    lines.forEach((line, i) => {
+      let base;
+      if (kind === "page") {
+        const page = Math.max(0, Math.floor(line.baseline / 1144));
+        const top = page * 1144;
+        base = top + 31 + 32 * Math.round((line.baseline - top - 31) / 32);
+        if (base <= previous) base = previous + 32;
+      } else {
+        base = i === 0 ? line.baseline : Math.max(previous + spacing * .9, Math.min(previous + spacing * 1.1, line.baseline));
+      }
+      previous = base;
+      line.targetBase = base;
+      line.targetLeft = line.left - minLeft < typical * 1.5 ? minLeft : line.left;
+    });
+    const out = new Map();
+    for (const line of lines) {
+      const move = p => {
+        const r = line.rotate(p);
+        return { ...p, x: line.targetLeft + (r.x - line.left) * line.scale, y: line.targetBase + (r.y - line.baseline) * line.scale };
+      };
+      for (const item of line.items) out.set(item.index, { ...item.stroke, points: item.stroke.points.map(move) });
+    }
+    return { strokes: strokes.map((stroke, index) => out.get(index) || stroke), lines: lines.length };
+  }
+
+  function straightenSelection() {
+    if (!selection?.indexes?.length) { notify("Selecteer eerst handschrift met de lasso."); return; }
+    const doc = active();
+    const picked = selection.indexes.filter(index => doc.strokes[index]);
+    const result = straightenLines(picked.map(index => doc.strokes[index]), doc.kind);
+    if (!result) { notify("Geen handschrift in de selectie om recht te zetten."); return; }
+    remember(doc.strokes.slice(), (doc.textBlocks || []).slice());
+    const strokes = doc.strokes.slice();
+    picked.forEach((index, i) => { strokes[index] = result.strokes[i]; });
+    doc.strokes = strokes;
+    persist();
+    render();
+    notify(`📏 ${result.lines} regel${result.lines === 1 ? "" : "s"} recht gezet.`, "Ongedaan", () => $("undo")?.click());
   }
 
   // ---- ✨ Netjes: spelling verbeteren (Nederlands) ----
@@ -2187,6 +2282,7 @@
     selectionMenu.querySelector("[data-sel='copy']").addEventListener("click", () => copySelection(false));
     selectionMenu.querySelector("[data-sel='cut']").addEventListener("click", () => copySelection(true));
     selectionMenu.querySelector("[data-sel='tidy']").addEventListener("click", tidySelection);
+    selectionMenu.querySelector("[data-sel='straighten']").addEventListener("click", straightenSelection);
     $("text-tidy").addEventListener("click", tidyNotes);
     selectionMenu.querySelectorAll("[data-sel-task]").forEach(button => button.addEventListener("click", () => {
       // Zit er precies één taakvakje in de lasso, dan wordt de selectie de taak van dat vakje.
@@ -2198,6 +2294,16 @@
       hideQuickTools();
     });
     $("quick-color").addEventListener("input", () => { $("color").value = $("quick-color").value; rememberBrushSettings(); syncColorSwatches(); });
+    // Stabilisator: één waarde, twee schuiven (werkbalk en lang-drukken-menu), onthouden per apparaat.
+    const STEADY_KEY = "remy-ipad-steady";
+    const setSteady = value => {
+      const v = String(Math.max(0, Math.min(10, Number(value) || 0)));
+      $("steady").value = $("quick-steady").value = $("steady-value").textContent = v;
+      try { localStorage.setItem(STEADY_KEY, v); } catch (error) { /* alleen gemak */ }
+    };
+    try { const saved = localStorage.getItem(STEADY_KEY); if (saved !== null) setSteady(saved); } catch (error) { /* standaard 3 */ }
+    $("steady").addEventListener("input", () => setSteady($("steady").value));
+    $("quick-steady").addEventListener("input", () => setSteady($("quick-steady").value));
     $("quick-width").addEventListener("input", () => {
       $("width").value = $("quick-width").value;
       $("width-value").textContent = $("width").value;
@@ -2275,6 +2381,10 @@
       if (inputTool === "pen") {
         gesture.stroke = { color: $("color").value, width: Number($("width").value), brush: $("brush").value, points: [point] };
         // Pen en fineliner krijgen dikte per punt; begint iets dunner, zoals een echte pen die neerkomt.
+        const steady = Number($("steady").value) || 0;
+        if (!$("shape").value && steady > 0 && gesture.stroke.brush !== "highlighter") {
+          gesture.steady = { x: point.x, y: point.y, radius: steady * 1.5 / active().view.scale };
+        }
         if (!$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
           point.w = .85;
           gesture.ink = { t: event.timeStamp, cx: event.clientX, cy: event.clientY };
@@ -2516,6 +2626,16 @@
       gesture.metrics.samples++;
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
+      if (gesture.steady) {
+        // Stabilisator ("touwtje"): het lijnpunt komt pas mee als de pen verder dan de straal weg is.
+        // Kleine trillingen binnen de straal verdwijnen; snelle bewegingen blijven gewoon direct.
+        const s = gesture.steady, dx = point.x - s.x, dy = point.y - s.y, d = Math.hypot(dx, dy);
+        if (d <= s.radius) continue;
+        s.x += dx * (d - s.radius) / d;
+        s.y += dy * (d - s.radius) / d;
+        point.x = s.x;
+        point.y = s.y;
+      }
       if (point.x === last.x && point.y === last.y) continue;
       if (gesture.ink) {
         point.w = inkWidth(last.w || 1, sample, gesture.ink);

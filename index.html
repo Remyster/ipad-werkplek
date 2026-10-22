@@ -241,6 +241,7 @@
                 <button type="button" data-color="#ee8bd3" style="--swatch:#ee8bd3" aria-label="Roze"></button>
               </div>
               <label class="width-tool">Dikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
+              <label class="width-tool" title="Stabilisator: hoe hoger, hoe rustiger en strakker je lijnen (trillen wordt weggefilterd)">Rustig <input id="steady" type="range" min="0" max="10" step="1" value="3"><output id="steady-value">3</output></label>
               <label class="eraser-tool">Gum <select id="eraser-size"><option value="6">Klein</option><option value="12" selected>Normaal</option><option value="24">Groot</option><option value="40">Extra groot</option></select></label>
               <select id="brush" class="visually-hidden" aria-label="Pensoort"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select>
               <select id="shape" class="visually-hidden" aria-label="Vorm of pictogram"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select>
@@ -272,10 +273,11 @@
               <button type="button" class="quick-task" data-quick-task="subtaak">Opslaan als subtaak</button>
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
+              <label title="Stabilisator: hoger = rustiger lijnen">Rustig <input id="quick-steady" type="range" min="0" max="10" value="3"></label>
             </div>
             <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences" lang="nl" spellcheck="true" autocorrect="on"></textarea>
             <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>
-              <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button><button type="button" data-sel="tidy" title="Handschrift netjes uitschrijven of getypte tekst verbeteren (Nederlandse spelling)">✨ Netjes</button>
+              <button type="button" data-sel="copy">Kopieer</button><button type="button" data-sel="cut">Knip</button><button type="button" data-sel="straighten" title="Regels recht zetten, letters even groot, netjes op de lijnen">📏 Recht</button><button type="button" data-sel="tidy" title="Handschrift netjes uitschrijven of getypte tekst verbeteren (Nederlandse spelling)">✨ Netjes</button>
               <button type="button" class="quick-task" data-sel-task="taak">Taak</button><button type="button" class="quick-task" data-sel-task="subtaak">Subtaak</button>
             </div>
           </div>
