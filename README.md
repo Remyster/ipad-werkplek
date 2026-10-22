@@ -843,3 +843,10 @@ zijn nog niet geverifieerd.
 ## Versie 24.2
 
 - Tool **T Tekst** in schrift en whiteboard: tik waar je wilt typen (vinger, pen of muis) en typ met elk toetsenbord, ook dat van je telefoon. Tik op bestaande tekst om hem aan te passen; leegmaken haalt hem weg; Ongedaan werkt. Tekst gaat mee in de cloud-sync en het zoeken.
+
+## Versie 24.3
+
+- Taakvakje pakt nu de héle taak, niet alleen de regel erachter: de regel naast het vakje plus de regels eronder die op of rechts van het vakje beginnen. Een lege regel of een volgend vakje sluit de taak af. Eerste gelezen regel = titel in WerkHub, de rest = notitie.
+- Schrijf je later verder onder een vakje dat al een taak is, dan wordt die taak bijgewerkt (titel en notitie). Een dun groen haakje links laat zien welke regels erbij horen.
+- Zelf kiezen: lasso om het vakje plus de tekst die erbij hoort en tik Taak in het lasso-menu. Dan geldt precies die selectie voor dat vakje.
+- Vakjes van vóór 24.3 die al een taak hebben worden niet opnieuw gelezen; pas als je eronder bijschrijft.

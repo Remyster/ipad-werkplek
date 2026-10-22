@@ -71,6 +71,60 @@
     return { left: b.right + 2, right: b.right + 1400, top: b.top - h * .5, bottom: b.bottom + h * .5 };
   }
 
+  // Wat hoort bij een vakje: de regel erachter, plus de regels eronder die op of rechts van
+  // het vakje beginnen. Een lege regel of een volgend vakje sluit de taak af. Heb je met de
+  // lasso zelf een stuk gekozen (box.area.manual), dan geldt alleen dat stuk.
+  function regionStrokes(doc, box) {
+    const b = bounds(box);
+    const h = Math.max(20, b.bottom - b.top);
+    const ink = doc.strokes.filter(stroke => stroke !== box && !stroke.box);
+    const area = box.box.area;
+    if (area && area.manual) {
+      return ink.filter(stroke => {
+        const s = bounds(stroke), cx = (s.left + s.right) / 2, cy = (s.top + s.bottom) / 2;
+        return cx >= area.left && cx <= area.right && cy >= area.top && cy <= area.bottom;
+      });
+    }
+    // Eerstvolgende vakje eronder (dat begint een nieuwe taak).
+    let stop = Infinity;
+    for (const other of doc.strokes) {
+      if (!other.box || other === box) continue;
+      const o = bounds(other);
+      if (o.top > b.top + h * .5 && o.right >= b.left - 4 * h && o.left <= b.right + 1400) stop = Math.min(stop, o.top - 2);
+    }
+    const line = lineRect(box);
+    const picked = ink.filter(stroke => { const s = bounds(stroke); return overlaps(line, s) && s.top < stop; });
+    if (!picked.length) return [];
+    let bottom = Math.max(...picked.map(stroke => bounds(stroke).bottom));
+    const gap = Math.max(20, h);
+    for (let round = 0; round < 20; round++) {
+      const more = ink.filter(stroke => {
+        if (picked.includes(stroke)) return false;
+        const s = bounds(stroke);
+        return s.top > b.top && s.top <= bottom + gap && s.top < stop && s.left >= b.left - h * .5 && s.left <= b.right + 1400;
+      });
+      if (!more.length) break;
+      picked.push(...more);
+      bottom = Math.max(bottom, ...more.map(stroke => bounds(stroke).bottom));
+    }
+    return picked;
+  }
+
+  // Verandert er iets aan de inkt van een taak, dan verandert deze handtekening.
+  function signature(strokes) {
+    let value = strokes.length;
+    for (const stroke of strokes) {
+      const s = bounds(stroke);
+      value = (value * 31 + Math.round(s.left) * 7 + Math.round(s.top) * 13 + stroke.points.length) % 2147483647;
+    }
+    return String(value);
+  }
+
+  function areaOf(strokes) {
+    return { left: Math.min(...strokes.map(stroke => bounds(stroke).left)), right: Math.max(...strokes.map(stroke => bounds(stroke).right)),
+      top: Math.min(...strokes.map(stroke => bounds(stroke).top)), bottom: Math.max(...strokes.map(stroke => bounds(stroke).bottom)) };
+  }
+
   let boxTimer = null, boxDoc = null, boxBusy = false;
   function scheduleBoxes(doc, delay = 6000) {
     boxDoc = doc;
@@ -78,46 +132,96 @@
     boxTimer = setTimeout(processBoxes, delay);
   }
 
+  const cleanTaskLine = value => value.replace(/\[onleesbaar\]/gi, "").replace(/^[\s\-*•☐□]+/, "").trim();
+
   function titleFrom(text) {
-    const line = String(text || "").split(/\r?\n/).map(value => value.replace(/\[onleesbaar\]/gi, "").replace(/^[\s\-*•☐□]+/, "").trim())
-      .find(value => /[a-zà-ÿ0-9]{2,}/i.test(value));
+    const line = String(text || "").split(/\r?\n/).map(cleanTaskLine).find(value => /[a-zà-ÿ0-9]{2,}/i.test(value));
     return line ? line.slice(0, 200) : "";
+  }
+
+  // Eerste gelezen regel = taak, de rest = notitie.
+  function splitTask(text) {
+    const lines = String(text || "").split(/\r?\n/).map(cleanTaskLine).filter(Boolean);
+    const first = lines.findIndex(value => /[a-zà-ÿ0-9]{2,}/i.test(value));
+    if (first < 0) return { title: "", note: "" };
+    return { title: lines[first].slice(0, 200), note: lines.slice(first + 1).join("\n").slice(0, 3800) };
   }
 
   async function processBoxes() {
     const doc = boxDoc;
     if (!doc || boxBusy) return;
     if (W().isDrawing()) { scheduleBoxes(doc, 2500); return; }
-    const pending = doc.strokes.filter(stroke => stroke.box && !stroke.box.taskId && !stroke.box.done);
-    const work = pending.map(box => ({ box, ink: W().inkIn(lineRect(box), box) })).filter(item => item.ink).slice(0, 3);
+    const work = [];
+    let touched = false;
+    for (const box of doc.strokes) {
+      if (!box.box || box.box.done) continue;
+      const strokes = regionStrokes(doc, box);
+      if (!strokes.length) continue;
+      const sig = signature(strokes);
+      if (box.box.taskId && !box.box.sig) { box.box.sig = sig; touched = true; continue; } // vakje van vóór v24.3: niet opnieuw lezen
+      if (box.box.taskId && box.box.sig === sig) continue;
+      work.push({ box, strokes, sig });
+    }
+    if (touched) W().changed();
     if (!work.length) return;
     if (!loggedIn()) { W().notify("Vakje gezien, maar je bent niet ingelogd bij WerkHub. Log in op Vandaag en teken het vakje opnieuw."); return; }
     if (!H().hasAiConsent()) {
-      W().notify("Vakje gezien. Mag AI (Gemini, buiten PWN) de regel achter het vakje lezen?", "Ja, altijd", () => { H().giveAiConsent(); scheduleBoxes(doc, 10); }, 15000);
+      W().notify("Vakje gezien. Mag AI (Gemini, buiten PWN) de tekst achter het vakje lezen?", "Ja, altijd", () => { H().giveAiConsent(); scheduleBoxes(doc, 10); }, 15000);
       return;
     }
     boxBusy = true;
     try {
-      for (const { box, ink } of work) {
-        const image = window.AiChat.cropInk(ink.canvas, { x: 0, y: 0, width: ink.canvas.width, height: ink.canvas.height });
-        const title = titleFrom(await window.AiChat.recognizeHandwriting(image));
+      for (const { box, strokes, sig } of work.slice(0, 3)) {
+        const canvas = W().inkFor(strokes);
+        const image = window.AiChat.cropInk(canvas, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+        const { title, note } = splitTask(await window.AiChat.recognizeHandwriting(image));
         const current = doc.strokes.find(stroke => stroke.box && stroke.box.id === box.box.id);
-        if (!current || current.box.taskId || current.box.done) continue;
-        if (!title) { W().notify("Kon de regel achter het vakje niet lezen. Schrijf iets duidelijker of gebruik Taak."); continue; }
-        const taskId = await H().createOne(title, read("remy-ipad-box-type", "belangrijk"));
-        current.box.taskId = taskId;
-        current.box.title = title;
+        if (!current || current.box.done) continue;
+        if (!title) { W().notify("Kon de tekst achter het vakje niet lezen. Schrijf iets duidelijker of gebruik Taak."); continue; }
+        const area = { ...areaOf(strokes), manual: !!(current.box.area && current.box.area.manual) };
+        if (current.box.taskId) {
+          if (current.box.title !== title || (current.box.note || "") !== note) {
+            await H().updateOne(current.box.taskId, title, note);
+            W().notify(`Taak bijgewerkt: ${title}${note ? ` (+${note.split("\n").length} regel${note.includes("\n") ? "s" : ""} notitie)` : ""}`);
+          }
+          Object.assign(current.box, { title, note, sig, area });
+          W().changed();
+          continue;
+        }
+        const taskId = await H().createOne(title, read("remy-ipad-box-type", "belangrijk"), "", note);
+        Object.assign(current.box, { taskId, title, note, sig, area });
         W().changed();
-        W().notify(`Taak in WerkHub: ${title}`, "Ongedaan", async () => {
+        W().notify(`Taak in WerkHub: ${title}${note ? " (rest als notitie)" : ""}`, "Ongedaan", async () => {
           try { await H().setTaskStatus(taskId, "klaar"); delete current.box.taskId; delete current.box.title; current.box.done = true; W().changed(); W().notify("Taak weer weggehaald (op klaar gezet in WerkHub)."); }
           catch (error) { W().notify(error.message || String(error)); }
         });
       }
+      if (work.length > 3) scheduleBoxes(doc, 10);
     } catch (error) {
       W().notify(`Taak uit vakje mislukt: ${error.message || error}`, "Opnieuw", () => scheduleBoxes(doc, 10));
     } finally {
       boxBusy = false;
     }
+  }
+
+  // Lasso om een vakje plus tekst, dan Taak: precies dat stuk wordt de taak van dat vakje.
+  // Geeft false terug als er geen (of meer dan één) vakje in de selectie zit.
+  function boxFromSelection() {
+    if (!boxesOn()) return false;
+    const doc = W().activeDocument && W().activeDocument();
+    const selected = W().selectedStrokes ? W().selectedStrokes() : [];
+    const boxes = selected.filter(stroke => stroke.box && !stroke.box.done);
+    if (!doc || boxes.length !== 1) return false;
+    const ink = selected.filter(stroke => !stroke.box);
+    if (!ink.length) { W().notify("Selecteer het vakje samen met de tekst die bij de taak hoort."); return true; }
+    const box = boxes[0];
+    box.box.area = { ...areaOf(ink), manual: true };
+    delete box.box.sig;
+    if (box.box.taskId) box.box.sig = "opnieuw";
+    W().changed();
+    W().notify(box.box.taskId ? "Taak wordt bijgewerkt met je selectie..." : "Taak wordt gemaakt uit je selectie...");
+    scheduleBoxes(doc, 10);
+    return true;
   }
 
   async function markDone(box) {
@@ -148,8 +252,8 @@
       W().notify("Vakje herkend: schrijf je taak erachter.", "Geen vakje", () => { delete stroke.box; W().changed(); });
       return;
     }
-    const s = bounds(stroke);
-    if (doc.strokes.some(box => box.box && !box.box.taskId && !box.box.done && overlaps(lineRect(box), s))) scheduleBoxes(doc);
+    // Ook ná het aanmaken: schrijf je verder onder de taak, dan wordt hij bijgewerkt.
+    if (doc.strokes.some(box => box.box && !box.box.done && regionStrokes(doc, box).includes(stroke))) scheduleBoxes(doc);
   }
 
   // ================= Vangnet: versies =================
@@ -359,5 +463,5 @@
   }
   wire();
 
-  window.WorkplaceSmart = { afterStroke, isBoxStroke, tickTarget, titleFrom, makeTitle, versionTick, processBoxes: () => processBoxes(), transcribeTick, search };
+  window.WorkplaceSmart = { afterStroke, boxFromSelection, regionStrokes, splitTask, isBoxStroke, tickTarget, titleFrom, makeTitle, versionTick, processBoxes: () => processBoxes(), transcribeTick, search };
 })();

@@ -487,6 +487,19 @@
     ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
+    // Loopt de taak over meer regels, dan een dun groen haakje links ervan: dit hoort erbij.
+    const area = stroke.box.area;
+    if (area && !stroke.box.done && area.bottom > bounds.bottom + 12) {
+      ctx.strokeStyle = "rgb(58 157 106 / 45%)";
+      ctx.lineWidth = 2;
+      const hx = Math.min(bounds.left, area.left) - 6;
+      ctx.beginPath();
+      ctx.moveTo(hx + 4, bounds.bottom + 3);
+      ctx.lineTo(hx, bounds.bottom + 3);
+      ctx.lineTo(hx, area.bottom);
+      ctx.lineTo(hx + 4, area.bottom);
+      ctx.stroke();
+    }
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -1424,6 +1437,12 @@
         const strokes = doc.strokes.filter(stroke => stroke !== exclude && !stroke.box && M.intersectsBounds(strokeBounds(stroke), rect));
         return strokes.length ? { canvas: inkCanvas(strokes), count: strokes.length } : null;
       },
+      inkFor(strokes) { return inkCanvas(strokes); },
+      activeDocument() { return isMeasurement() ? null : active(); },
+      selectedStrokes() {
+        if (isMeasurement() || !selection?.indexes?.length) return [];
+        return selection.indexes.map(index => active().strokes[index]).filter(Boolean);
+      },
       strokeBounds,
       changed() { persist(); render(); },
       importFromSync(row) {
@@ -1928,6 +1947,8 @@
     selectionMenu.querySelector("[data-sel='copy']").addEventListener("click", () => copySelection(false));
     selectionMenu.querySelector("[data-sel='cut']").addEventListener("click", () => copySelection(true));
     selectionMenu.querySelectorAll("[data-sel-task]").forEach(button => button.addEventListener("click", () => {
+      // Zit er precies één taakvakje in de lasso, dan wordt de selectie de taak van dat vakje.
+      if (window.WorkplaceSmart?.boxFromSelection()) return;
       window.WorkplaceWerkhub?.taskFromInk(button.dataset.selTask);
     }));
     quickTools.querySelector("[data-quick-tool='eraser']").addEventListener("click", () => {

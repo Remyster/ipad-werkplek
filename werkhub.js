@@ -235,16 +235,26 @@
   // Notities synchroniseren gebeurt nu automatisch in sync.js (alles, alle apparaten).
 
   // Eén taak maken en het id teruggeven (voor taakvakjes in het schrift).
-  async function createOne(titel, type = "belangrijk", deadline = "") {
+  async function createOne(titel, type = "belangrijk", deadline = "", notitie = "") {
     if (type === "taak") type = "belangrijk";
     const clean = cleanLine(String(titel || "")).slice(0, 200);
     if (!clean) throw new Error("Geen taaktekst.");
-    const row = { project: "pwn", titel: clean, waar: "", wie: "", notitie: "Uit de iPad Werkplek (taakvakje).", status: "backlog",
+    const row = { project: "pwn", titel: clean, waar: "", wie: "", notitie: boxNote(notitie), status: "backlog",
       deadline: type === "subtaak" ? null : (deadline || null), updated_at: new Date().toISOString(),
       taaktype: type === "subtaak" ? "subtaak" : "taak", prioriteit: type === "subtaak" ? null : (type === "urgent" ? "urgent" : "belangrijk") };
     const rows = await call("work_tasks?select=id", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([row]) });
     if (!Array.isArray(rows) || !rows[0] || typeof rows[0].id !== "string") throw new Error("WerkHub gaf geen taak-id terug.");
     return rows[0].id;
+  }
+
+  const boxNote = notitie => [String(notitie || "").trim().slice(0, 3800), "(Uit de iPad Werkplek, taakvakje.)"].filter(Boolean).join("\n\n");
+
+  // Taakvakje waar je verder onder schreef: titel en notitie opnieuw zetten.
+  async function updateOne(id, titel, notitie = "") {
+    const clean = cleanLine(String(titel || "")).slice(0, 200);
+    if (!clean) throw new Error("Geen taaktekst.");
+    await call(`work_tasks?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ titel: clean, notitie: boxNote(notitie), updated_at: new Date().toISOString() }) });
   }
 
   async function setTaskStatus(id, status) {
@@ -261,5 +271,5 @@
   function hasAiConsent() { return aiConsent(); }
   function giveAiConsent() { try { localStorage.setItem(CONSENT_KEY, "1"); } catch (error) { /* alleen gemak */ } }
 
-  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline, createOne, setTaskStatus, openTasks, hasAiConsent, giveAiConsent, call };
+  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline, createOne, updateOne, setTaskStatus, openTasks, hasAiConsent, giveAiConsent, call };
 })();
