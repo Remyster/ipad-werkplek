@@ -873,3 +873,9 @@ zijn nog niet geverifieerd.
 - **Subtaak met datum:** een WerkHub-subtaak met `belangrijk_vanaf` op of vóór vandaag staat op Vandaag onder Belangrijk in plaats van Wel doen. `openTasks()` haalt daarvoor ook `belangrijk_vanaf`, `herhaling` en `begin_tijd` op.
 - `agenda.js` heeft `fetchItems(days)` gekregen, gedeeld door Vandaag (2 dagen) en Week (7 dagen). `app.js` stuurt bij elke tabwissel een `werkplek-tab`-event.
 - Service worker `v34`, met `week.js` in de offline-lijst.
+
+## Versie 25.1
+
+- **Werkmap 📥 Uit de Dump.** Wat je in de WerkHub-dump (v31) als *notitie* sorteert, komt als schriftblad binnen in de map "📥 Uit de Dump", met je tekst als getypt blok erop. WerkHub schrijft een nieuwe rij in `werkplek_documents` met een eigen id; de Werkplek haalt hem bij de volgende sync binnen, controleert hem met `M.validate` en kan dus nooit een bestaand schrift overschrijven.
+- De map staat als vaste knop tussen de werkmappen. Die knop opent de **nieuwste** notitie uit de dump (geen vast notitieblad); is de map leeg, dan zegt hij dat en maakt hij niets aan.
+- Service worker `v35`.

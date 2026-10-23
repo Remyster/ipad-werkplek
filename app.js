@@ -1453,7 +1453,10 @@
     { key: "waag", title: "Waag" },
     { key: "pwn-guidelines", title: "PWN Guidelines" },
     { key: "pwn-contacten-routes", title: "PWN Contacten en Routes" },
-    { key: "opleidingen-cursus", title: "Opleidingen / Cursus" }
+    { key: "opleidingen-cursus", title: "Opleidingen / Cursus" },
+    // Notities die je in de WerkHub-dump als "notitie" sorteert, komen hier als schriftblad binnen.
+    // Geen vast notitieblad: de knop opent de nieuwste notitie uit de dump.
+    { key: "uit-de-dump", title: "📥 Uit de Dump", inbox: true }
   ];
 
   function normalizedFolderTitle(value) {
@@ -1469,6 +1472,7 @@
   function migrateFixedIds() {
     const renamed = [];
     for (const definition of defaultFolders) {
+      if (definition.inbox) continue;
       const fixedId = fixedDocumentId(definition);
       if (data.documents.some(doc => doc.id === fixedId)) continue;
       const folder = fixedFolder(definition);
@@ -1539,6 +1543,14 @@
     finish();
     const folder = fixedFolder(definition);
     if (!folder) throw new Error(`Werkmap ${definition.title} ontbreekt.`);
+    if (definition.inbox) {
+      const nieuwste = data.documents.filter(item => item.folderId === folder.id).pop();
+      if (!nieuwste) { notify("Nog niks uit de Dump. Wat je in WerkHub als notitie sorteert, komt hier als schriftblad binnen."); return; }
+      data.activeId = nieuwste.id;
+      if (!persist()) throw new Error(`Werkmap ${definition.title} kon niet worden geopend.`);
+      selectDocument();
+      return;
+    }
     let doc = definition.formType
       ? data.documents.find(item => item.formType === definition.formType)
       : data.documents.find(item => item.folderId === folder.id);
