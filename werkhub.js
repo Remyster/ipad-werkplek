@@ -264,7 +264,7 @@
   }
 
   async function openTasks() {
-    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
+    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,belangrijk_vanaf,herhaling,begin_tijd,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
     return Array.isArray(rows) ? rows : [];
   }
 

@@ -25,6 +25,7 @@
   <script src="./agenda.js" defer></script>
   <script src="./slim.js" defer></script>
   <script src="./nu.js" defer></script>
+  <script src="./week.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -46,7 +47,7 @@
   <nav aria-label="Hoofdnavigatie">
     <button data-tab="today" aria-pressed="true">Vandaag</button>
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
-    <button data-tab="hubs" aria-pressed="false">AI Hub &amp; projecten</button>
+    <button data-tab="hubs" aria-pressed="false">📅 Week</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
   </nav>
   <div id="error" role="alert" hidden></div>
@@ -58,8 +59,8 @@
       <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
         <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
         <div class="prio-grid">
-          <section class="prio prio-urgent"><h3>🔥 Urgent <small>moet zsm</small></h3><ul id="prio-urgent"></ul></section>
-          <section class="prio prio-belangrijk"><h3>📌 Belangrijk <small>inplannen in agenda</small></h3><ul id="prio-belangrijk"></ul></section>
+          <section class="prio prio-urgent"><h3>🔥 Urgent <small>zsm</small></h3><ul id="prio-urgent"></ul></section>
+          <section class="prio prio-belangrijk"><h3>📌 Belangrijk <small>ingepland</small></h3><ul id="prio-belangrijk"></ul></section>
           <section class="prio prio-wel"><h3>🧩 Wel doen <small>niet urgent, tussendoor</small></h3><ul id="prio-wel"></ul></section>
         </div>
         <p id="prio-wacht" class="prio-wacht" hidden></p>
@@ -92,13 +93,18 @@
           </details>
         </article>
       </div>
+      <div class="hub-keuze" role="group" aria-label="Welke hub tonen">
+        <button type="button" data-hub="werkhub" aria-pressed="true">🔧 WerkHub</button>
+        <button type="button" data-hub="aihub" aria-pressed="false">🧠 AI Hub</button>
+        <button type="button" data-hub="beide" aria-pressed="false">Allebei, onder elkaar</button>
+      </div>
       <div class="hub-duo">
-        <article class="task-panel">
+        <article class="task-panel" id="hub-panel-werkhub">
           <h3>WerkHub</h3>
           <iframe id="workhub-frame" title="WerkHub" referrerpolicy="no-referrer"></iframe>
         </article>
-        <article class="task-panel">
-          <h3>AI Hub</h3>
+        <article class="task-panel" id="hub-panel-aihub" hidden>
+          <h3>AI Hub <a class="hub-open" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">↗ los openen</a></h3>
           <iframe id="hub-frame" title="Remy AI Hub" referrerpolicy="no-referrer"></iframe>
         </article>
       </div>
@@ -293,16 +299,18 @@
       </div>
     </section>
     <section id="hubs" hidden>
-      <h2>Je bestaande AI Hub</h2>
-      <p id="hub-panel-status" role="status">De AI Hub staat altijd open op Vandaag, naast WerkHub.</p>
-      <div class="cards">
-        <article>
-          <h3>Agents en projecten</h3>
-          <p>Gebruik je bestaande hub in een apart tabblad of binnen Werkplek. Geen nieuwe gedeelde project- of gespreksopslag.</p>
-          <a class="action" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">Open AI Hub</a>
-        </article>
+      <div class="section-heading">
+        <h2>Je week</h2>
+        <button id="week-refresh" type="button">↻ Ververs</button>
       </div>
-      <aside>Interne werknotities worden niet naar AI verstuurd. Een toekomstige koppeling vraagt eerst om toegestane verwerking en jouw bevestiging.</aside>
+      <p id="week-status" role="status">Week laden...</p>
+      <article class="week-ongepland" id="week-ongepland-kaart" hidden>
+        <h3>📌 Belangrijk, maar nog zonder datum</h3>
+        <p class="week-uitleg">Belangrijk betekent: staat in je agenda. Deze nog niet. Plan ze in, of zet ze terug naar Urgent of Wel doen.</p>
+        <ul id="week-ongepland"></ul>
+      </article>
+      <div id="week-list" aria-live="polite"></div>
+      <aside>Afspraken komen uit je Google-agenda's (via WerkHub), taken uit WerkHub. Je ziet de komende 7 dagen. Afvinken en wijzigen doe je in WerkHub of op Vandaag.</aside>
     </section>
     <section id="ai" hidden>
       <h2>AI binnen Werkplek</h2>

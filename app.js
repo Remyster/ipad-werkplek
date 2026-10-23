@@ -1441,6 +1441,7 @@
     for (const section of ["today", "writing", "hubs", "ai"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
+    document.dispatchEvent(new CustomEvent("werkplek-tab", { detail: name }));
   }
 
   const defaultFolders = [

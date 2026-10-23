@@ -864,3 +864,12 @@ zijn nog niet geverifieerd.
 
 - **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt als een touwtje: het lijnpunt komt pas mee als de pen verder dan een kleine straal weg is, dus trillen en bibberen verdwijnen terwijl snelle halen direct blijven. De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
 - **📏 Recht** in het lasso-menu: zoekt de regels in je selectie, draait elke regel recht, maakt de lettergrootte gelijk (binnen 75–133%, het blijft jouw handschrift), zet ze op een schriftblad precies op de lijnen en op een bord op gelijke afstand, en lijnt de linkerkant uit (inspringingen blijven). Ongedaan zet het terug.
+
+## Versie 25
+
+- **WerkHub en AI Hub niet meer naast elkaar.** Op Vandaag kies je met een knoppenbalk **🔧 WerkHub**, **🧠 AI Hub** of **Allebei, onder elkaar**. Naast elkaar waren ze op de iPad allebei te smal. De keuze wordt per apparaat onthouden (`remy-ipad-hub-keuze`). WerkHub laadt altijd, want daar log je in; de AI Hub laadt pas als je hem kiest, dus Vandaag opent sneller. Bij de AI Hub staat een "↗ los openen"-link.
+- **Tab "AI Hub & projecten" is vervangen door 📅 Week.** Die tab had alleen een link naar de AI Hub. Nu: de komende 7 dagen, per dag je afspraken (Google-agenda's via `werkhub-agenda`, `?days=7`) en je WerkHub-taken met die datum, op tijd gesorteerd. Bovenaan wat te laat is, en een gele kaart **📌 Belangrijk, maar nog zonder datum** met een 📅 Plan-knop. Een subtaak met "wordt belangrijk op" staat op die dag in de week. Laadt pas als je de tab opent (`week.js`).
+- **Prioriteiten heten zoals in WerkHub v30:** 🔥 Urgent *zsm* en 📌 Belangrijk *ingepland*. Belangrijk betekent: staat al in je agenda.
+- **Subtaak met datum:** een WerkHub-subtaak met `belangrijk_vanaf` op of vóór vandaag staat op Vandaag onder Belangrijk in plaats van Wel doen. `openTasks()` haalt daarvoor ook `belangrijk_vanaf`, `herhaling` en `begin_tijd` op.
+- `agenda.js` heeft `fetchItems(days)` gekregen, gedeeld door Vandaag (2 dagen) en Week (7 dagen). `app.js` stuurt bij elke tabwissel een `werkplek-tab`-event.
+- Service worker `v34`, met `week.js` in de offline-lijst.

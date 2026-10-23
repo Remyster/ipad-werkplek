@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   // Wat nu: je WerkHub-taken in drie bakken (Eisenhower).
-  // Urgent = moet zsm, Belangrijk = inplannen in je agenda, Wel doen = subtaken voor tussendoor.
+  // Urgent = moet zsm, Belangrijk = staat ingepland in je agenda, Wel doen = subtaken voor tussendoor.
   // Vinkje = klaar in WerkHub en weg uit de lijst. Geen timer.
   const $ = id => document.getElementById(id);
   const card = $("nu-card");
@@ -13,7 +13,8 @@
 
   // Zelfde regel als WerkHub: zonder gekozen prioriteit is een taak met deadline binnen 2 dagen urgent.
   function bucket(task) {
-    if (task.taaktype === "subtaak") return "wel";
+    // Een subtaak met belangrijk_vanaf schuift op die dag naar Belangrijk, net als in WerkHub (v30).
+    if (task.taaktype === "subtaak") return task.belangrijk_vanaf && task.belangrijk_vanaf <= iso(new Date()) ? "belangrijk" : "wel";
     if (task.prioriteit === "urgent" || task.prioriteit === "belangrijk") return task.prioriteit;
     const soon = iso(new Date(Date.now() + 2 * 864e5));
     return task.deadline && task.deadline <= soon ? "urgent" : "belangrijk";
@@ -73,7 +74,7 @@
         rows.push(li);
       }
       list.replaceChildren(...(items.length ? rows : [Object.assign(document.createElement("li"), {
-        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks om in te plannen." : "Geen klusjes voor tussendoor."
+        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks ingepland." : "Geen klusjes voor tussendoor."
       })]));
     }
     const waiting = tasks.filter(task => task.status === "wacht_op");

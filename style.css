@@ -241,7 +241,34 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 /* Prioriteiten (Eisenhower) */
 .hub-duo { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
 .hub-duo .task-panel { margin-top: 0; }
-@media (min-width: 1000px) { .hub-duo { grid-template-columns: 1fr 1fr; } }
+/* WerkHub en AI Hub: één tegelijk of onder elkaar, nooit meer naast elkaar (te smal op de iPad) */
+.hub-keuze { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.hub-keuze button { min-height: 44px; padding: 8px 14px; border-radius: 10px; border: 1px solid #b4c4b9; background: #fff; color: #18312f; font: inherit; }
+.hub-keuze button[aria-pressed="true"] { background: #173c39; border-color: #173c39; color: #fff; font-weight: 600; }
+.hub-duo .task-panel h3 { display: flex; align-items: baseline; gap: 10px; }
+.hub-open { font-size: .85rem; font-weight: 400; color: #2c6a5f; }
+
+/* Week: komende 7 dagen, afspraken en WerkHub-taken per dag */
+#week-list { display: grid; gap: 14px; margin-top: 12px; }
+.week-dag { display: grid; gap: 6px; }
+.week-dag h4 { margin: 0 0 2px; font-size: .95rem; color: #4d6660; text-transform: capitalize; }
+.week-dag.vandaag h4 { color: #173c39; }
+.week-te-laat h4 { color: #a33a1f; text-transform: none; }
+.week-item { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 8px 10px; border: 1px solid #d4ddd6; border-radius: 10px; background: #fff; }
+.week-item time { font-variant-numeric: tabular-nums; color: #173c39; font-weight: 600; }
+.week-item small { display: block; color: #5d736d; }
+.week-item.now { border-color: #af6700; box-shadow: 0 0 0 2px rgb(175 103 0 / 15%); }
+.week-taak.week-urgent { box-shadow: inset 4px 0 0 #ff8a65; }
+.week-taak.week-belangrijk { box-shadow: inset 4px 0 0 #f4c96b; }
+.week-taak.week-wel { box-shadow: inset 4px 0 0 #8fd3b0; }
+.week-vrij { margin: 0; color: #7a8d87; font-size: .9rem; }
+.week-ongepland { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #fff8e6; border: 1px solid #f0d58f; }
+.week-ongepland h3 { margin: 0 0 4px; }
+.week-uitleg { margin: 0 0 8px; font-size: .9rem; color: #5d5236; }
+.week-ongepland ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.week-ongepland li { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 8px; border-radius: 10px; background: #fff; }
+.week-ongepland li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.week-ongepland .prio-plan { flex: 0 0 auto; min-height: 32px; padding: 6px 10px; border-radius: 8px; font-size: .85rem; color: #1d2b28; background: #f4c96b; text-decoration: none; }
 .prio-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
 @media (min-width: 760px) { .prio-grid { grid-template-columns: repeat(3, 1fr); } }
 .prio { background: rgb(255 255 255 / 10%); border-radius: 14px; padding: 12px; min-width: 0; }

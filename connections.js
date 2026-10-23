@@ -93,11 +93,10 @@
   }
 
   window.WorkplaceConnections = { session, freshSession, publicConfig, config, tasks, loadTasks };
-  // WerkHub en AI Hub staan altijd open, naast elkaar op Vandaag.
+  // WerkHub laadt altijd: daar log je in, en de rest van de Werkplek leunt op die sessie.
+  // De AI Hub laadt pas als je hem op Vandaag kiest (week.js), zodat Vandaag sneller opent.
   const workhubFrame = document.getElementById("workhub-frame");
   workhubFrame.src = HUB;
-  const frame = document.getElementById("hub-frame");
-  if (frame) frame.src = "https://remyster.github.io/ai-hub-remy/";
 
   function calendarUrl(id, second = "") {
     for (const value of [id, ...(second ? [second] : [])]) {
