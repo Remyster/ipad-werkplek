@@ -990,7 +990,6 @@
     $("focus").disabled = isMeasurement(doc);
     $("writing-ai-open").disabled = isMeasurement(doc);
     $("writing-ai-recognize").disabled = isMeasurement(doc);
-    $("pdf-file").disabled = isMeasurement(doc);
     redo = [];
     undo = [];
     list(doc.folderId || null);
@@ -1019,7 +1018,11 @@
       if (!navigator.onLine) $("pdf-status").textContent = `PDF laden: ${doc.pdf.name} (offline: alleen als hij al op dit apparaat staat)`;
       const images = await window.WorkplacePdf.images(doc.pdf.id, doc.pdf.name);
       if (generation !== pdfGeneration) return;
-      pdfImages = images;
+      // In een schrift komt elke PDF-pagina op een eigen schriftpagina.
+      pdfImages = doc.kind === "page" ? images.map((page, index) => {
+        const fit = Math.min(800 / page.width, 1120 / page.height);
+        return { ...page, top: index * 1144, width: page.width * fit, height: page.height * fit };
+      }) : images;
       $("pdf-status").textContent = `${doc.pdf.name}: ${images.length} pagina's. Schrijf erop of ernaast; PDF-achtergrond blijft intact.`;
       render();
     } catch (error) {
@@ -1960,35 +1963,39 @@
     });
     refreshPdfLibrary();
 
-    async function importPdfInput(input, createBoard) {
+    // PDF openen als schrift of whiteboard (één of meer tegelijk), in de gekozen map.
+    async function openPdfs(files, kind) {
       finish();
-      const files = [...input.files];
       if (!files.length) return;
       const original = active();
-      if (!createBoard && (original.kind !== "board" || original.pdf || isMeasurement(original))) {
-        $("pdf-status").textContent = "Maak of open een whiteboard zonder PDF om dit bestand toe te voegen.";
-        input.value = "";
-        return;
-      }
-      input.disabled = true;
+      const chosen = $("content-folder").value;
+      const folderId = chosen === noFolderValue ? null
+        : (chosen && data.folders.some(folder => folder.id === chosen) ? chosen : original.folderId || null);
+      const reusable = !isMeasurement(original) && original.kind === kind && !original.pdf &&
+        !original.strokes.length && !(original.textBlocks || []).length && (original.folderId || null) === folderId;
       let added = 0, lastDoc = null;
       const failed = [];
+      $("pdf-open").disabled = true;
       try {
-        for (const [index, file] of (createBoard ? files : files.slice(0, 1)).entries()) {
-          $("pdf-status").textContent = files.length > 1 ? `PDF ${index + 1} van ${files.length} verwerken: ${file.name}` : "PDF verwerken...";
+        for (const [index, file] of files.entries()) {
+          notify(files.length > 1 ? `PDF ${index + 1} van ${files.length} openen: ${file.name}…` : `PDF openen: ${file.name}…`, "", null, 60000);
           try {
             const reference = await window.WorkplacePdf.importFile(file);
-            let doc = original;
-            if (createBoard) {
-              doc = M.createDocument("board", crypto.randomUUID());
-              doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "Werkbeschrijving";
-              doc.folderId = original.folderId || null;
+            let doc;
+            if (index === 0 && reusable) doc = original;
+            else {
+              doc = M.createDocument(kind, crypto.randomUUID());
+              doc.folderId = folderId;
               data.documents.push(doc);
             }
+            if (doc.title === "Nieuw schriftblad" || doc.title === "Nieuw whiteboard" || !doc.title) {
+              doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
+            }
             doc.pdf = reference;
+            if (kind === "page") doc.pages = Math.min(200, Math.max(doc.pages || 1, reference.pages.length));
             if (!persist()) {
-              if (createBoard) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
-              throw new Error("lokale opslag vol");
+              if (doc !== original) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
+              throw new Error("opslag vol");
             }
             added++;
             lastDoc = doc;
@@ -1997,16 +2004,27 @@
             failed.push(`${file.name}: ${error.message}`);
           }
         }
-        if (lastDoc && createBoard) { data.activeId = lastDoc.id; persist(); selectDocument(); }
-        else if (lastDoc) await loadPdf();
+        if (lastDoc) { data.activeId = lastDoc.id; persist(); selectDocument(); }
         await refreshPdfLibrary();
-        const folderName = folderTitle(original.folderId);
-        notify(`${added} PDF${added === 1 ? "" : "'s"} toegevoegd in ${folderName}${failed.length ? `. Niet gelukt: ${failed.join("; ")}` : ". Ze staan ook in de cloud en op je andere apparaten."}`, "", null, 9000);
-        if (failed.length) report(new Error(`Niet alle PDF's toegevoegd: ${failed.join("; ")}`));
-      } finally { input.disabled = false; input.value = ""; }
+        const soort = kind === "page" ? "schrift" : "whiteboard";
+        if (failed.length) notify(`Niet gelukt: ${failed.join("; ")}`, "", null, 12000);
+        else notify(`${added === 1 ? "PDF geopend" : `${added} PDF's geopend`} als ${soort} in ${folderTitle(folderId)}. Schrijf er gewoon op.`, "", null, 6000);
+      } finally { $("pdf-open").disabled = false; }
     }
-    $("pdf-file").addEventListener("change", () => importPdfInput($("pdf-file"), false));
-    $("work-pdf-file").addEventListener("change", () => importPdfInput($("work-pdf-file"), true));
+    let pdfKind = "board";
+    $("pdf-open").addEventListener("click", () => { $("pdf-choice").hidden = !$("pdf-choice").hidden; });
+    $("pdf-choice").querySelectorAll("[data-pdf-kind]").forEach(button => button.addEventListener("click", () => {
+      $("pdf-choice").hidden = true;
+      if (!button.dataset.pdfKind) return;
+      pdfKind = button.dataset.pdfKind;
+      $("pdf-input").value = "";
+      $("pdf-input").click();
+    }));
+    $("pdf-input").addEventListener("change", () => {
+      const files = [...$("pdf-input").files];
+      $("pdf-input").value = "";
+      openPdfs(files, pdfKind).catch(report);
+    });
     $("pdf-original").addEventListener("click", async () => {
       try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
       catch (error) { report(error); }

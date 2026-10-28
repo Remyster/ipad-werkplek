@@ -72,7 +72,7 @@
             !block.text.trim() || block.text.length > 20000))) {
         throw new Error("Opgeslagen tekstblokken zijn ongeldig; de opslag is niet overschreven.");
       }
-      if (doc.pdf && (doc.kind !== "board" || typeof doc.pdf.id !== "string" || !doc.pdf.id ||
+      if (doc.pdf && (!["page", "board"].includes(doc.kind) || typeof doc.pdf.id !== "string" || !doc.pdf.id ||
           typeof doc.pdf.name !== "string" || !Array.isArray(doc.pdf.pages) || !doc.pdf.pages.length ||
           doc.pdf.pages.length > 50 || doc.pdf.pages.some(p => !p || !finite(p.top) || p.top < 0 ||
             !finite(p.width) || p.width <= 0 || !finite(p.height) || p.height <= 0))) {

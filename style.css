@@ -311,3 +311,6 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 #drawing-tools[data-tool="text"] ~ #surface #drawing, .tool-text #drawing { cursor: text; }
 
 .box-row { display: block; width: 100%; text-align: left; margin: 0 0 4px; padding: 6px 8px; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdf-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid #b4c4b9; border-radius: 14px; background: #fff; box-shadow: 0 6px 18px rgb(23 60 57 / 12%); }
+.pdf-choice span { font-weight: 600; margin-right: 4px; }
+.pdf-choice button { min-height: 44px; padding: 6px 16px; }

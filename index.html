@@ -183,8 +183,7 @@
         <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
         <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
         <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
-        <label class="circle-file" title="PDF als achtergrond op het huidige lege whiteboard"><span>PDF</span><small>Achtergrond</small><input id="pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF als achtergrond op huidig leeg whiteboard"></label>
-        <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>PDF's erbij</small><input id="work-pdf-file" type="file" multiple accept="application/pdf,.pdf" aria-label="Eén of meer PDF's openen als nieuwe borden in de huidige map"></label>
+        <button id="pdf-open" type="button" title="PDF openen om op te schrijven" aria-haspopup="true"><span>PDF</span><small>Openen</small></button>
         <button id="task-open" aria-haspopup="dialog" title="Taak aanmaken in WerkHub"><span>✓</span><small>Taak</small></button>
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
         <button id="dictate-sheet" title="Inspreken: tekst op het blad"><span>🎤</span><small>Inspreek</small></button>
@@ -192,7 +191,14 @@
         <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
         <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
       </div>
-      <p id="pdf-status" role="status">PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.</p>
+      <div id="pdf-choice" class="pdf-choice" hidden>
+        <span>PDF openen als</span>
+        <button type="button" data-pdf-kind="page">📓 Schrift</button>
+        <button type="button" data-pdf-kind="board">⬜ Whiteboard</button>
+        <button type="button" data-pdf-kind="">Annuleer</button>
+      </div>
+      <input id="pdf-input" type="file" multiple accept="application/pdf,.pdf" hidden>
+      <p id="pdf-status" role="status" hidden></p>
       <div class="workspace">
         <div class="editor">
           <div class="document-list" id="document-panel">

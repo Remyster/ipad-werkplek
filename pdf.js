@@ -64,8 +64,9 @@
       iccUrl: "./vendor/package/iccs/", useSystemFonts: true
     });
     let pdf;
+    const timeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error("PDF openen duurde te lang (meer dan 2 minuten). Probeer een kleinere PDF.")), 120000));
     try {
-      pdf = await task.promise;
+      pdf = await Promise.race([task.promise, timeout]);
       if (pdf.numPages > 50) throw new Error("Deze PDF-versie ondersteunt maximaal 50 pagina's per bestand.");
       const pages = [];
       let top = 0;

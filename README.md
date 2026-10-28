@@ -879,3 +879,7 @@ zijn nog niet geverifieerd.
 - **Werkmap 📥 Uit de Dump.** Wat je in de WerkHub-dump (v31) als *notitie* sorteert, komt als schriftblad binnen in de map "📥 Uit de Dump", met je tekst als getypt blok erop. WerkHub schrijft een nieuwe rij in `werkplek_documents` met een eigen id; de Werkplek haalt hem bij de volgende sync binnen, controleert hem met `M.validate` en kan dus nooit een bestaand schrift overschrijven.
 - De map staat als vaste knop tussen de werkmappen. Die knop opent de **nieuwste** notitie uit de dump (geen vast notitieblad); is de map leeg, dan zegt hij dat en maakt hij niets aan.
 - Service worker `v35`.
+
+## Versie 25.2
+
+- PDF: de knoppen "PDF Achtergrond" en "PDF's erbij" en de uitlegtekst zijn weg. Eén knop **PDF Openen**: kies Schrift of Whiteboard en één of meer PDF's. Als schrift komt elke PDF-pagina op een eigen schriftpagina; als whiteboard staat de PDF als achtergrond. Komt in de gekozen map, gaat mee in de cloud.
