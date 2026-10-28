@@ -1,5 +1,5 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v37";
+const CACHE = "remy-ipad-werkplek-shell-v38";
 const PREFIX = "remy-ipad-werkplek-shell-";
 const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./store.js", "./config.js", "./app.js", "./pdf.js", "./drive.js", "./connections.js", "./ai.js", "./werkhub.js", "./sync.js", "./dictate.js", "./agenda.js", "./slim.js", "./nu.js", "./week.js", "./lock.js", "./manifest.json", "./icon.svg",
   "./vendor/package/legacy/build/pdf.mjs", "./vendor/package/legacy/build/pdf.worker.mjs"];
@@ -32,23 +32,34 @@ self.addEventListener("activate", event => {
       : { type: "offline-ready" });
   })());
 });
+// Eigen app-bestanden: eerst van internet (dan heb je altijd de nieuwste versie), offline uit de cache.
+// De grote pdf-bibliotheek (vendor) blijft cache-eerst.
 self.addEventListener("fetch", event => {
   const vendor = event.request.url.startsWith(new URL("./vendor/package/", self.registration.scope).href);
   if (event.request.method !== "GET" || (!allowed.has(event.request.url) && !vendor)) return;
   event.respondWith((async () => {
-    let cache;
-    try {
-      cache = await caches.open(CACHE);
-      const cached = await cache.match(event.request);
+    let cache = null;
+    try { cache = await caches.open(CACHE); } catch (error) { cache = null; }
+    if (vendor) {
+      const cached = cache ? await cache.match(event.request) : null;
       if (cached) return cached;
+      const response = await fetch(event.request);
+      if (response.ok && cache) {
+        try { await cache.put(event.request, response.clone()); }
+        catch (error) { console.warn("Werkplek offline-cache:", error.message); }
+      }
+      return response;
+    }
+    try {
+      const response = await fetch(event.request, { cache: "no-cache" });
+      if (response.ok && cache) {
+        try { await cache.put(event.request, response.clone()); } catch (error) { /* cache optioneel */ }
+      }
+      return response;
     } catch (error) {
-      cache = null;
+      const cached = cache ? await cache.match(event.request) : null;
+      if (cached) return cached;
+      throw error;
     }
-    const response = await fetch(event.request);
-    if (vendor && response.ok && cache) {
-      try { await cache.put(event.request, response.clone()); }
-      catch (error) { console.warn("Werkplek offline-cache:", error.message); }
-    }
-    return response;
   })());
 });
