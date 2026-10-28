@@ -883,3 +883,7 @@ zijn nog niet geverifieerd.
 ## Versie 25.2
 
 - PDF: de knoppen "PDF Achtergrond" en "PDF's erbij" en de uitlegtekst zijn weg. Eén knop **PDF Openen**: kies Schrift of Whiteboard en één of meer PDF's. Als schrift komt elke PDF-pagina op een eigen schriftpagina; als whiteboard staat de PDF als achtergrond. Komt in de gekozen map, gaat mee in de cloud.
+
+## Versie 25.3
+
+- PDF tot 300 pagina's en 80 MB. Pagina's worden pas geladen als ze in beeld komen (iPad blijft snel). Voortgang per pagina in de melding.

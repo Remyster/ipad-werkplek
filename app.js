@@ -622,6 +622,37 @@
     ctx.restore();
   }
 
+  // PDF-pagina's pas decoderen als ze in beeld komen; maximaal ~14 tegelijk in het geheugen.
+  function decodePdfPage(page) {
+    if (page.loading || !page.blob) return;
+    page.loading = true;
+    const generation = pdfGeneration;
+    const done = image => {
+      page.loading = false;
+      if (generation !== pdfGeneration) { if (image && image.close) image.close(); return; }
+      page.image = image;
+      const loaded = pdfImages.filter(item => item.image);
+      if (loaded.length > 14) {
+        const doc = active();
+        const center = doc.view.y + 500 / doc.view.scale;
+        loaded.sort((a, b) => Math.abs(b.top - center) - Math.abs(a.top - center)).slice(0, loaded.length - 14).forEach(item => {
+          if (item.image && item.image.close) item.image.close();
+          item.image = null;
+        });
+      }
+      scheduleRender();
+    };
+    if (typeof createImageBitmap === "function") {
+      createImageBitmap(page.blob).then(done, () => { page.loading = false; });
+    } else {
+      const url = URL.createObjectURL(page.blob);
+      const image = new Image();
+      image.onload = () => { URL.revokeObjectURL(url); done(image); };
+      image.onerror = () => { URL.revokeObjectURL(url); page.loading = false; };
+      image.src = url;
+    }
+  }
+
   function paintScene(ctx, doc, viewport) {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
@@ -644,7 +675,8 @@
     }
     for (const page of pdfImages) {
       if (page.top <= viewport.bottom && page.top + page.height >= viewport.top) {
-        ctx.drawImage(page.image, 0, page.top, page.width, page.height);
+        if (page.image) ctx.drawImage(page.image, 0, page.top, page.width, page.height);
+        else decodePdfPage(page);
       }
     }
     for (const stroke of doc.strokes) {
@@ -1012,7 +1044,7 @@
     $("pdf-original").disabled = !doc.pdf;
     $("pdf-status").textContent = doc.pdf
       ? `PDF laden: ${doc.pdf.name}`
-      : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.";
+      : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map.";
     if (!doc.pdf) return;
     try {
       if (!navigator.onLine) $("pdf-status").textContent = `PDF laden: ${doc.pdf.name} (offline: alleen als hij al op dit apparaat staat)`;
@@ -1980,7 +2012,9 @@
         for (const [index, file] of files.entries()) {
           notify(files.length > 1 ? `PDF ${index + 1} van ${files.length} openen: ${file.name}…` : `PDF openen: ${file.name}…`, "", null, 60000);
           try {
-            const reference = await window.WorkplacePdf.importFile(file);
+            const reference = await window.WorkplacePdf.importFile(file, null, (number, total) => {
+              if (total > 5 && (number === 1 || number % 5 === 0)) notify(`${files.length > 1 ? `PDF ${index + 1} van ${files.length}: ` : ""}pagina ${number} van ${total} verwerken…`, "", null, 60000);
+            });
             let doc;
             if (index === 0 && reusable) doc = original;
             else {
@@ -1992,7 +2026,7 @@
               doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
             }
             doc.pdf = reference;
-            if (kind === "page") doc.pages = Math.min(200, Math.max(doc.pages || 1, reference.pages.length));
+            if (kind === "page") doc.pages = Math.min(400, Math.max(doc.pages || 1, reference.pages.length));
             if (!persist()) {
               if (doc !== original) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
               throw new Error("opslag vol");

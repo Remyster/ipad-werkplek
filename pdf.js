@@ -52,8 +52,8 @@
     };
   }
 
-  async function importFile(file, fixedId = null) {
-    if (!(file instanceof Blob) || file.size > 20 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 20 MB.");
+  async function importFile(file, fixedId = null, onProgress = null) {
+    if (!(file instanceof Blob) || file.size > 80 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 80 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (!new TextDecoder().decode(bytes.slice(0, 5)).startsWith("%PDF-")) throw new Error("Dit bestand is geen PDF.");
     const pdfjs = await import("./vendor/package/legacy/build/pdf.mjs");
@@ -67,10 +67,11 @@
     const timeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error("PDF openen duurde te lang (meer dan 2 minuten). Probeer een kleinere PDF.")), 120000));
     try {
       pdf = await Promise.race([task.promise, timeout]);
-      if (pdf.numPages > 50) throw new Error("Deze PDF-versie ondersteunt maximaal 50 pagina's per bestand.");
+      if (pdf.numPages > 300) throw new Error("Deze PDF heeft meer dan 300 pagina's. Splits hem in delen.");
       const pages = [];
       let top = 0;
       for (let number = 1; number <= pdf.numPages; number++) {
+        if (onProgress) onProgress(number, pdf.numPages);
         const page = await pdf.getPage(number);
         const original = page.getViewport({ scale: 1 });
         if (!Number.isFinite(original.width) || original.width <= 0 || original.height / original.width > 5) throw new Error("PDF-pagina heeft een niet-ondersteund formaat.");
@@ -133,6 +134,8 @@
     return count;
   }
 
+  // Geeft de pagina's terug zonder ze allemaal te decoderen: het blad laadt alleen wat in beeld is
+  // (anders loopt een iPad vol bij PDF's van honderden pagina's).
   async function images(id, name) {
     let file = await get(id);
     if (!file) {
@@ -140,17 +143,7 @@
       file = await get(id);
     }
     if (!file) throw new Error("PDF-bestand ontbreekt in deze browser. De penstreken blijven bewaard.");
-    const result = [];
-    for (const page of file.pages) {
-      const url = URL.createObjectURL(page.image);
-      try {
-        const image = new Image();
-        image.src = url;
-        await image.decode();
-        result.push({ image, width: page.width, height: page.height, top: page.top });
-      } finally { URL.revokeObjectURL(url); }
-    }
-    return result;
+    return file.pages.map(page => ({ blob: page.image, image: null, width: page.width, height: page.height, top: page.top }));
   }
 
   function download(blob, name) {

@@ -49,7 +49,7 @@
           (doc.folderId !== undefined && doc.folderId !== null &&
             (typeof doc.folderId !== "string" || !folderIds.has(doc.folderId))) ||
           (doc.formType !== undefined && !["dwat-akf", "lws"].includes(doc.formType)) ||
-          (doc.pages !== undefined && (!Number.isInteger(doc.pages) || doc.pages < 1 || doc.pages > 200)) ||
+          (doc.pages !== undefined && (!Number.isInteger(doc.pages) || doc.pages < 1 || doc.pages > 400)) ||
           !doc.view || !finite(doc.view.x) || !finite(doc.view.y) ||
           !finite(doc.view.scale) || doc.view.scale < .2 || doc.view.scale > 4) {
         throw new Error("Een opgeslagen document is ongeldig; de opslag is niet overschreven.");
@@ -74,7 +74,7 @@
       }
       if (doc.pdf && (!["page", "board"].includes(doc.kind) || typeof doc.pdf.id !== "string" || !doc.pdf.id ||
           typeof doc.pdf.name !== "string" || !Array.isArray(doc.pdf.pages) || !doc.pdf.pages.length ||
-          doc.pdf.pages.length > 50 || doc.pdf.pages.some(p => !p || !finite(p.top) || p.top < 0 ||
+          doc.pdf.pages.length > 300 || doc.pdf.pages.some(p => !p || !finite(p.top) || p.top < 0 ||
             !finite(p.width) || p.width <= 0 || !finite(p.height) || p.height <= 0))) {
         throw new Error("PDF-verwijzing in de notitie is ongeldig.");
       }
