@@ -1,7 +1,7 @@
 "use strict";
-const CACHE = "remy-ipad-werkplek-shell-v39";
+const CACHE = "remy-ipad-werkplek-shell-v40";
 const PREFIX = "remy-ipad-werkplek-shell-";
-const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./store.js", "./config.js", "./app.js", "./pdf.js", "./drive.js", "./connections.js", "./ai.js", "./werkhub.js", "./sync.js", "./dictate.js", "./agenda.js", "./slim.js", "./nu.js", "./week.js", "./lock.js", "./manifest.json", "./icon.svg",
+const ASSETS = ["./", "./index.html", "./style.css", "./model.js", "./store.js", "./config.js", "./app.js", "./pdf.js", "./drive.js", "./connections.js", "./ai.js", "./werkhub.js", "./sync.js", "./library.js", "./dictate.js", "./agenda.js", "./slim.js", "./nu.js", "./week.js", "./lock.js", "./manifest.json", "./icon.svg",
   "./vendor/package/legacy/build/pdf.mjs", "./vendor/package/legacy/build/pdf.worker.mjs"];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 

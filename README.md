@@ -887,3 +887,7 @@ zijn nog niet geverifieerd.
 ## Versie 25.3
 
 - PDF tot 300 pagina's en 80 MB. Pagina's worden pas geladen als ze in beeld komen (iPad blijft snel). Voortgang per pagina in de melding.
+
+## Versie 26
+
+- 📚 PDF-bibliotheek (knop PDF's in Werkmap): al je PDF's op één plek, op elk apparaat. Zoeken, filter op map, meerdere tegelijk toevoegen. Per PDF: 📓 openen als schrift, ⬜ als whiteboard, ⬇ downloaden, 🗑 uit de bibliotheek. De lijst synchroniseert mee (rijen pdf-<id> in werkplek_documents); het bestand komt pas binnen als je hem opent. PDF's die al in schriften/borden zaten staan er vanzelf in.

@@ -34,6 +34,12 @@
       }
       folderIds.add(folder.id);
     }
+    if (data.library !== undefined && (!Array.isArray(data.library) || data.library.length > 2000 || data.library.some(item =>
+        !item || typeof item.id !== "string" || !/^[a-zA-Z0-9-]{8,80}$/.test(item.id) || typeof item.name !== "string" || item.name.length > 255 ||
+        !Number.isInteger(item.pages) || item.pages < 0 || item.pages > 300 || !finite(item.size) || item.size < 0 ||
+        (item.folderTitle !== null && (typeof item.folderTitle !== "string" || item.folderTitle.length > 120)) || !finite(item.addedAt)))) {
+      throw new Error("De PDF-bibliotheek is ongeldig; de opslag is niet overschreven.");
+    }
     if (data.trash !== undefined && (!Array.isArray(data.trash) || data.trash.length > 100 || data.trash.some(item =>
         !item || !finite(item.deletedAt) || (item.folderTitle !== null && typeof item.folderTitle !== "string") ||
         !item.doc || typeof item.doc.id !== "string" || !["page", "board"].includes(item.doc.kind) ||

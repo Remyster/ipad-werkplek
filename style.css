@@ -314,3 +314,20 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .pdf-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid #b4c4b9; border-radius: 14px; background: #fff; box-shadow: 0 6px 18px rgb(23 60 57 / 12%); }
 .pdf-choice span { font-weight: 600; margin-right: 4px; }
 .pdf-choice button { min-height: 44px; padding: 6px 16px; }
+/* PDF-bibliotheek */
+#library-dialog { width: min(760px, calc(100vw - 24px)); max-height: 88dvh; border: 0; border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgb(0 0 0 / 30%); }
+#library-dialog::backdrop { background: rgb(23 60 57 / 35%); }
+.library-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.library-bar input[type=search] { flex: 1 1 220px; min-height: 44px; padding: 8px 12px; border-radius: 12px; }
+.library-bar select { min-height: 44px; border-radius: 12px; }
+.library-bar .nu-primary { background: #173c39; color: #fff; border-color: #173c39; font-weight: 700; min-height: 44px; padding: 6px 16px; border-radius: 12px; }
+#library-status { min-height: 1.2em; color: #33504a; font-size: .9rem; margin: 4px 0 8px; }
+#library-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.library-item { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #d4ddd6; border-radius: 14px; background: #f8faf7; }
+.library-info { flex: 1 1 260px; min-width: 0; display: grid; gap: 2px; }
+.library-info strong { overflow-wrap: anywhere; }
+.library-info small { color: #5d736d; }
+.library-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.library-actions button { min-height: 44px; padding: 6px 12px; border-radius: 10px; }
+.library-actions .library-remove { color: #a33; }
+.library-empty { color: #5d736d; padding: 12px; }

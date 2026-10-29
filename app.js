@@ -1093,6 +1093,49 @@
     notify(`"${removed.title || "Zonder titel"}" staat in de prullenbak.`, "Zet terug", () => restoreFromTrash(removed.id));
   }
 
+  // ---- PDF-bibliotheek: alle PDF's, gesynchroniseerd (de bestanden zelf staan in de cloud-bucket) ----
+  function addToLibrary(reference, size, folderId) {
+    data.library = data.library || [];
+    if (data.library.some(item => item.id === reference.id)) return false;
+    data.library.push({ id: reference.id, name: String(reference.name || "document.pdf").slice(0, 255),
+      pages: Math.min(300, (reference.pages || []).length), size: Number(size) || 0,
+      folderTitle: folderId ? folderTitle(folderId).slice(0, 120) : null, addedAt: Date.now() });
+    document.dispatchEvent(new CustomEvent("library-changed"));
+    return true;
+  }
+  // PDF's die al in schriften/borden zitten ook in de bibliotheek zetten (eenmalig per apparaat).
+  function backfillLibrary() {
+    let added = false;
+    for (const doc of data.documents) {
+      if (doc.pdf && doc.pdf.id && /^[a-zA-Z0-9-]{8,80}$/.test(doc.pdf.id)) added = addToLibrary(doc.pdf, 0, doc.folderId) || added;
+    }
+    return added;
+  }
+  async function openFromLibrary(id, kind, folderId) {
+    finish();
+    const entry = (data.library || []).find(item => item.id === id);
+    if (!entry) throw new Error("Deze PDF staat niet meer in de bibliotheek.");
+    let reference;
+    try { reference = await window.WorkplacePdf.reference(id); }
+    catch (error) {
+      notify(`${entry.name} uit de cloud halen…`, "", null, 60000);
+      await window.WorkplacePdf.cloudFetch(id, entry.name);
+      reference = await window.WorkplacePdf.reference(id);
+    }
+    const doc = M.createDocument(kind, crypto.randomUUID());
+    doc.title = entry.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
+    doc.folderId = folderId === undefined ? (active().folderId || null) : folderId;
+    doc.pdf = reference;
+    if (kind === "page") doc.pages = Math.min(400, Math.max(1, reference.pages.length));
+    data.documents.push(doc);
+    data.activeId = doc.id;
+    if (!persist()) { data.documents = data.documents.filter(item => item !== doc); throw new Error("Opslaan mislukt."); }
+    tab("writing");
+    selectDocument();
+    notify(`${entry.name} geopend als ${kind === "page" ? "schrift" : "whiteboard"}. Schrijf er gewoon op.`, "", null, 5000);
+    return doc.id;
+  }
+
   // Korte melding onderin met optioneel een knop (bijv. "Zet terug"). Verdwijnt vanzelf.
   let toastTimer = null;
   function notify(text, actionLabel = "", action = null, ms = 7000) {
@@ -1620,6 +1663,7 @@
     purgeOldTrash();
     ensureDefaultFolders();
     migrateFixedIds();
+    backfillLibrary();
     persist();
   } catch (error) {
     blocked = true;
@@ -1649,6 +1693,29 @@
         });
       },
       hasDocument(id) { return data.documents.some(doc => doc.id === id); },
+      // ---- PDF-bibliotheek (library.js) ----
+      libraryList() { return (data.library || []).map(item => ({ ...item })); },
+      libraryFolders() { return data.folders.map(folder => ({ id: folder.id, title: folder.title })); },
+      currentFolderId() {
+        const chosen = $("content-folder").value;
+        if (chosen === noFolderValue) return null;
+        return chosen && data.folders.some(folder => folder.id === chosen) ? chosen : (active().folderId || null);
+      },
+      async libraryAdd(file, folderId, onProgress) {
+        const reference = await window.WorkplacePdf.importFile(file, null, onProgress);
+        addToLibrary(reference, file.size, folderId);
+        if (!persist()) throw new Error("Opslaan mislukt.");
+        window.WorkplacePdf.cloudUpload(reference.id).catch(error => console.warn("Werkplek: PDF-upload volgt later:", error.message));
+        return reference.id;
+      },
+      libraryRemove(id) {
+        const before = data.library || [];
+        data.library = before.filter(item => item.id !== id);
+        if (!persist()) { data.library = before; throw new Error("Opslaan mislukt."); }
+        document.dispatchEvent(new CustomEvent("library-changed"));
+      },
+      libraryUsage(id) { return data.documents.filter(doc => doc.pdf && doc.pdf.id === id).map(doc => ({ id: doc.id, title: doc.title, kind: doc.kind })); },
+      openFromLibrary,
       // ---- cloud-sync (sync.js) ----
       syncDocs() {
         const isDefault = folder => defaultFolders.some(definition => normalizedFolderTitle(definition.title) === normalizedFolderTitle(folder.title));
@@ -1662,6 +1729,9 @@
         });
         const custom = data.folders.filter(folder => !isDefault(folder)).map(folder => folder.title).sort();
         docs.push({ id: "__folders__", kind: "meta", title: "Mappen", folder_title: null, json: JSON.stringify({ folders: custom }) });
+        for (const item of data.library || []) {
+          docs.push({ id: `pdf-${item.id}`, kind: "meta", title: item.name.slice(0, 120), folder_title: item.folderTitle, json: JSON.stringify({ type: "pdf", ...item }) });
+        }
         return docs;
       },
       // Wijzigingen van een ander apparaat toepassen. Geeft per id terug: applied | busy | invalid.
@@ -1680,6 +1750,22 @@
           return folder ? folder.id : null;
         };
         for (const row of rows) {
+          if (row.kind === "meta" && (String(row.id).startsWith("pdf-") || (row.data && row.data.type === "pdf"))) {
+            data.library = data.library || [];
+            const pdfId = String(row.id).replace(/^pdf-/, "");
+            const at = data.library.findIndex(item => item.id === pdfId);
+            if (row.deleted) { if (at >= 0) data.library.splice(at, 1); }
+            else if (row.data && typeof row.data.name === "string") {
+              const entry = { id: pdfId, name: row.data.name.slice(0, 255), pages: Math.min(300, Math.max(0, Number(row.data.pages) || 0)),
+                size: Math.max(0, Number(row.data.size) || 0), folderTitle: typeof row.data.folderTitle === "string" ? row.data.folderTitle.slice(0, 120) : null,
+                addedAt: Number(row.data.addedAt) || Date.now() };
+              if (at >= 0) data.library[at] = entry; else data.library.push(entry);
+            }
+            result[row.id] = "applied";
+            changed = true;
+            document.dispatchEvent(new CustomEvent("library-changed"));
+            continue;
+          }
           if (row.kind === "meta") {
             for (const title of (row.data && Array.isArray(row.data.folders) ? row.data.folders : [])) {
               if (typeof title === "string" && title.trim()) folderFor(title);
@@ -1947,53 +2033,8 @@
         render();
       }
     };
-    async function refreshPdfLibrary() {
-      try {
-        const files = await window.WorkplacePdf.list();
-        const options = files.map(file => {
-          const option = document.createElement("option");
-          option.value = file.id;
-          option.textContent = `${file.name} (${file.pages} pagina${file.pages === 1 ? "" : "'s"})`;
-          return option;
-        });
-        if (!options.length) {
-          const option = document.createElement("option");
-          option.value = "";
-          option.textContent = "Nog geen PDF-bestanden";
-          options.push(option);
-        }
-        $("pdf-library-list").replaceChildren(...options);
-        $("pdf-library-open").disabled = !files.length;
-        $("pdf-library-download").disabled = !files.length;
-        $("pdf-library-status").textContent = files.length
-          ? `${files.length} lokaal opgeslagen PDF-bestand${files.length === 1 ? "" : "en"}.`
-          : "Voeg eerst een PDF toe met Achtergrond of Nieuw bord.";
-      } catch (error) {
-        $("pdf-library-status").textContent = error.message;
-        $("pdf-library-open").disabled = true;
-        $("pdf-library-download").disabled = true;
-      }
-    }
-
-    $("pdf-library-open").addEventListener("click", async () => {
-      try {
-        finish();
-        const reference = await window.WorkplacePdf.reference($("pdf-library-list").value);
-        const doc = M.createDocument("board", crypto.randomUUID());
-        doc.title = reference.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
-        doc.folderId = active().folderId || null;
-        doc.pdf = reference;
-        data.documents.push(doc);
-        data.activeId = doc.id;
-        if (!persist()) throw new Error("PDF-bord kon niet lokaal worden opgeslagen.");
-        selectDocument();
-      } catch (error) { report(error); }
-    });
-    $("pdf-library-download").addEventListener("click", async () => {
-      try { await window.WorkplacePdf.original($("pdf-library-list").value); }
-      catch (error) { report(error); }
-    });
-    refreshPdfLibrary();
+    // Oude PDF-lijst is vervangen door de PDF-bibliotheek (library.js).
+    async function refreshPdfLibrary() { document.dispatchEvent(new CustomEvent("library-changed")); }
 
     // PDF openen als schrift of whiteboard (één of meer tegelijk), in de gekozen map.
     async function openPdfs(files, kind) {
@@ -2026,6 +2067,7 @@
               doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
             }
             doc.pdf = reference;
+            addToLibrary(reference, file.size, folderId);
             if (kind === "page") doc.pages = Math.min(400, Math.max(doc.pages || 1, reference.pages.length));
             if (!persist()) {
               if (doc !== original) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
@@ -2045,20 +2087,9 @@
         else notify(`${added === 1 ? "PDF geopend" : `${added} PDF's geopend`} als ${soort} in ${folderTitle(folderId)}. Schrijf er gewoon op.`, "", null, 6000);
       } finally { $("pdf-open").disabled = false; }
     }
-    let pdfKind = "board";
-    $("pdf-open").addEventListener("click", () => { $("pdf-choice").hidden = !$("pdf-choice").hidden; });
-    $("pdf-choice").querySelectorAll("[data-pdf-kind]").forEach(button => button.addEventListener("click", () => {
-      $("pdf-choice").hidden = true;
-      if (!button.dataset.pdfKind) return;
-      pdfKind = button.dataset.pdfKind;
-      $("pdf-input").value = "";
-      $("pdf-input").click();
-    }));
-    $("pdf-input").addEventListener("change", () => {
-      const files = [...$("pdf-input").files];
-      $("pdf-input").value = "";
-      openPdfs(files, pdfKind).catch(report);
-    });
+    // PDF-knop opent de PDF-bibliotheek (library.js).
+    $("pdf-open").addEventListener("click", () => { if (window.WorkplaceLibrary) window.WorkplaceLibrary.open(); });
+    window.WorkplacePdfOpen = openPdfs;
     $("pdf-original").addEventListener("click", async () => {
       try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
       catch (error) { report(error); }
