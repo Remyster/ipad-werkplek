@@ -891,3 +891,8 @@ zijn nog niet geverifieerd.
 ## Versie 26
 
 - 📚 PDF-bibliotheek (knop PDF's in Werkmap): al je PDF's op één plek, op elk apparaat. Zoeken, filter op map, meerdere tegelijk toevoegen. Per PDF: 📓 openen als schrift, ⬜ als whiteboard, ⬇ downloaden, 🗑 uit de bibliotheek. De lijst synchroniseert mee (rijen pdf-<id> in werkplek_documents); het bestand komt pas binnen als je hem opent. PDF's die al in schriften/borden zaten staan er vanzelf in.
+
+## Versie 26.1
+
+- 👁 Lezen: PDF in een apart scherm bovenop alles (vanuit de bibliotheek of met de knop Lezen op een blad met PDF), zoom − / ＋, ✕ of Esc sluit.
+- Alle PDF's uit de bibliotheek worden op de achtergrond ook op elk apparaat gezet (offline en direct open).

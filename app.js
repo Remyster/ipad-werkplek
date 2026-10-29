@@ -2091,7 +2091,7 @@
     $("pdf-open").addEventListener("click", () => { if (window.WorkplaceLibrary) window.WorkplaceLibrary.open(); });
     window.WorkplacePdfOpen = openPdfs;
     $("pdf-original").addEventListener("click", async () => {
-      try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
+      try { if (active().pdf) await window.WorkplaceLibrary.read({ id: active().pdf.id, name: active().pdf.name }); }
       catch (error) { report(error); }
     });
     $("width").addEventListener("input", () => { $("width-value").textContent = $("width").value; });

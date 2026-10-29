@@ -49,6 +49,80 @@
     } catch (error) { say(error.message || String(error)); }
   }
 
+  // ---- Lezen: PDF in een apart scherm bovenop alles, met ✕ weer weg ----
+  let readerObserver = null;
+  async function read(item) {
+    try {
+      say(`${item.name} openen…`);
+      window.WorkplaceWriting?.notify?.(`${item.name.replace(/\.pdf$/i, "")} openen…`, "", null, 4000);
+      const pages = await window.WorkplacePdf.images(item.id, item.name); // haalt hem zo nodig uit de cloud
+      say("");
+      const reader = $("pdf-reader");
+      $("pdf-reader-title").textContent = item.name.replace(/\.pdf$/i, "");
+      const body = $("pdf-reader-pages");
+      readerObserver?.disconnect();
+      const urls = new Map();
+      readerObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          const img = entry.target;
+          const page = pages[Number(img.dataset.page)];
+          if (entry.isIntersecting && !img.src) {
+            const url = URL.createObjectURL(page.blob);
+            urls.set(img, url);
+            img.src = url;
+          } else if (!entry.isIntersecting && img.src && Math.abs(entry.boundingClientRect.top) > 4000) {
+            URL.revokeObjectURL(urls.get(img)); urls.delete(img); img.removeAttribute("src");
+          }
+        }
+      }, { root: body, rootMargin: "1500px 0px" });
+      body.replaceChildren(...pages.map((page, index) => {
+        const img = document.createElement("img");
+        img.dataset.page = String(index);
+        img.alt = `Pagina ${index + 1}`;
+        img.style.aspectRatio = `${page.width} / ${page.height}`;
+        readerObserver.observe(img);
+        return img;
+      }));
+      reader.dataset.zoom = "1";
+      reader.style.setProperty("--zoom", "1");
+      $("pdf-reader-count").textContent = `${pages.length} p.`;
+      reader.hidden = false;
+      document.body.classList.add("reading");
+      body.scrollTop = 0;
+      if (dialog.open) dialog.close();
+      reader._cleanup = () => { readerObserver?.disconnect(); urls.forEach(url => URL.revokeObjectURL(url)); urls.clear(); };
+    } catch (error) { say(error.message || String(error)); }
+  }
+  function closeReader() {
+    const reader = $("pdf-reader");
+    reader.hidden = true;
+    document.body.classList.remove("reading");
+    reader._cleanup?.();
+    $("pdf-reader-pages").replaceChildren();
+  }
+  function zoom(step) {
+    const reader = $("pdf-reader");
+    const value = Math.min(3, Math.max(.5, Number(reader.dataset.zoom || 1) + step));
+    reader.dataset.zoom = String(value);
+    reader.style.setProperty("--zoom", String(value));
+  }
+
+  // ---- Alle PDF's ook op dit apparaat zetten (op de achtergrond), zodat ze offline en direct openen ----
+  let fetching = false;
+  async function downloadAll() {
+    if (fetching || !navigator.onLine || !W() || typeof W().libraryList !== "function") return;
+    try { window.WorkplaceConnections.session(localStorage); } catch (error) { return; }
+    fetching = true;
+    try {
+      await refreshLocal();
+      for (const item of W().libraryList()) {
+        if (local.has(item.id)) continue;
+        try { await window.WorkplacePdf.cloudFetch(item.id, item.name); local.add(item.id); if (dialog.open) render(); }
+        catch (error) { console.warn("Werkplek: PDF ophalen later opnieuw:", item.name, error.message); }
+      }
+    } finally { fetching = false; }
+  }
+
   async function download(item) {
     try {
       if (!local.has(item.id)) { say(`${item.name} uit de cloud halen…`); await window.WorkplacePdf.cloudFetch(item.id, item.name); await refreshLocal(); }
@@ -94,6 +168,7 @@
       const actions = document.createElement("div");
       actions.className = "library-actions";
       actions.append(
+        button("👁 Lezen", "Lezen in een apart scherm", () => read(item), "library-read"),
         button("📓 Schrift", "Open als schrift", () => open(item, "page")),
         button("⬜ Bord", "Open als whiteboard", () => open(item, "board")),
         button("⬇", "Download origineel", () => download(item)),
@@ -140,7 +215,13 @@
   $("library-folder").addEventListener("change", render);
   $("library-add").addEventListener("click", () => { $("library-file").value = ""; $("library-file").click(); });
   $("library-file").addEventListener("change", () => { const files = [...$("library-file").files]; $("library-file").value = ""; add(files).catch(error => say(error.message)); });
-  document.addEventListener("library-changed", () => { if (dialog.open) { renderFolders(); render(); } });
+  document.addEventListener("library-changed", () => { if (dialog.open) { renderFolders(); render(); } setTimeout(downloadAll, 3000); });
+  $("pdf-reader-close").addEventListener("click", closeReader);
+  $("pdf-reader-in").addEventListener("click", () => zoom(.25));
+  $("pdf-reader-out").addEventListener("click", () => zoom(-.25));
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("pdf-reader").hidden) closeReader(); });
+  setTimeout(downloadAll, 15000);
+  setInterval(downloadAll, 10 * 60000);
 
-  window.WorkplaceLibrary = { open: openDialog, render, add };
+  window.WorkplaceLibrary = { open: openDialog, render, add, read, closeReader, downloadAll };
 })();

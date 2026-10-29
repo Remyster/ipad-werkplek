@@ -180,7 +180,7 @@
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
         <button id="dictate-sheet" title="Inspreken: tekst op het blad"><span>🎤</span><small>Inspreek</small></button>
         <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
-        <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
+        <button id="pdf-original" disabled title="PDF van dit blad lezen in een apart scherm"><span>👁</span><small>Lezen</small></button>
         <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
       </div>
       <p id="pdf-status" role="status" hidden></p>
@@ -355,6 +355,15 @@
     <button id="writing-ai-task" type="button" disabled>Maak taak in WerkHub van dit antwoord</button>
     <p class="dialog-help">AI-voorstel: controleer het antwoord. Toevoegen bewaart tekst lokaal; Ongedaan verwijdert de toevoeging.</p>
   </dialog>
+  <div id="pdf-reader" class="pdf-reader" role="dialog" aria-modal="true" aria-labelledby="pdf-reader-title" hidden>
+    <div class="pdf-reader-bar">
+      <strong id="pdf-reader-title"></strong><small id="pdf-reader-count"></small>
+      <button id="pdf-reader-out" type="button" aria-label="Uitzoomen">−</button>
+      <button id="pdf-reader-in" type="button" aria-label="Inzoomen">＋</button>
+      <button id="pdf-reader-close" type="button" class="pdf-reader-close" aria-label="Sluiten">✕</button>
+    </div>
+    <div id="pdf-reader-pages" class="pdf-reader-pages"></div>
+  </div>
   <dialog id="library-dialog" aria-labelledby="library-heading">
     <div class="section-heading">
       <h2 id="library-heading">📚 PDF-bibliotheek</h2>
