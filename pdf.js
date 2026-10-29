@@ -146,6 +146,44 @@
     return file.pages.map(page => ({ blob: page.image, image: null, width: page.width, height: page.height, top: page.top }));
   }
 
+  // ---- Scherp bij inzoomen: alleen het stuk dat in beeld is opnieuw tekenen vanuit de originele PDF ----
+  // Eén PDF tegelijk open houden; het beeld is nooit groter dan het scherm, dus het geheugen blijft klein.
+  let openDoc = null;
+  async function pdfDocument(id) {
+    if (openDoc && openDoc.id === id) return openDoc.promise;
+    if (openDoc) { const old = openDoc; openDoc = null; old.promise.then(() => old.task.destroy()).catch(() => {}); }
+    const file = await get(id);
+    if (!file || !file.original) throw new Error("PDF-origineel ontbreekt op dit apparaat.");
+    const pdfjs = await import("./vendor/package/legacy/build/pdf.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = "./vendor/package/legacy/build/pdf.worker.mjs";
+    const task = pdfjs.getDocument({
+      data: new Uint8Array(await file.original.arrayBuffer()), isEvalSupported: false, cMapUrl: "./vendor/package/cmaps/", cMapPacked: true,
+      standardFontDataUrl: "./vendor/package/standard_fonts/", wasmUrl: "./vendor/package/wasm/", iccUrl: "./vendor/package/iccs/", useSystemFonts: true
+    });
+    const entry = { id, task, promise: task.promise };
+    openDoc = entry;
+    entry.promise.catch(() => { if (openDoc === entry) openDoc = null; });
+    return entry.promise;
+  }
+
+  // region = stuk van de pagina in "logische" eenheden (pagina is logicalWidth breed), pixelScale = schermpixels per eenheid.
+  async function renderRegion(id, pageIndex, region, logicalWidth, pixelScale) {
+    const pdf = await pdfDocument(id);
+    const page = await pdf.getPage(pageIndex + 1);
+    const base = page.getViewport({ scale: 1 });
+    const width = Math.max(1, Math.round(region.width * pixelScale)), height = Math.max(1, Math.round(region.height * pixelScale));
+    if (width * height > 16e6) throw new Error("Te groot om scherp te tekenen.");
+    const viewport = page.getViewport({ scale: logicalWidth / base.width * pixelScale, offsetX: -region.left * pixelScale, offsetY: -region.top * pixelScale });
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas;
+  }
+
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -222,5 +260,5 @@
     }
     return snapshot;
   }
-  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference, cloudUpload, cloudFetch, uploadPending };
+  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference, cloudUpload, cloudFetch, uploadPending, renderRegion };
 })();

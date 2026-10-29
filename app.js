@@ -21,6 +21,8 @@
   let pinch = null;
   let pdfImages = [];
   let pdfGeneration = 0;
+  // Scherpe PDF-stukken bij inzoomen (alleen wat in beeld is, op schermresolutie).
+  let sharpTiles = [], sharpKey = "", sharpTimer = null, sharpBusy = false;
   const emptyDiagnostics = () => ({ pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-", recent: [] });
   let diagnostics = emptyDiagnostics();
 
@@ -679,6 +681,11 @@
         else decodePdfPage(page);
       }
     }
+    for (const tile of sharpTiles) {
+      if (tile.generation === pdfGeneration && M.intersectsBounds(tile.rect, viewport)) {
+        ctx.drawImage(tile.canvas, tile.rect.left, tile.rect.top, tile.rect.right - tile.rect.left, tile.rect.bottom - tile.rect.top);
+      }
+    }
     for (const stroke of doc.strokes) {
       if (M.intersectsBounds(strokeBounds(stroke), viewport)) drawStroke(ctx, stroke);
     }
@@ -760,6 +767,49 @@
     livePoints = 0;
     drawLive();
     updateControls();
+    requestSharp();
+  }
+
+  // Ingezoomd op een PDF: na even stilhouden het zichtbare stuk scherp opnieuw tekenen vanuit de originele PDF.
+  function requestSharp() {
+    clearTimeout(sharpTimer);
+    const doc = active();
+    if (!doc || !doc.pdf || !pdfImages.length || !window.WorkplacePdf?.renderRegion) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const density = doc.view.scale * ratio;
+    const key = `${pdfGeneration}|${doc.view.x.toFixed(1)}|${doc.view.y.toFixed(1)}|${doc.view.scale.toFixed(3)}|${renderedWidth}x${renderedHeight}`;
+    if (key === sharpKey) return;
+    // Basisplaatje is ~1 pixel per eenheid (schrift iets meer): pas vanaf flink inzoomen opnieuw tekenen.
+    if (density <= 1.4) { if (sharpTiles.length) { sharpTiles = []; sharpKey = key; } return; }
+    sharpTimer = setTimeout(() => buildSharp(key, density), 220);
+  }
+
+  async function buildSharp(key, density) {
+    if (sharpBusy || (gesture && (gesture.stroke || gesture.tool === "move"))) { sharpTimer = setTimeout(() => requestSharp(), 300); return; }
+    const doc = active();
+    const generation = pdfGeneration;
+    const view = { left: doc.view.x, top: doc.view.y, right: doc.view.x + renderedWidth / doc.view.scale, bottom: doc.view.y + renderedHeight / doc.view.scale };
+    sharpBusy = true;
+    try {
+      const tiles = [];
+      for (const [index, page] of pdfImages.entries()) {
+        const rect = { left: Math.max(0, view.left), top: Math.max(page.top, view.top),
+          right: Math.min(page.width, view.right), bottom: Math.min(page.top + page.height, view.bottom) };
+        if (rect.right <= rect.left || rect.bottom <= rect.top) continue;
+        const region = { left: rect.left, top: rect.top - page.top, width: rect.right - rect.left, height: rect.bottom - rect.top };
+        const canvas = await window.WorkplacePdf.renderRegion(doc.pdf.id, index, region, page.width, density);
+        if (generation !== pdfGeneration || active() !== doc) return;
+        tiles.push({ generation, rect, canvas });
+        if (tiles.length >= 4) break;
+      }
+      sharpTiles = tiles;
+      sharpKey = key;
+      const current = `${pdfGeneration}|${doc.view.x.toFixed(1)}|${doc.view.y.toFixed(1)}|${doc.view.scale.toFixed(3)}|${renderedWidth}x${renderedHeight}`;
+      if (current === key) { sharpKey = key; render(); } else requestSharp();
+    } catch (error) {
+      console.warn("Werkplek: scherpe PDF lukt niet:", error.message);
+      sharpKey = key; // niet blijven proberen voor dit beeld
+    } finally { sharpBusy = false; }
   }
 
   function scheduleRender() {
@@ -1040,6 +1090,8 @@
   async function loadPdf() {
     const generation = ++pdfGeneration;
     pdfImages = [];
+    sharpTiles = [];
+    sharpKey = "";
     const doc = active();
     $("pdf-original").disabled = !doc.pdf;
     $("pdf-status").textContent = doc.pdf

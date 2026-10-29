@@ -896,3 +896,7 @@ zijn nog niet geverifieerd.
 
 - 👁 Lezen: PDF in een apart scherm bovenop alles (vanuit de bibliotheek of met de knop Lezen op een blad met PDF), zoom − / ＋, ✕ of Esc sluit.
 - Alle PDF's uit de bibliotheek worden op de achtergrond ook op elk apparaat gezet (offline en direct open).
+
+## v26.3
+- PDF op bord en in schrift scherp bij inzoomen: na even stilhouden wordt het stuk dat in beeld is opnieuw getekend vanuit de originele PDF op schermresolutie (max 4 pagina-stukken, nooit groter dan het scherm). Ook zonder inzoomen scherper op een retina-iPad.
+- Stabilisator 'Rustig' (v26.2) is nu een one-euro-filter: geen ingeslikte korte streepjes of kleine letters meer.
