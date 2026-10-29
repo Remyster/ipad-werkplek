@@ -9,7 +9,10 @@
   const STATE_KEY = "remy-ipad-sync-state";
   const RENAMED_KEY = "remy-ipad-sync-renamed";
   const MAX_ROW = 8 * 1024 * 1024;
-  const PULL_EVERY = 15000;
+  const PULL_EVERY = 10000;
+  // Verhoog bij een nieuwe app-versie die documenten anders kan lezen: dan haalt elk apparaat
+  // alles nog één keer opnieuw op (eerder overgeslagen documenten komen dan alsnog binnen).
+  const SYNC_VERSION = 2;
   const W = () => window.WorkplaceWriting;
 
   const readState = () => {
@@ -17,6 +20,13 @@
     return { lastPull: "1970-01-01T00:00:00Z", docs: {} };
   };
   let state = readState();
+  if (state.version !== SYNC_VERSION) {
+    state.lastPull = "1970-01-01T00:00:00Z";
+    for (const id of Object.keys(state.docs)) state.docs[id] = { ...state.docs[id], at: "" };
+    state.version = SYNC_VERSION;
+  }
+  const invalidTries = new Map();
+  let skipped = 0;
   const saveState = () => { try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (error) { /* volgende keer opnieuw */ } };
 
   function hash(text) {
@@ -154,6 +164,13 @@
       const after = new Map(W().syncDocs().map(doc => [doc.id, doc]));
       for (const row of toApply) {
         if (result[row.id] === "busy") { busy = true; continue; }
+        if (result[row.id] === "invalid") {
+          // Niet als "gezien" markeren: volgende keer opnieuw proberen (bijv. na een app-update).
+          const tries = (invalidTries.get(row.id) || 0) + 1;
+          invalidTries.set(row.id, tries);
+          if (tries < 3) busy = true; else skipped++;
+          continue;
+        }
         if (row.deleted) { delete state.docs[row.id]; continue; }
         const doc = after.get(row.id);
         state.docs[row.id] = { hash: doc ? hash(doc.json) : "", at: row.updated_at };
@@ -180,7 +197,8 @@
       await push();
       failures = 0;
       lastOk = Date.now();
-      show("ok", `☁️ Alles bewaard · ${clock()}`);
+      if (skipped) show("error", `⚠️ ${skipped} document${skipped === 1 ? "" : "en"} kon niet geladen worden: herlaad de app (nieuwe versie)`);
+      else show("ok", `☁️ Alles bewaard · ${clock()}`);
       if (pulled && reason !== "start") W().notify?.(`${pulled} wijziging${pulled === 1 ? "" : "en"} van je andere apparaat binnengehaald.`);
     } catch (error) {
       failures++;
@@ -199,9 +217,18 @@
     if (lastOk) show("busy", "☁️ Wijziging bewaren…");
   }
 
-  window.WorkplaceSync = { run, markDirty, pull, push, hash, state: () => state, reset() { state = { lastPull: "1970-01-01T00:00:00Z", docs: {} }; saveState(); } };
+  window.WorkplaceSync = { run, markDirty, pull, push, hash, state: () => state, reset() {
+    // Alles opnieuw vergelijken met de cloud (niets wordt weggegooid; lokale wijzigingen gaan omhoog).
+    for (const id of Object.keys(state.docs)) state.docs[id] = { ...state.docs[id], at: "" };
+    state.lastPull = "1970-01-01T00:00:00Z";
+    state.version = SYNC_VERSION;
+    invalidTries.clear();
+    skipped = 0;
+    saveState();
+  } };
 
   $("cloud-status")?.addEventListener("click", () => run("klik"));
+  $("sync-reset")?.addEventListener("click", () => { window.WorkplaceSync.reset(); run("opnieuw"); W().notify?.("Alles wordt opnieuw met de cloud vergeleken…"); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") run("zichtbaar"); else run("verborgen"); });
   window.addEventListener("online", () => run("online"));
   window.addEventListener("offline", () => show("offline", "📴 Offline: bewaard op dit apparaat, gaat later mee"));
