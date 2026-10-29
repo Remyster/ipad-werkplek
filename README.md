@@ -862,7 +862,7 @@ zijn nog niet geverifieerd.
 
 ## Versie 24.5
 
-- **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt als een touwtje: het lijnpunt komt pas mee als de pen verder dan een kleine straal weg is, dus trillen en bibberen verdwijnen terwijl snelle halen direct blijven. De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
+- **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt met een snelheidsfilter (one-euro): langzaam tekenen wordt gladgestreken, snel schrijven gaat direct mee, en korte streepjes worden nooit meer ingeslikt (v26.2; het oude "touwtje" maakte lijnen korter). De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
 - **📏 Recht** in het lasso-menu: zoekt de regels in je selectie, draait elke regel recht, maakt de lettergrootte gelijk (binnen 75–133%, het blijft jouw handschrift), zet ze op een schriftblad precies op de lijnen en op een bord op gelijke afstand, en lijnt de linkerkant uit (inspringingen blijven). Ongedaan zet het terug.
 
 ## Versie 25

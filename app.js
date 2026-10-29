@@ -1184,8 +1184,9 @@
     if (event && event.type === "pointerup" && old.stroke) {
       addSamples([event]);
       if (old.steady && !old.stroke.shape) {
-        // Het touwtje loopt achter: laat de lijn eindigen waar de pen echt van het scherm ging.
+        // Het filter loopt een fractie achter: laat de lijn eindigen waar de pen echt van het scherm ging.
         const tip = M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view);
+        steadySettle(old.steady, tip, old.stroke.points);
         const last = old.stroke.points[old.stroke.points.length - 1];
         if (Math.hypot(tip.x - last.x, tip.y - last.y) > .3) old.stroke.points.push(last.w === undefined ? tip : { ...tip, w: last.w });
       }
@@ -2479,7 +2480,8 @@
         // Pen en fineliner krijgen dikte per punt; begint iets dunner, zoals een echte pen die neerkomt.
         const steady = Number($("steady").value) || 0;
         if (!$("shape").value && steady > 0 && gesture.stroke.brush !== "highlighter") {
-          gesture.steady = { x: point.x, y: point.y, radius: steady * 1.5 / active().view.scale };
+          // One-euro-filter: langzaam = meer gladgestreken, snel = vrijwel direct. Geen dode zone, dus korte streepjes blijven heel.
+          gesture.steady = { x: point.x, y: point.y, dx: 0, dy: 0, t: event.timeStamp, minCutoff: 20 / steady, beta: .15 * active().view.scale };
         }
         if (!$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
           point.w = .85;
@@ -2716,6 +2718,30 @@
   }
   })().catch(report);
 
+  // Stabilisator ("Rustig"): one-euro-filter. Bij langzaam tekenen wordt trillen weggefilterd,
+  // bij snel schrijven gaat de lijn direct mee. Er wordt nooit een stuk lijn ingeslikt.
+  function steadyStep(s, raw, time) {
+    const dt = Math.min(.05, Math.max(1 / 480, ((time || 0) - s.t) / 1000 || 1 / 240));
+    s.t = time || s.t + dt * 1000;
+    const alpha = cutoff => { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); };
+    const ad = alpha(1.5);
+    s.dx += ad * ((raw.x - s.x) / dt - s.dx);
+    s.dy += ad * ((raw.y - s.y) / dt - s.dy);
+    const a = alpha(s.minCutoff + s.beta * Math.hypot(s.dx, s.dy));
+    s.x += a * (raw.x - s.x);
+    s.y += a * (raw.y - s.y);
+    return { x: s.x, y: s.y };
+  }
+
+  // Bij loslaten: laat het gefilterde punt in een vloeiende boog bijtrekken naar waar de pen echt was.
+  function steadySettle(s, tip, points) {
+    const last = points[points.length - 1];
+    for (let i = 0; i < 40 && Math.hypot(tip.x - s.x, tip.y - s.y) > .3; i++) {
+      const p = steadyStep(s, tip, s.t + 1000 / 240);
+      points.push(last.w === undefined ? { x: p.x, y: p.y } : { x: p.x, y: p.y, w: last.w });
+    }
+  }
+
   function addSamples(events) {
     const rect = $("drawing").getBoundingClientRect();
     for (const sample of events) {
@@ -2723,14 +2749,9 @@
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
       if (gesture.steady) {
-        // Stabilisator ("touwtje"): het lijnpunt komt pas mee als de pen verder dan de straal weg is.
-        // Kleine trillingen binnen de straal verdwijnen; snelle bewegingen blijven gewoon direct.
-        const s = gesture.steady, dx = point.x - s.x, dy = point.y - s.y, d = Math.hypot(dx, dy);
-        if (d <= s.radius) continue;
-        s.x += dx * (d - s.radius) / d;
-        s.y += dy * (d - s.radius) / d;
-        point.x = s.x;
-        point.y = s.y;
+        const smooth = steadyStep(gesture.steady, point, sample.timeStamp);
+        point.x = smooth.x;
+        point.y = smooth.y;
       }
       if (point.x === last.x && point.y === last.y) continue;
       if (gesture.ink) {
