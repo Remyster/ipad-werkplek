@@ -270,13 +270,15 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .week-ongepland li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .week-ongepland .prio-plan { flex: 0 0 auto; min-height: 32px; padding: 6px 10px; border-radius: 8px; font-size: .85rem; color: #1d2b28; background: #f4c96b; text-decoration: none; }
 .prio-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
-@media (min-width: 760px) { .prio-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 760px) { .prio-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .prio-grid { grid-template-columns: repeat(4, 1fr); } }
 .prio { background: rgb(255 255 255 / 10%); border-radius: 14px; padding: 12px; min-width: 0; }
 .prio h3 { margin: 0 0 8px; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .prio h3 small { font-weight: 400; font-size: .78rem; color: #cfe3da; }
 .prio-urgent { box-shadow: inset 4px 0 0 #ff8a65; }
 .prio-belangrijk { box-shadow: inset 4px 0 0 #f4c96b; }
 .prio-wel { box-shadow: inset 4px 0 0 #8fd3b0; }
+.prio-delegeren { box-shadow: inset 4px 0 0 #c49bf4; }
 .prio ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .prio li { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 6px; border-radius: 10px; background: rgb(0 0 0 / 12%); }
 .prio li.gone { opacity: 0; transform: translateX(16px); transition: opacity .25s, transform .25s; }

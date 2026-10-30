@@ -472,7 +472,7 @@
     boxes.addEventListener("change", () => write(BOX_KEY, boxes.checked ? "1" : "0"));
     const boxType = $("box-type");
     const savedType = read("remy-ipad-box-type", "belangrijk");
-    boxType.value = ["urgent", "belangrijk", "subtaak"].includes(savedType) ? savedType : "belangrijk";
+    boxType.value = ["urgent", "belangrijk", "delegeren", "subtaak"].includes(savedType) ? savedType : "belangrijk";
     boxType.addEventListener("change", () => write("remy-ipad-box-type", boxType.value));
     $("box-list").closest("details").addEventListener("toggle", event => { if (event.target.open) renderBoxList(); });
     $("vangnet").addEventListener("toggle", event => {

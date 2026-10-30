@@ -60,9 +60,10 @@
       <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
         <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
         <div class="prio-grid">
-          <section class="prio prio-urgent"><h3>🔥 Urgent <small>zsm</small></h3><ul id="prio-urgent"></ul></section>
-          <section class="prio prio-belangrijk"><h3>📌 Belangrijk <small>ingepland</small></h3><ul id="prio-belangrijk"></ul></section>
-          <section class="prio prio-wel"><h3>🧩 Wel doen <small>niet urgent, tussendoor</small></h3><ul id="prio-wel"></ul></section>
+          <section class="prio prio-urgent"><h3>🔥 Doen <small>urgent + belangrijk: nu</small></h3><ul id="prio-urgent"></ul></section>
+          <section class="prio prio-belangrijk"><h3>📌 Plannen <small>belangrijk: geef het een moment</small></h3><ul id="prio-belangrijk"></ul></section>
+          <section class="prio prio-delegeren"><h3>🤝 Delegeren <small>urgent, niet belangrijk: niet per se jij</small></h3><ul id="prio-delegeren"></ul></section>
+          <section class="prio prio-wel"><h3>🧩 Rest <small>niet urgent, niet belangrijk: tussendoor</small></h3><ul id="prio-wel"></ul></section>
         </div>
         <p id="prio-wacht" class="prio-wacht" hidden></p>
       </article>
@@ -123,7 +124,7 @@
           <summary>Slim: AI-titels, zoeken in handschrift, taakvakjes</summary>
           <label class="finger-option"><input id="ai-notes-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen, zodat schriften vanzelf een titel krijgen en doorzoekbaar worden</label>
           <label class="finger-option"><input id="boxes-on" type="checkbox" checked> Taakvakjes: teken ☐ voor een regel → taak in WerkHub; vink het vakje af → klaar</label>
-          <label>Vakjes worden <select id="box-type"><option value="urgent">urgent</option><option value="belangrijk">belangrijk</option><option value="subtaak">wel doen / subtaak</option></select></label>
+          <label>Vakjes worden <select id="box-type"><option value="urgent">🔥 doen</option><option value="belangrijk">📌 plannen</option><option value="delegeren">🤝 delegeren</option><option value="subtaak">🧩 rest</option></select></label>
           <p id="smart-status" role="status">Tip: lang drukken met de pen → "☐ Taakvakje hier" zet een vakje voor je neer.</p>
           <h4>Open taakvakjes</h4>
           <div id="box-list"></div>
@@ -391,7 +392,7 @@
       <button id="task-read" type="button" hidden>Lees handschrift met AI</button>
       <label class="finger-option"><input id="task-split" type="checkbox"> Elke regel wordt een aparte taak</label>
       <label for="task-type">Soort</label>
-      <select id="task-type"><option value="urgent">🔥 Urgent (moet zsm)</option><option value="belangrijk" selected>📌 Belangrijk (inplannen)</option><option value="subtaak">🧩 Wel doen / subtaak (tussendoor, geen datum)</option></select>
+      <select id="task-type"><option value="urgent">🔥 Doen (urgent + belangrijk: nu)</option><option value="belangrijk" selected>📌 Plannen (belangrijk, geef het een moment)</option><option value="delegeren">🤝 Delegeren (urgent, niet belangrijk)</option><option value="subtaak">🧩 Rest (tussendoor, geen datum)</option></select>
       <label for="task-deadline">Deadline (optioneel, voor regels zonder eigen | datum)</label>
       <input id="task-deadline" type="date">
       <button id="task-send" type="submit">Maak taak in WerkHub</button>

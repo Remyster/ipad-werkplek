@@ -34,7 +34,7 @@
   const status = $("week-status");
   const DAYS = 7;
   const bucket = task => window.WorkplaceNu?.bucket ? window.WorkplaceNu.bucket(task) : (task.taaktype === "subtaak" ? "wel" : "belangrijk");
-  const ICON = { urgent: "🔥", belangrijk: "📌", wel: "🧩" };
+  const ICON = { urgent: "🔥", belangrijk: "📌", delegeren: "🤝", vast: "🔁", wel: "🧩" };
   const time = date => date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
   let loadedAt = 0;
 

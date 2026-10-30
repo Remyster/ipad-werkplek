@@ -49,7 +49,7 @@
 
   // Een regel mag eindigen op "| 2026-10-20": dat wordt de deadline van die taak (zo levert de AI ze aan).
   // Regel: "taak | 2026-10-20 | urgent" (datum en soort mogen ontbreken).
-  const KINDS = { urgent: "urgent", u: "urgent", belangrijk: "belangrijk", b: "belangrijk", subtaak: "subtaak", wel: "subtaak", "wel doen": "subtaak", s: "subtaak" };
+  const KINDS = { urgent: "urgent", u: "urgent", doen: "urgent", belangrijk: "belangrijk", b: "belangrijk", plannen: "belangrijk", delegeren: "delegeren", d: "delegeren", rest: "subtaak", subtaak: "subtaak", wel: "subtaak", "wel doen": "subtaak", s: "subtaak" };
   function splitDeadline(line) {
     const match = line.match(/^(.*?)\s*\|\s*(\d{4}-\d{2}-\d{2})?\s*(?:\|\s*([a-z ]+?))?\s*$/i);
     if (!match) return { titel: line, deadline: "", kind: "" };
@@ -71,10 +71,12 @@
     return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000), deadline: first.deadline, kind: first.kind }];
   }
 
-  // type: urgent | belangrijk | subtaak ("taak" = belangrijk, voor oude aanroepen).
+  // type: urgent (Doen) | belangrijk (Plannen) | delegeren | subtaak (Rest). "taak" = belangrijk, voor oude aanroepen.
+  // Delegeren is een subtaak met prioriteit "delegeren".
+  const isSub = kind => kind === "subtaak" || kind === "delegeren";
   async function createTasks(text, { split = false, type = "belangrijk", deadline = "" } = {}) {
     if (type === "taak") type = "belangrijk";
-    if (!["urgent", "belangrijk", "subtaak"].includes(type)) throw new Error("Onbekend taaktype.");
+    if (!["urgent", "belangrijk", "delegeren", "subtaak"].includes(type)) throw new Error("Onbekend taaktype.");
     if (deadline && !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) throw new Error("Deadline is geen geldige datum.");
     const tasks = parseTasks(text, split);
     const now = new Date().toISOString();
@@ -82,8 +84,8 @@
       const kind = task.kind || type;
       return {
         project: "pwn", titel: task.titel, waar: "", wie: "", notitie: task.notitie, status: "backlog",
-        deadline: kind === "subtaak" ? null : (task.deadline || deadline || null), updated_at: now,
-        taaktype: kind === "subtaak" ? "subtaak" : "taak", prioriteit: kind === "subtaak" ? null : kind
+        deadline: isSub(kind) ? null : (task.deadline || deadline || null), updated_at: now,
+        taaktype: isSub(kind) ? "subtaak" : "taak", prioriteit: kind === "subtaak" ? null : kind
       };
     });
     try {
@@ -129,7 +131,8 @@
     return "Haal de taken of actiepunten uit dit handschrift. Vandaag is " + day + " " + iso + ". " +
       "Geef alleen regels in de vorm: taak | JJJJ-MM-DD | soort. Zet een datum alleen als er een datum, dag of termijn in het handschrift staat " +
       "(reken die om naar een echte datum), anders laat je de datum leeg. Soort is precies één woord: urgent (moet zo snel mogelijk, vandaag of morgen), " +
-      "belangrijk (moet gebeuren maar kan ingepland worden) of subtaak (klein klusje, niet urgent en niet belangrijk, wel doen). " +
+      "urgent = Doen: urgent én belangrijk, nu; belangrijk = Plannen: belangrijk, niet urgent, krijgt een moment; " +
+      "delegeren: moet snel maar niet belangrijk voor Remy zelf, kan iemand anders doen; subtaak = Rest: niet urgent en niet belangrijk, tussendoor. " +
       "Eén regel per taak, geen uitleg, geen opsommingstekens, geen Markdown. " +
       "Staat er maar één ding, geef één regel. Onleesbare woorden: [onleesbaar].";
   }
@@ -163,7 +166,7 @@
     try { source = window.WorkplaceWriting.captureSelection(); }
     catch (error) { openTask(""); taskStatus.textContent = error.message || String(error); return; }
     openTask(source.text || "");
-    $("task-type").value = type === "subtaak" ? "subtaak" : type === "urgent" ? "urgent" : "belangrijk";
+    $("task-type").value = ["subtaak", "urgent", "delegeren"].includes(type) ? type : "belangrijk";
     syncTaskType();
     pendingInk = source.canvas;
     const where = source.selected ? "de selectie" : "dit hele blad";
@@ -192,7 +195,7 @@
   });
 
   function syncTaskType() {
-    const subtask = $("task-type").value === "subtaak";
+    const subtask = isSub($("task-type").value);
     $("task-deadline").disabled = subtask;
     if (subtask) $("task-deadline").value = "";
   }
@@ -240,8 +243,8 @@
     const clean = cleanLine(String(titel || "")).slice(0, 200);
     if (!clean) throw new Error("Geen taaktekst.");
     const row = { project: "pwn", titel: clean, waar: "", wie: "", notitie: boxNote(notitie), status: "backlog",
-      deadline: type === "subtaak" ? null : (deadline || null), updated_at: new Date().toISOString(),
-      taaktype: type === "subtaak" ? "subtaak" : "taak", prioriteit: type === "subtaak" ? null : (type === "urgent" ? "urgent" : "belangrijk") };
+      deadline: isSub(type) ? null : (deadline || null), updated_at: new Date().toISOString(),
+      taaktype: isSub(type) ? "subtaak" : "taak", prioriteit: type === "subtaak" ? null : (["urgent", "delegeren"].includes(type) ? type : "belangrijk") };
     const rows = await call("work_tasks?select=id", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([row]) });
     if (!Array.isArray(rows) || !rows[0] || typeof rows[0].id !== "string") throw new Error("WerkHub gaf geen taak-id terug.");
     return rows[0].id;

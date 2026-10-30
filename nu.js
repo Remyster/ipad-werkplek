@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   // Wat nu: je WerkHub-taken in drie bakken (Eisenhower).
-  // Urgent = moet zsm, Belangrijk = staat ingepland in je agenda, Wel doen = subtaken voor tussendoor.
+  // Eisenhower: Doen (urgent+belangrijk), Plannen (belangrijk), Delegeren (urgent, niet belangrijk), Rest (tussendoor).
   // Vinkje = klaar in WerkHub en weg uit de lijst. Geen timer.
   const $ = id => document.getElementById(id);
   const card = $("nu-card");
@@ -14,7 +14,9 @@
   // Zelfde regel als WerkHub: zonder gekozen prioriteit is een taak met deadline binnen 2 dagen urgent.
   function bucket(task) {
     // Een subtaak met belangrijk_vanaf schuift op die dag naar Belangrijk, net als in WerkHub (v30).
-    if (task.taaktype === "subtaak") return task.belangrijk_vanaf && task.belangrijk_vanaf <= iso(new Date()) ? "belangrijk" : "wel";
+    if (task.taaktype === "subtaak") return task.belangrijk_vanaf && task.belangrijk_vanaf <= iso(new Date()) ? "belangrijk" : task.prioriteit === "delegeren" ? "delegeren" : "wel";
+    // Vaste taak (komt elke dag/week/maand terug): op de dag zelf of te laat bij Doen, anders niet in Wat nu.
+    if (task.herhaling && task.herhaling !== "eenmalig") return task.deadline && task.deadline <= iso(new Date()) ? "urgent" : "vast";
     if (task.prioriteit === "urgent" || task.prioriteit === "belangrijk") return task.prioriteit;
     const soon = iso(new Date(Date.now() + 2 * 864e5));
     return task.deadline && task.deadline <= soon ? "urgent" : "belangrijk";
@@ -58,7 +60,7 @@
   function render() {
     const order = (a, b) => (a.deadline || "9999") < (b.deadline || "9999") ? -1 : (a.deadline || "9999") > (b.deadline || "9999") ? 1 : 0;
     const open = tasks.filter(task => task.status !== "wacht_op");
-    for (const key of ["urgent", "belangrijk", "wel"]) {
+    for (const key of ["urgent", "belangrijk", "delegeren", "wel"]) {
       const list = $(`prio-${key}`);
       const items = open.filter(task => bucket(task) === key).sort(order);
       // Maximaal 5 per bak (eerstvolgende datum eerst). Vink je er een af, dan schuift de volgende omhoog.
@@ -74,7 +76,7 @@
         rows.push(li);
       }
       list.replaceChildren(...(items.length ? rows : [Object.assign(document.createElement("li"), {
-        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks ingepland." : "Geen klusjes voor tussendoor."
+        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks te plannen." : key === "delegeren" ? "Niks om door te geven." : "Geen klusjes voor tussendoor."
       })]));
     }
     const waiting = tasks.filter(task => task.status === "wacht_op");
