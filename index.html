@@ -27,6 +27,7 @@
   <script src="./slim.js" defer></script>
   <script src="./nu.js" defer></script>
   <script src="./woord.js" defer></script>
+  <script src="./werkbeschrijvingen.js" defer></script>
   <script src="./week.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
@@ -50,6 +51,7 @@
     <button data-tab="today" aria-pressed="true">Vandaag</button>
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
     <button data-tab="hubs" aria-pressed="false">📅 Week</button>
+    <button data-tab="werk" aria-pressed="false">📘 Werkbeschrijvingen</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
   </nav>
   <div id="error" role="alert" hidden></div>
@@ -310,6 +312,20 @@
       </article>
       <div id="week-list" aria-live="polite"></div>
       <aside>Afspraken komen uit je Google-agenda's (via WerkHub), taken uit WerkHub. Je ziet de komende 7 dagen. Afvinken en wijzigen doe je in WerkHub of op Vandaag.</aside>
+    </section>
+    <section id="werk" hidden>
+      <div class="section-heading">
+        <h2>📘 Werkbeschrijvingen</h2>
+        <button id="wb-add" type="button" class="nu-primary">＋ PDF toevoegen</button>
+        <input id="wb-file" type="file" multiple accept="application/pdf,.pdf" hidden>
+      </div>
+      <div class="library-bar">
+        <input id="wb-search" type="search" placeholder="🔎 Zoek werkbeschrijving…" autocomplete="off" aria-label="Zoek werkbeschrijving">
+        <label class="finger-option"><input id="wb-all" type="checkbox"> Ook mijn andere PDF's</label>
+      </div>
+      <p id="wb-status" role="status"></p>
+      <div id="wb-list" class="wb-list"></div>
+      <aside>Tik op een werkbeschrijving om hem te lezen; ✏️ opent hem als schrift om erop te schrijven. Alles staat vanzelf op je andere apparaten en werkt ook offline zodra hij een keer geopend is.</aside>
     </section>
     <section id="ai" hidden>
       <h2>AI binnen Werkplek</h2>

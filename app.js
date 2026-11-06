@@ -1959,7 +1959,7 @@
     touches.clear();
     document.body.classList.remove("writing-focus");
     setFocusLabel(false);
-    for (const section of ["today", "writing", "hubs", "ai"]) $(section).hidden = section !== name;
+    for (const section of ["today", "writing", "hubs", "werk", "ai"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
     document.dispatchEvent(new CustomEvent("werkplek-tab", { detail: name }));
@@ -2169,6 +2169,17 @@
       // ---- PDF-bibliotheek (library.js) ----
       libraryList() { return (data.library || []).map(item => ({ ...item })); },
       libraryFolders() { return data.folders.map(folder => ({ id: folder.id, title: folder.title })); },
+      // Map op naam opzoeken, en aanmaken als hij nog niet bestaat (gaat mee in de sync).
+      ensureFolder(title) {
+        const target = normalizedFolderTitle(title);
+        let folder = data.folders.find(item => normalizedFolderTitle(item.title) === target);
+        if (!folder) {
+          folder = { id: crypto.randomUUID(), title };
+          data.folders.push(folder);
+          if (!persist()) { data.folders = data.folders.filter(item => item !== folder); throw new Error("Map aanmaken mislukt: opslag vol."); }
+        }
+        return folder.id;
+      },
       currentFolderId() {
         const chosen = $("content-folder").value;
         if (chosen === noFolderValue) return null;

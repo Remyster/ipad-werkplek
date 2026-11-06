@@ -463,3 +463,12 @@ body.reading { overflow: hidden; }
   .lmra-q span { font-size: .9rem; }
   .lmra-seg button { min-width: 48px; min-height: 44px; }
 }
+
+/* 📘 Werkbeschrijvingen */
+.wb-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 10px 0 16px; }
+.wb-card { display: flex; align-items: stretch; border: 1px solid #c9d2d8; border-radius: 14px; background: #fff; overflow: hidden; }
+.wb-open { flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 64px; text-align: left; border: 0; border-radius: 0; background: transparent; }
+.wb-open strong { display: block; overflow-wrap: anywhere; }
+.wb-open small { color: #5d736d; }
+.wb-icon { font-size: 1.8rem; }
+.wb-notes { border: 0; border-left: 1px solid #e0e6e3; border-radius: 0; min-width: 56px; background: #f6f8f7; font-size: 1.2rem; }

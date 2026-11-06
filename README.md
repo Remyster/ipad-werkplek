@@ -924,3 +924,7 @@ zijn nog niet geverifieerd.
 - De knop ⚡ LMRA bovenaan is weg; de LMRA-balk op Vandaag blijft (Nieuwe LMRA, Laatste openen, TRA, **📚 Archief**).
 - Op de telefoon vult de snelle LMRA het hele scherm, als een eigen schermpje.
 - LMRA's en TRA's werden al vanzelf bewaard (op het apparaat en in de cloud, tabel `werkplek_documents`). Dat is nu ook te zien: "✓ Bewaard om 10:40 · ☁️ gaat vanzelf naar de cloud" onder de vragen, en onderin het venster **📚 Eerdere LMRA's en TRA's** met uitkomst (✅ / ⛔) of zwaarste TRA-risico (🟢🟡🟠🔴⛔). Tik = openen.
+
+## Versie 26.8
+
+- **📘 Werkbeschrijvingen**: eigen tabblad in de bovenbalk (op de plek waar ⚡ LMRA stond). **＋ PDF toevoegen** zet PDF's in de map *Werkbeschrijvingen* van de PDF-bibliotheek, dus ze staan vanzelf op je andere apparaten. Tik op een kaart om te lezen (apart scherm, zoom − / +, ✕ sluit), ✏️ opent hem als schrift om erop te schrijven. Zoekveld, laatst gelezen bovenaan, en een vinkje om ook je andere PDF's te tonen.
