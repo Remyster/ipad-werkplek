@@ -918,3 +918,9 @@ zijn nog niet geverifieerd.
 
 - **⚡ Snelle LMRA:** de knop ⚡ LMRA (bovenbalk en Vandaag) opent nu een venster waar je bent, in plaats van naar de Werkmap te springen. Korte vragen met grote knoppen **Ja / Nee / n.v.t.**, werk en plek in één regel, uitkomst bovenaan. Bij een Nee verschijnt een vak voor wat er niet klopt. **Rest op Ja** vult alleen de vragen die nog open staan. De LMRA van vandaag wordt hergebruikt; **+ Nieuwe** start een volgende, **Volledig formulier** opent hem in de Werkmap. Het formulier in de Werkmap gebruikt dezelfde knoppen.
 - **Fine & Kinney in kleur:** 🟢 aanvaardbaar, 🟡 mogelijk, 🟠 aanzienlijk, 🔴 hoog, ⛔ zeer hoog. Kleurlegenda boven de TRA-stappen, gekozen W/B/E-waarden kleuren mee, elke TRA-regel krijgt de kleur van het risico ná de maatregel, en de uitlegtabellen zijn per rij gekleurd.
+
+## Versie 26.7
+
+- De knop ⚡ LMRA bovenaan is weg; de LMRA-balk op Vandaag blijft (Nieuwe LMRA, Laatste openen, TRA, **📚 Archief**).
+- Op de telefoon vult de snelle LMRA het hele scherm, als een eigen schermpje.
+- LMRA's en TRA's werden al vanzelf bewaard (op het apparaat en in de cloud, tabel `werkplek_documents`). Dat is nu ook te zien: "✓ Bewaard om 10:40 · ☁️ gaat vanzelf naar de cloud" onder de vragen, en onderin het venster **📚 Eerdere LMRA's en TRA's** met uitkomst (✅ / ⛔) of zwaarste TRA-risico (🟢🟡🟠🔴⛔). Tik = openen.

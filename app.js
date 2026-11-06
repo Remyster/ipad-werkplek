@@ -1321,17 +1321,63 @@
     badge.textContent = result.label;
     badge.dataset.tone = result.tone;
     $("lmra-dialog-measures-row").hidden = result.tone !== "stop" && !quickDoc.formData["lmra.measures"];
+    $("lmra-dialog-saved").textContent = `✓ Bewaard om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })} · ☁️ gaat vanzelf naar de cloud`;
+    if ($("lmra-dialog").open) renderSafetyArchive(!!$("lmra-dialog-archive").querySelector("details[open]"));
     renderLmraCard();
     if (active() === quickDoc) { renderMeasurementForm(); refreshSafetyForm(); }
   }
-  function openQuickLmra(fresh = false) {
-    let doc = latestSafety("lmra");
-    if (fresh || !doc || doc.formData["visit.date"] !== isoToday()) doc = newSafetyForm("lmra", false);
+  // Archief: alle LMRA's en TRA's, nieuwste eerst. Ze staan al automatisch op dit apparaat en in de cloud;
+  // dit maakt ze terug te vinden.
+  function traWorst(formData) {
+    let worst = null;
+    for (let i = 1; i <= TRA_ROWS; i++) {
+      const score = prefix => { const w = Number(formData[`${prefix}.w`]), b = Number(formData[`${prefix}.b`]), e = Number(formData[`${prefix}.e`]); return w && b && e ? w * b * e : null; };
+      const r = score(`tra.${i}.after`) ?? score(`tra.${i}`);
+      if (r !== null && (worst === null || r > worst)) worst = r;
+    }
+    return worst;
+  }
+  function renderSafetyArchive(open = false) {
+    const host = $("lmra-dialog-archive");
+    const stamp = doc => `${doc.formData["visit.date"] || ""}T${doc.formData["visit.start"] || ""}|${doc.formData["meta.created"] || ""}`;
+    const docs = data.documents.filter(doc => doc.formType === "lmra" || doc.formType === "tra").sort((a, b) => stamp(b).localeCompare(stamp(a)));
+    const details = document.createElement("details");
+    details.open = open;
+    details.append(Object.assign(document.createElement("summary"), { textContent: `📚 Eerdere LMRA's en TRA's (${docs.length})` }));
+    if (!docs.length) details.append(Object.assign(document.createElement("p"), { className: "smart-empty", textContent: "Nog niks. Alles wat je invult komt hier vanzelf te staan." }));
+    for (const doc of docs.slice(0, 60)) {
+      const isLmra = doc.formType === "lmra";
+      const worst = isLmra ? null : traWorst(doc.formData);
+      const mark = isLmra ? { ok: "✅", stop: "⛔", open: "…" }[lmraOutcome(doc.formData).tone] : worst === null ? "📋" : kinneyClass(worst).emoji;
+      const date = doc.formData["visit.date"] ? new Date(`${doc.formData["visit.date"]}T12:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }) : "";
+      const what = (isLmra ? doc.formData["lmra.task"] : doc.formData["tra.job"]) || "geen omschrijving";
+      const button = Object.assign(document.createElement("button"), { type: "button", className: "safety-row" });
+      button.textContent = `${mark} ${isLmra ? "LMRA" : "TRA"} · ${date}${isLmra && doc.formData["visit.start"] ? " " + doc.formData["visit.start"] : ""} · ${what}`;
+      if (doc === quickDoc) button.setAttribute("aria-current", "true");
+      button.addEventListener("click", () => {
+        if (isLmra) { openQuickLmra(false, doc); return; }
+        $("lmra-dialog").close();
+        finish();
+        data.activeId = doc.id;
+        persist();
+        tab("writing");
+        selectDocument();
+      });
+      details.append(button);
+    }
+    host.replaceChildren(details);
+  }
+
+  function openQuickLmra(fresh = false, chosen = null, archiveOpen = false) {
+    let doc = chosen || latestSafety("lmra");
+    if (!chosen && (fresh || !doc || doc.formData["visit.date"] !== isoToday())) doc = newSafetyForm("lmra", false);
     quickDoc = doc;
     $("lmra-dialog-when").textContent = `${doc.formData["visit.date"] === isoToday() ? "vandaag" : doc.formData["visit.date"]} ${doc.formData["visit.start"] || ""}`;
     for (const [id, field] of [["lmra-dialog-task", "lmra.task"], ["lmra-dialog-location", "lmra.location"], ["lmra-dialog-measures", "lmra.measures"]]) $(id).value = doc.formData[field] || "";
     $("lmra-dialog-list").replaceChildren(lmraButtons(doc, quickLmraChanged));
     quickLmraChanged();
+    $("lmra-dialog-saved").textContent = "☁️ Wordt vanzelf bewaard, ook in de cloud en op je andere apparaten.";
+    renderSafetyArchive(archiveOpen);
     const dialog = $("lmra-dialog");
     if (!dialog.open) dialog.showModal();
   }
@@ -2074,7 +2120,7 @@
 
   if (!blocked) {
     renderLmraCard();
-    $("lmra-quick").addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
+    $("lmra-card-archive").addEventListener("click", () => { try { openQuickLmra(false, null, true); } catch (error) { report(error); } });
     $("lmra-card-open").addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
     $("lmra-card-new").addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
     for (const [id, field] of [["lmra-dialog-task", "lmra.task"], ["lmra-dialog-location", "lmra.location"], ["lmra-dialog-measures", "lmra.measures"]]) {

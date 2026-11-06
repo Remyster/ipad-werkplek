@@ -51,7 +51,6 @@
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
     <button data-tab="hubs" aria-pressed="false">📅 Week</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
-    <button id="lmra-quick" type="button" class="lmra-quick" title="Laatste LMRA openen of een nieuwe maken">⚡ LMRA</button>
   </nav>
   <div id="error" role="alert" hidden></div>
   <aside id="update-status" role="status" hidden>Nieuwe appversie beschikbaar. Rond je penstreek af en herlaad de pagina om de update te gebruiken. Je lokale notities blijven bewaard.</aside>
@@ -61,7 +60,7 @@
       <h2>Een rustige start</h2>
       <article id="lmra-card" class="lmra-card" aria-label="Laatste LMRA">
         <span class="eyebrow">⚡ LMRA</span><p id="lmra-card-status">Laden…</p>
-        <div class="panel-actions"><button id="lmra-card-new" type="button">⚡ Nieuwe LMRA</button><button id="lmra-card-open" type="button">Laatste openen</button><button id="tra-card-open" type="button">📋 TRA</button></div>
+        <div class="panel-actions"><button id="lmra-card-new" type="button">⚡ Nieuwe LMRA</button><button id="lmra-card-open" type="button">Laatste openen</button><button id="tra-card-open" type="button">📋 TRA</button><button id="lmra-card-archive" type="button">📚 Archief</button></div>
       </article>
       <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
         <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
@@ -394,7 +393,9 @@
     <div class="lmra-dialog-fields"><input id="lmra-dialog-task" type="text" placeholder="Wat ga je doen?" autocapitalize="sentences"><input id="lmra-dialog-location" type="text" placeholder="Waar?"></div>
     <div id="lmra-dialog-list"></div>
     <div id="lmra-dialog-measures-row" hidden><textarea id="lmra-dialog-measures" rows="2" placeholder="Wat is er niet in orde en wat doe je eraan?"></textarea></div>
+    <p id="lmra-dialog-saved" class="lmra-saved" role="status"></p>
     <div class="lmra-dialog-actions"><button id="lmra-dialog-alles" type="button" title="Zet alle open vragen op Ja. Klopt er één niet, tik dan op Nee.">Rest op Ja</button><button id="lmra-dialog-new" type="button">+ Nieuwe</button><button id="lmra-dialog-full" type="button">Volledig formulier</button></div>
+    <div id="lmra-dialog-archive" class="safety-archive"></div>
   </dialog>
   <dialog id="task-dialog" aria-labelledby="task-heading">
     <div class="section-heading">

@@ -451,3 +451,15 @@ body.reading { overflow: hidden; }
 .lmra-seg button[data-value="nvt"][aria-pressed="true"] { background: #65706f; color: #fff; border-color: #65706f; }
 .lmra-dialog-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .lmra-dialog-actions button { min-height: 44px; padding: 6px 14px; border-radius: 12px; }
+.lmra-saved { margin: 6px 0 0; font-size: .85rem; color: #2e6b4f; }
+.safety-archive details { margin-top: 12px; border-top: 1px solid #d4ddd6; padding-top: 8px; }
+.safety-archive summary { font-weight: 700; cursor: pointer; min-height: 36px; display: flex; align-items: center; }
+.safety-row { display: block; width: 100%; text-align: left; margin: 4px 0 0; padding: 8px 10px; min-height: 44px; border-radius: 10px; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.safety-row[aria-current="true"] { border-color: #173c39; background: #eef4f2; font-weight: 700; }
+/* Telefoon: de snelle LMRA vult het hele scherm, als een eigen schermpje */
+@media (max-width: 640px) {
+  .lmra-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+  .lmra-dialog-fields { grid-template-columns: 1fr; }
+  .lmra-q span { font-size: .9rem; }
+  .lmra-seg button { min-width: 48px; min-height: 44px; }
+}
