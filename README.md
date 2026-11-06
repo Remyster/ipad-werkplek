@@ -932,3 +932,8 @@ zijn nog niet geverifieerd.
 ## Versie 26.9
 
 - Reparatie: "Cannot read properties of null (reading 'addEventListener')". Kwam voor als de app geladen werd terwijl GitHub Pages nog half de oude en half de nieuwe versie uitleverde. Ontbreekt nu een knop of scherm, dan slaat de app dat over in plaats van de hele opstart te stoppen. Getest met een oude `index.html` naast de nieuwe code.
+
+## Versie 27
+
+- **PowerPoint, Word en Excel in Werkbeschrijvingen.** ＋ PDF / PowerPoint toevoegen neemt nu ook `.pptx`, `.ppt`, `.docx`, `.doc`, `.xlsx` en `.xls`. Die gaan naar een eigen privé-opslag `werkplek-bestanden` (alleen jouw account, max. 80 MB per bestand, zie `WERKPLEK-BESTANDEN-MIGRATIE.sql`; is al uitgevoerd op 6 nov 2026). Ze staan daarmee op al je apparaten. Tik = openen in de app van je apparaat (PowerPoint, Keynote of de voorvertoning van iPadOS); 🗑 haalt hem weg. Lezen ín de Werkplek en erop schrijven kan alleen met PDF; een PowerPoint die je wilt aantekenen eerst als PDF bewaren.
+- Openen vraagt internet en een WerkHub-login (het bestand wordt per keer met een tijdelijk adres van een uur opgehaald).
