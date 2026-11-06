@@ -912,3 +912,4 @@ zijn nog niet geverifieerd.
   - De uitleg van Kinney (alle factoren en risicoklassen) staat ingeklapt onderaan.
   - **Snel te zien:** knop **⚡ LMRA** in de bovenbalk (met ✅ / ⛔ voor vandaag) en een LMRA-balk bovenaan Vandaag met de laatste LMRA, **Nieuwe LMRA**, **Laatste openen** en **TRA**.
   - Gaat mee in de cloud-sync, net als de andere formulieren.
+  - De methode heet in de app voluit **Fine & Kinney** (naar William Fine en G.F. Kinney), zoals in de PWN-formulieren.

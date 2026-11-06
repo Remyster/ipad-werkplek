@@ -1037,7 +1037,7 @@
   }
 
   // ---- LMRA en TRA (v24.6) ----
-  // Kinney: Risico = Waarschijnlijkheid × Blootstelling × Effect. De uitleg staat ingeklapt onderaan.
+  // Fine & Kinney: Risico = Waarschijnlijkheid × Blootstelling × Effect. De uitleg staat ingeklapt onderaan.
   const KINNEY = {
     w: [["10", "10 · te verwachten"], ["6", "6 · goed mogelijk"], ["3", "3 · ongewoon, maar mogelijk"], ["1", "1 · alleen achteraf voorstelbaar"],
       ["0.5", "0,5 · denkbaar, onwaarschijnlijk"], ["0.2", "0,2 · praktisch onmogelijk"], ["0.1", "0,1 · vrijwel onmogelijk"]],
@@ -1085,7 +1085,7 @@
     const details = document.createElement("details");
     details.className = "kinney-help";
     const summary = document.createElement("summary");
-    summary.textContent = "ℹ️ Uitleg Kinney: Risico = W × B × E";
+    summary.textContent = "ℹ️ Uitleg Fine & Kinney: Risico = W × B × E";
     details.append(summary,
       table(["W · Waarschijnlijkheid", "Betekenis"], KINNEY.w.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
       table(["B · Blootstelling", "Betekenis"], KINNEY.b.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
@@ -1147,7 +1147,7 @@
     const quick = document.createElement("details");
     quick.className = "kinney-quick";
     const summary = document.createElement("summary");
-    summary.textContent = "🧮 Twijfel over een gevaar? Reken het snel uit met Kinney";
+    summary.textContent = "🧮 Twijfel over een gevaar? Reken het snel uit met Fine & Kinney";
     const row = document.createElement("div");
     row.className = "kinney-row";
     row.append(kinneySelect("lmra.k.w", KINNEY.w, "W"), kinneySelect("lmra.k.b", KINNEY.b, "B"), kinneySelect("lmra.k.e", KINNEY.e, "E"), kinneyResult("lmra.k"));
@@ -1268,7 +1268,7 @@
     if (type === "lmra" || type === "tra") {
       help.textContent = type === "lmra"
         ? "Loop dit vlak voor je begint even door. Eén keer Nee = niet beginnen: eerst oplossen of melden. Alles wordt bewaard en staat op al je apparaten."
-        : "Werk de taak stap voor stap uit: wat kan er misgaan, hoe groot is het risico (Kinney), wat doe je eraan en wat blijft er over.";
+        : "Werk de taak stap voor stap uit: wat kan er misgaan, hoe groot is het risico (Fine & Kinney), wat doe je eraan en wat blijft er over.";
       const actions = document.createElement("div");
       actions.className = "panel-actions";
       for (const [label, kind] of [["⚡ Nieuwe LMRA", "lmra"], ["📋 Nieuwe TRA", "tra"]]) {
