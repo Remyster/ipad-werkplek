@@ -2,6 +2,7 @@
   "use strict";
   const KEY = "remy-ipad-werkplek-v1";
   const MAX_POINTS = 1000000;
+  const FORM_TYPES = ["dwat-akf", "lws", "lmra", "tra"];
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
   function createDocument(kind, id) {
@@ -11,9 +12,9 @@
   }
 
   function createMeasurementDocument(formType, id) {
-    if (!["dwat-akf", "lws"].includes(formType)) throw new Error("Onbekend meetlijsttype.");
+    if (!FORM_TYPES.includes(formType)) throw new Error("Onbekend meetlijsttype.");
     const doc = createDocument("page", id);
-    doc.title = formType === "dwat-akf" ? "DWAT/AKF meetstatus" : "LWS meetstatus";
+    doc.title = { "dwat-akf": "DWAT/AKF meetstatus", lws: "LWS meetstatus", lmra: "LMRA", tra: "TRA" }[formType];
     doc.formType = formType;
     doc.formData = {};
     return doc;
@@ -48,7 +49,7 @@
           doc.title.length > 120 || typeof doc.text !== "string" || !Array.isArray(doc.strokes) ||
           (doc.folderId !== undefined && doc.folderId !== null &&
             (typeof doc.folderId !== "string" || !folderIds.has(doc.folderId))) ||
-          (doc.formType !== undefined && !["dwat-akf", "lws"].includes(doc.formType)) ||
+          (doc.formType !== undefined && !FORM_TYPES.includes(doc.formType)) ||
           (doc.pages !== undefined && (!Number.isInteger(doc.pages) || doc.pages < 1 || doc.pages > 200)) ||
           !doc.view || !finite(doc.view.x) || !finite(doc.view.y) ||
           !finite(doc.view.scale) || doc.view.scale < .2 || doc.view.scale > 4) {

@@ -95,6 +95,9 @@
   // getekend als een aaneenschakeling van "capsules" (twee cirkels plus hun raaklijnen) in
   // één gevuld pad. Zo zijn er geen knikjes of gaten, ook niet in scherpe haarspeldbochten.
   const inkCache = new WeakMap();
+  // Vulpen-inkt staat standaard uit: dan schrijft de pen precies zoals vóór v24.4 (strak, vaste dikte).
+  const INK_KEY = "remy-ipad-ink";
+  let fountainInk = (() => { try { return localStorage.getItem(INK_KEY) === "vulpen"; } catch (error) { return false; } })();
   const smoothBrush = brush => brush === "pen" || brush === "fineliner" || brush === "marker";
 
   // Punten (met w) langs de vloeiende curve, fijn genoeg om als rechte stukjes te tekenen.
@@ -157,7 +160,7 @@
   function drawInk(ctx, stroke, from) {
     const brush = stroke.brush || "pen";
     const points = stroke.points;
-    if (!smoothBrush(brush) || stroke.shape || points.length < 2) return false;
+    if (!fountainInk || !smoothBrush(brush) || stroke.shape || points.length < 2) return false;
     const variable = hasWidths(points);
     if (from > 0) {
       // Live tekenen: alleen de staart, met twee punten overlap zodat de curve aansluit.
@@ -748,6 +751,8 @@
   function documentLabel(doc) {
     if (doc.formType === "dwat-akf") return `DWAT/AKF: ${doc.title || "Zonder titel"}`;
     if (doc.formType === "lws") return `LWS: ${doc.title || "Zonder titel"}`;
+    if (doc.formType === "lmra") return `LMRA: ${doc.title || "Zonder titel"}`;
+    if (doc.formType === "tra") return `TRA: ${doc.title || "Zonder titel"}`;
     return `${doc.kind === "page" ? "Schrift" : doc.pdf ? "PDF" : "Bord"}: ${doc.title || "Zonder titel"}`;
   }
 
@@ -949,6 +954,224 @@
     container.append(round, heading("Observaties / bijzonderheden"), observations);
   }
 
+  // ---- LMRA en TRA (v24.6) ----
+  // Kinney: Risico = Waarschijnlijkheid × Blootstelling × Effect. De uitleg staat ingeklapt onderaan.
+  const KINNEY = {
+    w: [["10", "10 · te verwachten"], ["6", "6 · goed mogelijk"], ["3", "3 · ongewoon, maar mogelijk"], ["1", "1 · alleen achteraf voorstelbaar"],
+      ["0.5", "0,5 · denkbaar, onwaarschijnlijk"], ["0.2", "0,2 · praktisch onmogelijk"], ["0.1", "0,1 · vrijwel onmogelijk"]],
+    b: [["10", "10 · voortdurend"], ["6", "6 · dagelijks, tijdens werktijd"], ["3", "3 · wekelijks / af en toe"], ["2", "2 · maandelijks"],
+      ["1", "1 · een paar keer per jaar"], ["0.5", "0,5 · zeer zelden"]],
+    e: [["100", "100 · ramp, meerdere doden"], ["40", "40 · zeer ernstig, één dode"], ["15", "15 · ernstig, blijvend letsel"], ["7", "7 · aanzienlijk, verzuim"],
+      ["3", "3 · belangrijk, EHBO/arts"], ["1", "1 · gering, schrammetje"]]
+  };
+  function kinneyClass(r) {
+    if (r > 400) return { label: "Zeer hoog: werk stoppen", tone: "k5" };
+    if (r > 200) return { label: "Hoog: direct maatregelen", tone: "k4" };
+    if (r > 70) return { label: "Aanzienlijk: maatregel nodig", tone: "k3" };
+    if (r > 20) return { label: "Mogelijk: aandacht", tone: "k2" };
+    return { label: "Aanvaardbaar", tone: "k1" };
+  }
+  function kinneyScore(prefix) {
+    const w = Number(fieldValue(`${prefix}.w`)), b = Number(fieldValue(`${prefix}.b`)), e = Number(fieldValue(`${prefix}.e`));
+    return w && b && e ? Math.round(w * b * e * 10) / 10 : null;
+  }
+  function kinneySelect(key, options, label) {
+    const select = document.createElement("select");
+    select.dataset.measureField = key;
+    select.setAttribute("aria-label", label);
+    select.append(Object.assign(document.createElement("option"), { value: "", textContent: label }));
+    for (const [value, text] of options) select.append(Object.assign(document.createElement("option"), { value, textContent: text }));
+    select.value = String(fieldValue(key));
+    return select;
+  }
+  function kinneyResult(prefix) {
+    const span = document.createElement("span");
+    span.className = "kinney-r";
+    span.dataset.kinney = prefix;
+    return span;
+  }
+  function refreshKinney() {
+    document.querySelectorAll("#measurement-editor [data-kinney]").forEach(span => {
+      const r = kinneyScore(span.dataset.kinney);
+      if (r === null) { span.textContent = "–"; span.dataset.tone = ""; return; }
+      const cls = kinneyClass(r);
+      span.textContent = `${String(r).replace(".", ",")} · ${cls.label}`;
+      span.dataset.tone = cls.tone;
+    });
+  }
+  function kinneyHelp() {
+    const details = document.createElement("details");
+    details.className = "kinney-help";
+    const summary = document.createElement("summary");
+    summary.textContent = "ℹ️ Uitleg Kinney: Risico = W × B × E";
+    details.append(summary,
+      table(["W · Waarschijnlijkheid", "Betekenis"], KINNEY.w.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
+      table(["B · Blootstelling", "Betekenis"], KINNEY.b.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
+      table(["E · Effect", "Betekenis"], KINNEY.e.map(([v, t]) => [v, t.split(" · ")[1]])),
+      table(["Risico (R)", "Klasse", "Wat doen"], [["> 400", "Zeer hoog", "Werk stoppen, niet beginnen"], ["200 – 400", "Hoog", "Direct maatregelen nemen"],
+        ["70 – 200", "Aanzienlijk", "Maatregel nodig vóór start"], ["20 – 70", "Mogelijk", "Aandacht, maatregel overwegen"], ["≤ 20", "Aanvaardbaar", "Doorgaan, alert blijven"]]));
+    return details;
+  }
+
+  const LMRA_QUESTIONS = [
+    ["task", "Ik weet precies wat ik ga doen en hoe (werkinstructie / TRA bekend)"],
+    ["skill", "Ik ben bevoegd en opgeleid voor dit werk"],
+    ["permit", "Werkvergunning en LOTO geregeld: vrijgeschakeld, gelockt en getest (spanningsloos / drukloos)"],
+    ["ppe", "Ik heb de juiste PBM bij me en ze zijn in orde"],
+    ["tools", "Gereedschap en hulpmiddelen zijn gekeurd en in orde"],
+    ["place", "Werkplek is veilig: geen struikel-, val- of knelgevaar, genoeg licht en ruimte"],
+    ["chem", "Gevaarlijke stoffen (zoals natronloog, zoutzuur, chloor, ozon) zijn bekend en beheerst"],
+    ["special", "Besloten ruimte, werken op hoogte of alleen werken: maatregelen genomen"],
+    ["inform", "Controlekamer en collega's weten dat ik hier aan het werk ben"],
+    ["emergency", "Ik weet wat ik doe bij nood: vluchtweg, BHV, alarmnummer"]
+  ];
+  function lmraOutcome(formData = active().formData) {
+    const answers = LMRA_QUESTIONS.map(([key]) => formData[`q.${key}`] || "");
+    if (answers.includes("nee")) return { tone: "stop", label: "⛔ STOP: eerst oplossen of melden" };
+    if (answers.every(Boolean)) return { tone: "ok", label: "✅ Veilig om te starten" };
+    return { tone: "open", label: `Nog ${answers.filter(value => !value).length} van ${answers.length} vragen open` };
+  }
+  function answerSelect(key) {
+    const select = document.createElement("select");
+    select.dataset.measureField = key;
+    for (const [value, text] of [["", "–"], ["ja", "Ja"], ["nee", "Nee"], ["nvt", "n.v.t."]]) select.append(Object.assign(document.createElement("option"), { value, textContent: text }));
+    select.value = String(fieldValue(key));
+    select.dataset.answer = select.value;
+    return select;
+  }
+  function textBox(key, placeholder) {
+    const area = document.createElement("textarea");
+    area.dataset.measureField = key;
+    area.value = String(fieldValue(key));
+    area.placeholder = placeholder;
+    area.className = "short";
+    return area;
+  }
+
+  function renderLmra(container) {
+    const visit = document.createElement("div");
+    visit.className = "measure-grid";
+    visit.append(measurementInput("visit.date", "Datum", "date"), measurementInput("visit.start", "Tijd", "time"),
+      measurementInput("lmra.location", "Locatie"), measurementInput("lmra.task", "Werkzaamheden"),
+      measurementInput("lmra.who", "Uitvoerder(s)"), measurementInput("lmra.permit", "Werkvergunning nr."));
+    const outcome = document.createElement("p");
+    outcome.className = "lmra-outcome";
+    outcome.id = "lmra-outcome";
+    container.append(heading("Laatste Minuut Risico Analyse"), visit, outcome, heading("Vóór je begint"));
+    const questions = table(["Vraag", "Antwoord"], LMRA_QUESTIONS.map(([key, text]) => [text, answerSelect(`q.${key}`)]));
+    questions.classList.add("lmra-questions");
+    container.append(questions);
+    container.append(heading("Extra gevaren en maatregelen"), textBox("lmra.measures", "Wat zie je nog en wat doe je eraan?"));
+    const quick = document.createElement("details");
+    quick.className = "kinney-quick";
+    const summary = document.createElement("summary");
+    summary.textContent = "🧮 Twijfel over een gevaar? Reken het snel uit met Kinney";
+    const row = document.createElement("div");
+    row.className = "kinney-row";
+    row.append(kinneySelect("lmra.k.w", KINNEY.w, "W"), kinneySelect("lmra.k.b", KINNEY.b, "B"), kinneySelect("lmra.k.e", KINNEY.e, "E"), kinneyResult("lmra.k"));
+    quick.append(summary, row, kinneyHelp());
+    const sign = document.createElement("div");
+    sign.className = "check-row";
+    sign.append(checkbox("lmra.ok", "Ik begin pas als alles veilig is, en stop als de situatie verandert"));
+    container.append(quick, sign);
+  }
+
+  const TRA_ROWS = 12;
+  function renderTra(container) {
+    const visit = document.createElement("div");
+    visit.className = "measure-grid";
+    visit.append(measurementInput("visit.date", "Datum", "date"), measurementInput("tra.job", "Opdracht / werkzaamheden"),
+      measurementInput("tra.location", "Locatie"), measurementInput("tra.author", "Opgesteld door"),
+      measurementInput("tra.team", "Uitvoerenden"), measurementInput("tra.permit", "Werkvergunning nr."));
+    container.append(heading("Taak Risico Analyse"), visit);
+    const shown = Math.max(3, Math.min(TRA_ROWS, Number(fieldValue("tra.rows")) || 3));
+    const rows = [];
+    for (let i = 1; i <= shown; i++) {
+      const p = `tra.${i}`;
+      rows.push([String(i), measurementCell(`${p}.step`), measurementCell(`${p}.hazard`),
+        kinneySelect(`${p}.w`, KINNEY.w, "W"), kinneySelect(`${p}.b`, KINNEY.b, "B"), kinneySelect(`${p}.e`, KINNEY.e, "E"), kinneyResult(p),
+        measurementCell(`${p}.measure`),
+        kinneySelect(`${p}.after.w`, KINNEY.w, "W"), kinneySelect(`${p}.after.b`, KINNEY.b, "B"), kinneySelect(`${p}.after.e`, KINNEY.e, "E"), kinneyResult(`${p}.after`)]);
+    }
+    container.append(heading("Stappen, gevaren en maatregelen"),
+      table(["#", "Taakstap", "Gevaar", "W", "B", "E", "Risico", "Maatregel", "W na", "B na", "E na", "Risico na"], rows));
+    if (shown < TRA_ROWS) {
+      const more = Object.assign(document.createElement("button"), { type: "button", textContent: "+ Stap erbij" });
+      more.addEventListener("click", () => { active().formData["tra.rows"] = String(shown + 1); persist(); renderMeasurementForm(); });
+      container.append(more);
+    }
+    container.append(heading("Opmerkingen"), textBox("tra.notes", "Afspraken, toolbox, wie is aanspreekpunt"), kinneyHelp());
+  }
+
+  // Na elke wijziging: risico's, uitkomst en titel bijwerken (zonder het formulier opnieuw op te bouwen).
+  function refreshSafetyForm() {
+    const doc = active();
+    if (doc.formType !== "lmra" && doc.formType !== "tra") return;
+    refreshKinney();
+    document.querySelectorAll("#measurement-editor select[data-measure-field^='q.']").forEach(select => { select.dataset.answer = select.value; });
+    const outcome = $("lmra-outcome");
+    if (outcome) { const result = lmraOutcome(); outcome.textContent = result.label; outcome.dataset.tone = result.tone; }
+    const date = doc.formData["visit.date"] ? new Date(`${doc.formData["visit.date"]}T12:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "";
+    const what = doc.formType === "lmra" ? doc.formData["lmra.task"] : doc.formData["tra.job"];
+    const title = [date, doc.formType === "lmra" ? doc.formData["visit.start"] : "", what].filter(Boolean).join(" · ").slice(0, 110) || (doc.formType === "lmra" ? "LMRA" : "TRA");
+    if (doc.title !== title) { doc.title = title; $("title").value = title; list(doc.folderId || null); }
+    renderLmraCard();
+  }
+
+  const isoToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  function latestSafety(type) {
+    const docs = data.documents.filter(doc => doc.formType === type);
+    const key = doc => `${doc.formData["visit.date"] || ""}T${doc.formData["visit.start"] || ""}|${doc.formData["meta.created"] || ""}`;
+    return docs.sort((a, b) => key(b).localeCompare(key(a)))[0] || null;
+  }
+  function newSafetyForm(type) {
+    finish();
+    const definition = defaultFolders.find(item => item.forms);
+    const folder = definition && fixedFolder(definition);
+    const doc = M.createMeasurementDocument(type, crypto.randomUUID());
+    const now = new Date();
+    doc.formData = { "visit.date": isoToday(), "meta.created": now.toISOString() };
+    if (type === "lmra") doc.formData["visit.start"] = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    // Vorige LMRA van vandaag: locatie en uitvoerders alvast overnemen, dat scheelt typen.
+    const previous = latestSafety(type);
+    if (previous && type === "lmra") for (const field of ["lmra.location", "lmra.who"]) if (previous.formData[field]) doc.formData[field] = previous.formData[field];
+    doc.folderId = folder ? folder.id : null;
+    data.documents.push(doc);
+    data.activeId = doc.id;
+    if (!persist()) throw new Error("Nieuwe lijst niet aangemaakt: opslag mislukt.");
+    tab("writing");
+    selectDocument();
+  }
+  function openSafety(type) {
+    const doc = latestSafety(type);
+    if (!doc) { newSafetyForm(type); return; }
+    finish();
+    data.activeId = doc.id;
+    persist();
+    tab("writing");
+    selectDocument();
+  }
+
+  // Op Vandaag en in de bovenbalk: de laatste LMRA in één oogopslag.
+  function renderLmraCard() {
+    const card = $("lmra-card");
+    const doc = data && latestSafety("lmra");
+    const quick = $("lmra-quick");
+    if (!card) return;
+    const status = $("lmra-card-status");
+    if (!doc) {
+      status.textContent = "Nog geen LMRA ingevuld.";
+      card.dataset.tone = "open";
+      if (quick) quick.textContent = "⚡ LMRA";
+      return;
+    }
+    const result = lmraOutcome(doc.formData);
+    const today = doc.formData["visit.date"] === isoToday();
+    status.textContent = `${today ? "Vandaag" : doc.formData["visit.date"] || ""} ${doc.formData["visit.start"] || ""} · ${doc.formData["lmra.task"] || "geen taak ingevuld"} · ${result.label}`;
+    card.dataset.tone = today ? result.tone : "old";
+    if (quick) quick.textContent = today ? `⚡ LMRA ${result.tone === "ok" ? "✅" : result.tone === "stop" ? "⛔" : "…"}` : "⚡ LMRA";
+  }
+
   function renderMeasurementForm() {
     const container = $("measurement-editor");
     container.replaceChildren();
@@ -956,9 +1179,27 @@
     const sheet = document.createElement("article");
     sheet.className = "measurement-sheet";
     const title = document.createElement("h3");
-    title.textContent = active().formType === "dwat-akf" ? "Logboek DWAT / AKF-meetstaat" : "Logboek LWS Andijk";
+    const type = active().formType;
+    title.textContent = { "dwat-akf": "Logboek DWAT / AKF-meetstaat", lws: "Logboek LWS Andijk", lmra: "⚡ LMRA", tra: "📋 TRA" }[type];
     const help = document.createElement("p");
     help.className = "measurement-help";
+    if (type === "lmra" || type === "tra") {
+      help.textContent = type === "lmra"
+        ? "Loop dit vlak voor je begint even door. Eén keer Nee = niet beginnen: eerst oplossen of melden. Alles wordt bewaard en staat op al je apparaten."
+        : "Werk de taak stap voor stap uit: wat kan er misgaan, hoe groot is het risico (Kinney), wat doe je eraan en wat blijft er over.";
+      const actions = document.createElement("div");
+      actions.className = "panel-actions";
+      for (const [label, kind] of [["⚡ Nieuwe LMRA", "lmra"], ["📋 Nieuwe TRA", "tra"]]) {
+        const button = Object.assign(document.createElement("button"), { type: "button", textContent: label });
+        button.addEventListener("click", () => { try { newSafetyForm(kind); } catch (error) { report(error); } });
+        actions.append(button);
+      }
+      sheet.append(title, help, actions);
+      if (type === "lmra") renderLmra(sheet); else renderTra(sheet);
+      container.append(sheet);
+      refreshKinney();
+      return;
+    }
     help.textContent = "Vul deze vaste meetstatus in, neem de waarden over in het officiële logboek en maak de lijst daarna leeg. Alles wordt automatisch bewaard en staat op al je apparaten. Tik op 🎤 om in te spreken.";
     const clearButton = document.createElement("button");
     clearButton.type = "button";
@@ -996,6 +1237,7 @@
     list(doc.folderId || null);
     renderFolderButtons();
     renderMeasurementForm();
+    refreshSafetyForm();
     if (isMeasurement(doc)) {
       pdfImages = [];
       $("pdf-original").disabled = true;
@@ -1446,6 +1688,7 @@
   const defaultFolders = [
     { key: "dwat-akf", title: "DWAT/AKF", formType: "dwat-akf" },
     { key: "lws", title: "LWS", formType: "lws" },
+    { key: "lmra-tra", title: "LMRA / TRA", forms: ["lmra", "tra"] },
     { key: "billa-meeting", title: "Billa / Meeting" },
     { key: "uf-ro", title: "UF-RO" },
     { key: "overveen", title: "Overveen" },
@@ -1468,6 +1711,7 @@
   function migrateFixedIds() {
     const renamed = [];
     for (const definition of defaultFolders) {
+      if (definition.forms) continue;
       const fixedId = fixedDocumentId(definition);
       if (data.documents.some(doc => doc.id === fixedId)) continue;
       const folder = fixedFolder(definition);
@@ -1503,7 +1747,7 @@
     }
     for (const doc of data.documents) {
       if (!doc.formType) continue;
-      const definition = defaultFolders.find(item => item.formType === doc.formType);
+      const definition = defaultFolders.find(item => item.formType === doc.formType || item.forms?.includes(doc.formType));
       if (!definition) continue;
       const folder = map.get(normalizedFolderTitle(definition.title));
       doc.folderId = folder.id;
@@ -1538,6 +1782,7 @@
     finish();
     const folder = fixedFolder(definition);
     if (!folder) throw new Error(`Werkmap ${definition.title} ontbreekt.`);
+    if (definition.forms) { openSafety("lmra"); return; }
     let doc = definition.formType
       ? data.documents.find(item => item.formType === definition.formType)
       : data.documents.find(item => item.folderId === folder.id);
@@ -1580,6 +1825,13 @@
     $("writing").querySelectorAll("button, input, select, textarea").forEach(el => { el.disabled = true; });
   }
 
+  if (!blocked) {
+    renderLmraCard();
+    $("lmra-quick").addEventListener("click", () => { try { openSafety("lmra"); } catch (error) { report(error); } });
+    $("lmra-card-open").addEventListener("click", () => { try { openSafety("lmra"); } catch (error) { report(error); } });
+    $("lmra-card-new").addEventListener("click", () => { try { newSafetyForm("lmra"); } catch (error) { report(error); } });
+    $("tra-card-open").addEventListener("click", () => { try { openSafety("tra"); } catch (error) { report(error); } });
+  }
   $("today-date").textContent = new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => tab(button.dataset.tab)));
 
@@ -1773,6 +2025,7 @@
         return strokes.length ? { canvas: inkCanvas(strokes), count: strokes.length } : null;
       },
       inkFor(strokes) { return inkCanvas(strokes); },
+      hasTypedSelection() { return !isMeasurement() && !!selection?.blocks?.length; },
       activeDocument() { return isMeasurement() ? null : active(); },
       selectedStrokes() {
         if (isMeasurement() || !selection?.indexes?.length) return [];
@@ -2075,12 +2328,14 @@
       if (!field || !isMeasurement()) return;
       active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
       persist();
+      refreshSafetyForm();
     });
     $("measurement-editor").addEventListener("change", event => {
       const field = event.target.dataset.measureField;
       if (!field || !isMeasurement()) return;
       active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
       persist();
+      refreshSafetyForm();
     });
     for (const field of ["title", "text"]) $(field).addEventListener("input", () => {
       active()[field] = $(field).value;
@@ -2303,6 +2558,15 @@
     };
     try { const saved = localStorage.getItem(STEADY_KEY); if (saved !== null) setSteady(saved); } catch (error) { /* standaard 3 */ }
     $("steady").addEventListener("input", () => setSteady($("steady").value));
+    const setInk = on => {
+      fountainInk = !!on;
+      $("fountain").checked = $("quick-fountain").checked = fountainInk;
+      try { localStorage.setItem(INK_KEY, fountainInk ? "vulpen" : "gewoon"); } catch (error) { /* alleen gemak */ }
+      render();
+    };
+    $("fountain").checked = $("quick-fountain").checked = fountainInk;
+    $("fountain").addEventListener("change", () => setInk($("fountain").checked));
+    $("quick-fountain").addEventListener("change", () => setInk($("quick-fountain").checked));
     $("quick-steady").addEventListener("input", () => setSteady($("quick-steady").value));
     $("quick-width").addEventListener("input", () => {
       $("width").value = $("quick-width").value;
@@ -2385,7 +2649,7 @@
         if (!$("shape").value && steady > 0 && gesture.stroke.brush !== "highlighter") {
           gesture.steady = { x: point.x, y: point.y, radius: steady * 1.5 / active().view.scale };
         }
-        if (!$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
+        if (fountainInk && !$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
           point.w = .85;
           gesture.ink = { t: event.timeStamp, cx: event.clientX, cy: event.clientY };
         }

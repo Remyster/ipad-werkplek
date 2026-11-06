@@ -25,6 +25,7 @@
   <script src="./agenda.js" defer></script>
   <script src="./slim.js" defer></script>
   <script src="./nu.js" defer></script>
+  <script src="./woord.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -48,6 +49,7 @@
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
     <button data-tab="hubs" aria-pressed="false">AI Hub &amp; projecten</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
+    <button id="lmra-quick" type="button" class="lmra-quick" title="Laatste LMRA openen of een nieuwe maken">⚡ LMRA</button>
   </nav>
   <div id="error" role="alert" hidden></div>
   <aside id="update-status" role="status" hidden>Nieuwe appversie beschikbaar. Rond je penstreek af en herlaad de pagina om de update te gebruiken. Je lokale notities blijven bewaard.</aside>
@@ -55,6 +57,10 @@
     <section id="today">
       <p class="eyebrow" id="today-date"></p>
       <h2>Een rustige start</h2>
+      <article id="lmra-card" class="lmra-card" aria-label="Laatste LMRA">
+        <span class="eyebrow">⚡ LMRA</span><p id="lmra-card-status">Laden…</p>
+        <div class="panel-actions"><button id="lmra-card-new" type="button">⚡ Nieuwe LMRA</button><button id="lmra-card-open" type="button">Laatste openen</button><button id="tra-card-open" type="button">📋 TRA</button></div>
+      </article>
       <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
         <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
         <div class="prio-grid">
@@ -222,9 +228,9 @@
               <button id="highlighter-tool" class="icon-tool" aria-pressed="false" title="Transparante markeerstift"><span aria-hidden="true">▱</span><small>Markeer</small></button>
               <button id="text-tool" class="icon-tool" aria-pressed="false" title="Typen op het blad (ook met je telefoontoetsenbord)"><span aria-hidden="true">T</span><small>Tekst</small></button>
               <button id="eraser" class="icon-tool" aria-pressed="false" title="Gum: wis alleen het geraakte stukje"><span aria-hidden="true">⌫</span><small>Gum</small></button>
-              <button id="scratch-eraser" class="icon-tool" aria-pressed="false" title="Krabbel door een woord om de geraakte penstreken te verwijderen"><span aria-hidden="true">〽</span><small>Kras weg</small></button>
+              <button hidden id="scratch-eraser" class="icon-tool" aria-pressed="false" title="Krabbel door een woord om de geraakte penstreken te verwijderen"><span aria-hidden="true">〽</span><small>Kras weg</small></button>
               <button id="select-ink" class="icon-tool" aria-pressed="false" title="Omcirkel zelf wat je wilt selecteren"><span aria-hidden="true">◌</span><small>Lasso</small></button>
-              <button id="move" class="icon-tool" aria-pressed="false" title="Schuif het blad of whiteboard"><span aria-hidden="true">✋</span><small>Schuif</small></button>
+              <button hidden id="move" class="icon-tool" aria-pressed="false" title="Schuif het blad of whiteboard"><span aria-hidden="true">✋</span><small>Schuif</small></button>
               <button id="shape-tool" class="icon-tool" aria-expanded="false" title="Vormen en pictogrammen"><span aria-hidden="true">○□</span><small>Vormen</small></button>
               <button id="undo" class="icon-tool" title="Ongedaan: haal het laatst geschrevene weer weg" aria-label="Ongedaan"><span aria-hidden="true">↶</span><small>Ongedaan</small></button>
               <button id="redo" class="icon-tool" title="Opnieuw: zet het ongedaan gemaakte terug" aria-label="Opnieuw"><span aria-hidden="true">↷</span><small>Opnieuw</small></button>
@@ -241,7 +247,8 @@
                 <button type="button" data-color="#ee8bd3" style="--swatch:#ee8bd3" aria-label="Roze"></button>
               </div>
               <label class="width-tool">Dikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
-              <label class="width-tool" title="Stabilisator: hoe hoger, hoe rustiger en strakker je lijnen (trillen wordt weggefilterd)">Rustig <input id="steady" type="range" min="0" max="10" step="1" value="3"><output id="steady-value">3</output></label>
+              <label class="width-tool" title="Stabilisator: hoe hoger, hoe rustiger en strakker je lijnen (trillen wordt weggefilterd)">Rustig <input id="steady" type="range" min="0" max="10" step="1" value="0"><output id="steady-value">0</output></label>
+              <label class="width-tool" title="Vulpen: lijnen worden glad en dunner als je snel schrijft. Uit = strakke pen met vaste dikte."><input id="fountain" type="checkbox"> Vulpen</label>
               <label class="eraser-tool">Gum <select id="eraser-size"><option value="6">Klein</option><option value="12" selected>Normaal</option><option value="24">Groot</option><option value="40">Extra groot</option></select></label>
               <select id="brush" class="visually-hidden" aria-label="Pensoort"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select>
               <select id="shape" class="visually-hidden" aria-label="Vorm of pictogram"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select>
@@ -273,7 +280,8 @@
               <button type="button" class="quick-task" data-quick-task="subtaak">Opslaan als subtaak</button>
               <label>Kleur <input id="quick-color" type="color" value="#173c39"></label>
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
-              <label title="Stabilisator: hoger = rustiger lijnen">Rustig <input id="quick-steady" type="range" min="0" max="10" value="3"></label>
+              <label title="Stabilisator: hoger = rustiger lijnen">Rustig <input id="quick-steady" type="range" min="0" max="10" value="0"></label>
+              <label><input id="quick-fountain" type="checkbox"> Vulpen-inkt</label>
             </div>
             <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences" lang="nl" spellcheck="true" autocorrect="on"></textarea>
             <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>
@@ -376,5 +384,15 @@
     <p id="task-status" role="status"></p>
   </dialog>
   <div id="toast" role="status" aria-live="polite" hidden></div>
+  <button id="word-fab" type="button" aria-expanded="false" aria-controls="word-panel" title="Moeilijk woord? Tik voor uitleg">📖</button>
+  <aside id="word-panel" hidden aria-label="Woordhulp">
+    <div class="word-head"><strong>📖 Wat betekent…</strong><button id="word-close" type="button" aria-label="Sluiten">✕</button></div>
+    <div class="word-row"><input id="word-input" type="text" lang="nl" autocomplete="off" autocapitalize="off" placeholder="Woord of afkorting, bijv. troebelheid of LOTO"><button id="word-go" type="button">Leg uit</button></div>
+    <label id="word-consent-row" class="finger-option" hidden><input id="word-consent" type="checkbox"> AI (Gemini, buiten PWN) mag dit woord krijgen. Wordt onthouden.</label>
+    <p id="word-status" role="status"></p>
+    <p id="word-answer" hidden></p>
+    <p class="smart-empty">Tip: omcirkel eerst een woord met de lasso, dan staat het hier al ingevuld.</p>
+    <div class="word-list-wrap"><span id="word-list-head" hidden>Mijn woordenlijst <button id="word-clear" type="button">wis</button></span><div id="word-list"></div></div>
+  </aside>
 </body>
 </html>

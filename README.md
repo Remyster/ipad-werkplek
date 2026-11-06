@@ -864,3 +864,15 @@ zijn nog niet geverifieerd.
 
 - **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt als een touwtje: het lijnpunt komt pas mee als de pen verder dan een kleine straal weg is, dus trillen en bibberen verdwijnen terwijl snelle halen direct blijven. De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
 - **📏 Recht** in het lasso-menu: zoekt de regels in je selectie, draait elke regel recht, maakt de lettergrootte gelijk (binnen 75–133%, het blijft jouw handschrift), zet ze op een schriftblad precies op de lijnen en op een bord op gelijke afstand, en lijnt de linkerkant uit (inspringingen blijven). Ongedaan zet het terug.
+
+## Versie 24.6
+
+- **Inkt standaard weer "gewoon":** strakke pen met vaste dikte, precies zoals vóór v24.4. De vulpen-inkt (glad, dunner bij snel schrijven) staat als vinkje **Vulpen** naast Rustig en in het lang-drukken-menu. Rustig staat op een nieuw apparaat standaard op 0.
+- **Kras weg** en **Schuif** zijn uit de werkbalk. Doorkrassen met de pen (krabbelen) werkt nog gewoon, en schuiven gaat met je vinger of met twee vingers.
+- **📖 Woordhulp:** zwevende knop rechtsonder, overal in de app. Typ een woord of afkorting (of omcirkel het eerst met de lasso, dan staat het al ingevuld) en tik **Leg uit**: Gemini legt het in gewone taal uit, met de PWN/drinkwater-context erbij. Elk uitgelegd woord komt in **Mijn woordenlijst** (op dit apparaat); een woord uit de lijst kost geen AI-aanroep meer.
+- **⚡ LMRA en 📋 TRA**, in de nieuwe werkmap **LMRA / TRA**:
+  - LMRA: datum, tijd, locatie, werk, uitvoerders, vergunning; tien vragen Ja/Nee/n.v.t.; één Nee geeft meteen **⛔ STOP**, alles beantwoord geeft **✅ Veilig om te starten**. Locatie en uitvoerders worden van je vorige LMRA overgenomen. Ingeklapt: snelle Kinney-berekening voor één gevaar.
+  - TRA: per taakstap het gevaar, Kinney vóór (W × B × E), de maatregel en Kinney erna, met kleur per risicoklasse. Begint met 3 stappen, tot 12 met **+ Stap erbij**.
+  - De uitleg van Kinney (alle factoren en risicoklassen) staat ingeklapt onderaan.
+  - **Snel te zien:** knop **⚡ LMRA** in de bovenbalk (met ✅ / ⛔ voor vandaag) en een LMRA-balk bovenaan Vandaag met de laatste LMRA, **Nieuwe LMRA**, **Laatste openen** en **TRA**.
+  - Gaat mee in de cloud-sync, net als de andere formulieren.

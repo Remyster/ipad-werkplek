@@ -284,3 +284,49 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 #drawing-tools[data-tool="text"] ~ #surface #drawing, .tool-text #drawing { cursor: text; }
 
 .box-row { display: block; width: 100%; text-align: left; margin: 0 0 4px; padding: 6px 8px; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 📖 Woordhulp */
+#word-fab { position: fixed; z-index: 30; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px)); width: 56px; height: 56px; border-radius: 50%; border: 0; background: #245b87; color: #fff; font-size: 1.6rem; box-shadow: 0 8px 22px rgb(0 0 0 / 28%); }
+#word-fab[aria-expanded="true"] { background: #173c39; }
+#word-panel { position: fixed; z-index: 32; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 70px); width: min(380px, calc(100vw - 32px)); max-height: 70dvh; overflow: auto; padding: 14px; border-radius: 16px; background: #fff; border: 1px solid #b4c4b9; box-shadow: 0 14px 34px rgb(0 0 0 / 25%); }
+.word-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.word-head button { min-height: 36px; padding: 4px 10px; }
+.word-row { display: flex; gap: 8px; }
+.word-row input { flex: 1; min-height: 44px; padding: 8px; border: 1px solid #b4c4b9; border-radius: 8px; font-size: 1rem; }
+#word-answer { background: #f2f7f4; border-left: 4px solid #245b87; padding: 10px 12px; border-radius: 8px; line-height: 1.45; }
+#word-status { min-height: 1.2em; color: #50645c; font-size: .9rem; margin: 6px 0; }
+.word-list-wrap span { display: block; font-size: .8rem; color: #50645c; margin: 6px 0 4px; }
+.word-list-wrap span button { min-height: 0; padding: 0 6px; font-size: .75rem; }
+.word-chip { min-height: 34px; padding: 4px 10px; margin: 0 6px 6px 0; border-radius: 999px; font-size: .85rem; }
+
+/* LMRA / TRA */
+.lmra-quick { background: #fff3d6; border-color: #e0b44a; font-weight: 700; }
+.lmra-card { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px; margin-bottom: 12px; border-radius: 14px; border: 2px solid #c9d2d8; background: #fff; }
+.lmra-card p { flex: 1 1 260px; margin: 0; font-weight: 600; }
+.lmra-card .panel-actions { margin: 0; }
+.lmra-card[data-tone="ok"] { border-color: #3a9d6a; background: #eef8f2; }
+.lmra-card[data-tone="stop"] { border-color: #d33b32; background: #fdeeed; }
+.lmra-card[data-tone="open"] { border-color: #e0b44a; background: #fff8e8; }
+.lmra-outcome { font-weight: 700; font-size: 1.05rem; padding: 10px 12px; border-radius: 10px; margin: 12px 0 0; background: #fff8e8; border: 2px solid #e0b44a; }
+.lmra-outcome[data-tone="ok"] { background: #eef8f2; border-color: #3a9d6a; }
+.lmra-outcome[data-tone="stop"] { background: #fdeeed; border-color: #d33b32; color: #8f1d17; }
+.measurement-sheet select { min-height: 42px; padding: 6px; border: 1px solid #b4c4b9; border-radius: 7px; background: #fff; max-width: 100%; }
+.measurement-sheet select[data-answer="ja"] { background: #e3f4ea; border-color: #3a9d6a; }
+.measurement-sheet select[data-answer="nee"] { background: #fbe1df; border-color: #d33b32; font-weight: 700; }
+.measurement-sheet select[data-answer="nvt"] { background: #eef1f3; }
+.measurement-sheet textarea.short { min-height: 90px; }
+.kinney-r { display: inline-block; min-width: 120px; padding: 6px 8px; border-radius: 7px; font-weight: 700; font-size: .8rem; background: #eef1f3; }
+.kinney-r[data-tone="k1"] { background: #e3f4ea; color: #1f6b43; }
+.kinney-r[data-tone="k2"] { background: #fff3c4; color: #7a5a00; }
+.kinney-r[data-tone="k3"] { background: #ffe0b8; color: #8a4b00; }
+.kinney-r[data-tone="k4"] { background: #fbd0cc; color: #8f1d17; }
+.kinney-r[data-tone="k5"] { background: #d33b32; color: #fff; }
+.kinney-quick, .kinney-help { margin-top: 14px; border: 1px solid #c9d2d8; border-radius: 10px; padding: 8px 12px; background: #fafcfb; }
+.kinney-quick summary, .kinney-help summary { font-weight: 700; cursor: pointer; }
+.kinney-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.kinney-help table { min-width: 0; margin-top: 8px; }
+.measurement-sheet table select { width: 96px; min-width: 0; }
+.lmra-questions table { min-width: 0; font-size: .95rem; }
+.lmra-questions td:first-child { background: #fff; font-weight: 500; }
+.lmra-questions td:last-child { width: 110px; }
+.measurement-sheet td input[data-measure-field$=".step"], .measurement-sheet td input[data-measure-field$=".hazard"], .measurement-sheet td input[data-measure-field$=".measure"] { min-width: 170px; }
