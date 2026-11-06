@@ -46,20 +46,31 @@
     }));
   }
 
-  async function load() {
+  // Gedeeld met de Week-tab: haalt `days` dagen op en gooit een leesbare fout.
+  // fout.kind: "login" (niet ingelogd of verlopen) of "setup" (iCal-secret ontbreekt).
+  async function fetchItems(days) {
     let token;
     try { token = window.WorkplaceConnections.session(localStorage); }
+    catch (error) { throw Object.assign(new Error("Log in bij WerkHub om je agenda te zien."), { kind: "login" }); }
+    const config = await window.WorkplaceConnections.config();
+    const response = await fetch(`${ENDPOINT}?days=${days}`, {
+      cache: "no-store", credentials: "omit", headers: { apikey: config.key, Authorization: `Bearer ${token}` }
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.status === 503) throw Object.assign(new Error("Agenda nog niet ingesteld: zet je geheime iCal-adres in Supabase (secret AGENDA_ICS_URLS)."), { kind: "setup" });
+    if (response.status === 401) throw Object.assign(new Error("WerkHub-login verlopen. Log opnieuw in."), { kind: "login" });
+    if (!response.ok || !Array.isArray(body.items)) throw new Error(body.error || `HTTP ${response.status}`);
+    return body;
+  }
+
+  async function load() {
+    try { window.WorkplaceConnections.session(localStorage); }
     catch (error) { status.textContent = "Log in bij WerkHub (paneel hieronder) om je agenda te zien."; return; }
     status.textContent = "Agenda laden...";
     try {
-      const config = await window.WorkplaceConnections.config();
-      const response = await fetch(`${ENDPOINT}?days=2`, {
-        cache: "no-store", credentials: "omit", headers: { apikey: config.key, Authorization: `Bearer ${token}` }
-      });
-      const body = await response.json().catch(() => ({}));
-      if (response.status === 503) { status.textContent = "Agenda nog niet ingesteld: zet je geheime iCal-adres in Supabase (secret AGENDA_ICS_URLS)."; return; }
-      if (response.status === 401) { status.textContent = "WerkHub-login verlopen. Log opnieuw in."; return; }
-      if (!response.ok || !Array.isArray(body.items)) throw new Error(body.error || `HTTP ${response.status}`);
+      let body;
+      try { body = await fetchItems(2); }
+      catch (error) { if (error.kind) { status.textContent = error.message; return; } throw error; }
       render(body.items);
       window.WorkplaceAgenda.items = body.items;
       document.dispatchEvent(new CustomEvent("agenda-updated"));
@@ -74,6 +85,6 @@
   $("agenda-refresh").addEventListener("click", load);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
   setInterval(load, 15 * 60 * 1000);
-  window.WorkplaceAgenda = { load, render, items: null };
+  window.WorkplaceAgenda = { load, render, fetchItems, items: null };
   load();
 })();

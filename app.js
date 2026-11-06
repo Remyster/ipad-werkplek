@@ -21,6 +21,8 @@
   let pinch = null;
   let pdfImages = [];
   let pdfGeneration = 0;
+  // Scherpe PDF-stukken bij inzoomen (alleen wat in beeld is, op schermresolutie).
+  let sharpTiles = [], sharpKey = "", sharpTimer = null, sharpBusy = false;
   const emptyDiagnostics = () => ({ pen: 0, touch: 0, mouse: 0, other: 0, ignored: 0, cancelled: 0, last: "-", recent: [] });
   let diagnostics = emptyDiagnostics();
 
@@ -625,6 +627,37 @@
     ctx.restore();
   }
 
+  // PDF-pagina's pas decoderen als ze in beeld komen; maximaal ~14 tegelijk in het geheugen.
+  function decodePdfPage(page) {
+    if (page.loading || !page.blob) return;
+    page.loading = true;
+    const generation = pdfGeneration;
+    const done = image => {
+      page.loading = false;
+      if (generation !== pdfGeneration) { if (image && image.close) image.close(); return; }
+      page.image = image;
+      const loaded = pdfImages.filter(item => item.image);
+      if (loaded.length > 14) {
+        const doc = active();
+        const center = doc.view.y + 500 / doc.view.scale;
+        loaded.sort((a, b) => Math.abs(b.top - center) - Math.abs(a.top - center)).slice(0, loaded.length - 14).forEach(item => {
+          if (item.image && item.image.close) item.image.close();
+          item.image = null;
+        });
+      }
+      scheduleRender();
+    };
+    if (typeof createImageBitmap === "function") {
+      createImageBitmap(page.blob).then(done, () => { page.loading = false; });
+    } else {
+      const url = URL.createObjectURL(page.blob);
+      const image = new Image();
+      image.onload = () => { URL.revokeObjectURL(url); done(image); };
+      image.onerror = () => { URL.revokeObjectURL(url); page.loading = false; };
+      image.src = url;
+    }
+  }
+
   function paintScene(ctx, doc, viewport) {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
@@ -647,7 +680,13 @@
     }
     for (const page of pdfImages) {
       if (page.top <= viewport.bottom && page.top + page.height >= viewport.top) {
-        ctx.drawImage(page.image, 0, page.top, page.width, page.height);
+        if (page.image) ctx.drawImage(page.image, 0, page.top, page.width, page.height);
+        else decodePdfPage(page);
+      }
+    }
+    for (const tile of sharpTiles) {
+      if (tile.generation === pdfGeneration && M.intersectsBounds(tile.rect, viewport)) {
+        ctx.drawImage(tile.canvas, tile.rect.left, tile.rect.top, tile.rect.right - tile.rect.left, tile.rect.bottom - tile.rect.top);
       }
     }
     for (const stroke of doc.strokes) {
@@ -731,6 +770,49 @@
     livePoints = 0;
     drawLive();
     updateControls();
+    requestSharp();
+  }
+
+  // Ingezoomd op een PDF: na even stilhouden het zichtbare stuk scherp opnieuw tekenen vanuit de originele PDF.
+  function requestSharp() {
+    clearTimeout(sharpTimer);
+    const doc = active();
+    if (!doc || !doc.pdf || !pdfImages.length || !window.WorkplacePdf?.renderRegion) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const density = doc.view.scale * ratio;
+    const key = `${pdfGeneration}|${doc.view.x.toFixed(1)}|${doc.view.y.toFixed(1)}|${doc.view.scale.toFixed(3)}|${renderedWidth}x${renderedHeight}`;
+    if (key === sharpKey) return;
+    // Basisplaatje is ~1 pixel per eenheid (schrift iets meer): pas vanaf flink inzoomen opnieuw tekenen.
+    if (density <= 1.4) { if (sharpTiles.length) { sharpTiles = []; sharpKey = key; } return; }
+    sharpTimer = setTimeout(() => buildSharp(key, density), 220);
+  }
+
+  async function buildSharp(key, density) {
+    if (sharpBusy || (gesture && (gesture.stroke || gesture.tool === "move"))) { sharpTimer = setTimeout(() => requestSharp(), 300); return; }
+    const doc = active();
+    const generation = pdfGeneration;
+    const view = { left: doc.view.x, top: doc.view.y, right: doc.view.x + renderedWidth / doc.view.scale, bottom: doc.view.y + renderedHeight / doc.view.scale };
+    sharpBusy = true;
+    try {
+      const tiles = [];
+      for (const [index, page] of pdfImages.entries()) {
+        const rect = { left: Math.max(0, view.left), top: Math.max(page.top, view.top),
+          right: Math.min(page.width, view.right), bottom: Math.min(page.top + page.height, view.bottom) };
+        if (rect.right <= rect.left || rect.bottom <= rect.top) continue;
+        const region = { left: rect.left, top: rect.top - page.top, width: rect.right - rect.left, height: rect.bottom - rect.top };
+        const canvas = await window.WorkplacePdf.renderRegion(doc.pdf.id, index, region, page.width, density);
+        if (generation !== pdfGeneration || active() !== doc) return;
+        tiles.push({ generation, rect, canvas });
+        if (tiles.length >= 4) break;
+      }
+      sharpTiles = tiles;
+      sharpKey = key;
+      const current = `${pdfGeneration}|${doc.view.x.toFixed(1)}|${doc.view.y.toFixed(1)}|${doc.view.scale.toFixed(3)}|${renderedWidth}x${renderedHeight}`;
+      if (current === key) { sharpKey = key; render(); } else requestSharp();
+    } catch (error) {
+      console.warn("Werkplek: scherpe PDF lukt niet:", error.message);
+      sharpKey = key; // niet blijven proberen voor dit beeld
+    } finally { sharpBusy = false; }
   }
 
   function scheduleRender() {
@@ -1231,7 +1313,6 @@
     $("focus").disabled = isMeasurement(doc);
     $("writing-ai-open").disabled = isMeasurement(doc);
     $("writing-ai-recognize").disabled = isMeasurement(doc);
-    $("pdf-file").disabled = isMeasurement(doc);
     redo = [];
     undo = [];
     list(doc.folderId || null);
@@ -1251,17 +1332,23 @@
   async function loadPdf() {
     const generation = ++pdfGeneration;
     pdfImages = [];
+    sharpTiles = [];
+    sharpKey = "";
     const doc = active();
     $("pdf-original").disabled = !doc.pdf;
     $("pdf-status").textContent = doc.pdf
       ? `PDF laden: ${doc.pdf.name}`
-      : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.";
+      : "PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map.";
     if (!doc.pdf) return;
     try {
       if (!navigator.onLine) $("pdf-status").textContent = `PDF laden: ${doc.pdf.name} (offline: alleen als hij al op dit apparaat staat)`;
       const images = await window.WorkplacePdf.images(doc.pdf.id, doc.pdf.name);
       if (generation !== pdfGeneration) return;
-      pdfImages = images;
+      // In een schrift komt elke PDF-pagina op een eigen schriftpagina.
+      pdfImages = doc.kind === "page" ? images.map((page, index) => {
+        const fit = Math.min(800 / page.width, 1120 / page.height);
+        return { ...page, top: index * 1144, width: page.width * fit, height: page.height * fit };
+      }) : images;
       $("pdf-status").textContent = `${doc.pdf.name}: ${images.length} pagina's. Schrijf erop of ernaast; PDF-achtergrond blijft intact.`;
       render();
     } catch (error) {
@@ -1298,6 +1385,49 @@
     }
     selectDocument();
     notify(`"${removed.title || "Zonder titel"}" staat in de prullenbak.`, "Zet terug", () => restoreFromTrash(removed.id));
+  }
+
+  // ---- PDF-bibliotheek: alle PDF's, gesynchroniseerd (de bestanden zelf staan in de cloud-bucket) ----
+  function addToLibrary(reference, size, folderId) {
+    data.library = data.library || [];
+    if (data.library.some(item => item.id === reference.id)) return false;
+    data.library.push({ id: reference.id, name: String(reference.name || "document.pdf").slice(0, 255),
+      pages: Math.min(300, (reference.pages || []).length), size: Number(size) || 0,
+      folderTitle: folderId ? folderTitle(folderId).slice(0, 120) : null, addedAt: Date.now() });
+    document.dispatchEvent(new CustomEvent("library-changed"));
+    return true;
+  }
+  // PDF's die al in schriften/borden zitten ook in de bibliotheek zetten (eenmalig per apparaat).
+  function backfillLibrary() {
+    let added = false;
+    for (const doc of data.documents) {
+      if (doc.pdf && doc.pdf.id && /^[a-zA-Z0-9-]{8,80}$/.test(doc.pdf.id)) added = addToLibrary(doc.pdf, 0, doc.folderId) || added;
+    }
+    return added;
+  }
+  async function openFromLibrary(id, kind, folderId) {
+    finish();
+    const entry = (data.library || []).find(item => item.id === id);
+    if (!entry) throw new Error("Deze PDF staat niet meer in de bibliotheek.");
+    let reference;
+    try { reference = await window.WorkplacePdf.reference(id); }
+    catch (error) {
+      notify(`${entry.name} uit de cloud halen…`, "", null, 60000);
+      await window.WorkplacePdf.cloudFetch(id, entry.name);
+      reference = await window.WorkplacePdf.reference(id);
+    }
+    const doc = M.createDocument(kind, crypto.randomUUID());
+    doc.title = entry.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
+    doc.folderId = folderId === undefined ? (active().folderId || null) : folderId;
+    doc.pdf = reference;
+    if (kind === "page") doc.pages = Math.min(400, Math.max(1, reference.pages.length));
+    data.documents.push(doc);
+    data.activeId = doc.id;
+    if (!persist()) { data.documents = data.documents.filter(item => item !== doc); throw new Error("Opslaan mislukt."); }
+    tab("writing");
+    selectDocument();
+    notify(`${entry.name} geopend als ${kind === "page" ? "schrift" : "whiteboard"}. Schrijf er gewoon op.`, "", null, 5000);
+    return doc.id;
   }
 
   // Korte melding onderin met optioneel een knop (bijv. "Zet terug"). Verdwijnt vanzelf.
@@ -1348,8 +1478,9 @@
     if (event && event.type === "pointerup" && old.stroke) {
       addSamples([event]);
       if (old.steady && !old.stroke.shape) {
-        // Het touwtje loopt achter: laat de lijn eindigen waar de pen echt van het scherm ging.
+        // Het filter loopt een fractie achter: laat de lijn eindigen waar de pen echt van het scherm ging.
         const tip = M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view);
+        steadySettle(old.steady, tip, old.stroke.points);
         const last = old.stroke.points[old.stroke.points.length - 1];
         if (Math.hypot(tip.x - last.x, tip.y - last.y) > .3) old.stroke.points.push(last.w === undefined ? tip : { ...tip, w: last.w });
       }
@@ -1683,6 +1814,7 @@
     for (const section of ["today", "writing", "hubs", "ai"]) $(section).hidden = section !== name;
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
+    document.dispatchEvent(new CustomEvent("werkplek-tab", { detail: name }));
   }
 
   const defaultFolders = [
@@ -1695,7 +1827,10 @@
     { key: "waag", title: "Waag" },
     { key: "pwn-guidelines", title: "PWN Guidelines" },
     { key: "pwn-contacten-routes", title: "PWN Contacten en Routes" },
-    { key: "opleidingen-cursus", title: "Opleidingen / Cursus" }
+    { key: "opleidingen-cursus", title: "Opleidingen / Cursus" },
+    // Notities die je in de WerkHub-dump als "notitie" sorteert, komen hier als schriftblad binnen.
+    // Geen vast notitieblad: de knop opent de nieuwste notitie uit de dump.
+    { key: "uit-de-dump", title: "📥 Uit de Dump", inbox: true }
   ];
 
   function normalizedFolderTitle(value) {
@@ -1712,6 +1847,7 @@
     const renamed = [];
     for (const definition of defaultFolders) {
       if (definition.forms) continue;
+      if (definition.inbox) continue;
       const fixedId = fixedDocumentId(definition);
       if (data.documents.some(doc => doc.id === fixedId)) continue;
       const folder = fixedFolder(definition);
@@ -1783,6 +1919,14 @@
     const folder = fixedFolder(definition);
     if (!folder) throw new Error(`Werkmap ${definition.title} ontbreekt.`);
     if (definition.forms) { openSafety("lmra"); return; }
+    if (definition.inbox) {
+      const nieuwste = data.documents.filter(item => item.folderId === folder.id).pop();
+      if (!nieuwste) { notify("Nog niks uit de Dump. Wat je in WerkHub als notitie sorteert, komt hier als schriftblad binnen."); return; }
+      data.activeId = nieuwste.id;
+      if (!persist()) throw new Error(`Werkmap ${definition.title} kon niet worden geopend.`);
+      selectDocument();
+      return;
+    }
     let doc = definition.formType
       ? data.documents.find(item => item.formType === definition.formType)
       : data.documents.find(item => item.folderId === folder.id);
@@ -1817,6 +1961,7 @@
     purgeOldTrash();
     ensureDefaultFolders();
     migrateFixedIds();
+    backfillLibrary();
     persist();
   } catch (error) {
     blocked = true;
@@ -1853,6 +1998,29 @@
         });
       },
       hasDocument(id) { return data.documents.some(doc => doc.id === id); },
+      // ---- PDF-bibliotheek (library.js) ----
+      libraryList() { return (data.library || []).map(item => ({ ...item })); },
+      libraryFolders() { return data.folders.map(folder => ({ id: folder.id, title: folder.title })); },
+      currentFolderId() {
+        const chosen = $("content-folder").value;
+        if (chosen === noFolderValue) return null;
+        return chosen && data.folders.some(folder => folder.id === chosen) ? chosen : (active().folderId || null);
+      },
+      async libraryAdd(file, folderId, onProgress) {
+        const reference = await window.WorkplacePdf.importFile(file, null, onProgress);
+        addToLibrary(reference, file.size, folderId);
+        if (!persist()) throw new Error("Opslaan mislukt.");
+        window.WorkplacePdf.cloudUpload(reference.id).catch(error => console.warn("Werkplek: PDF-upload volgt later:", error.message));
+        return reference.id;
+      },
+      libraryRemove(id) {
+        const before = data.library || [];
+        data.library = before.filter(item => item.id !== id);
+        if (!persist()) { data.library = before; throw new Error("Opslaan mislukt."); }
+        document.dispatchEvent(new CustomEvent("library-changed"));
+      },
+      libraryUsage(id) { return data.documents.filter(doc => doc.pdf && doc.pdf.id === id).map(doc => ({ id: doc.id, title: doc.title, kind: doc.kind })); },
+      openFromLibrary,
       // ---- cloud-sync (sync.js) ----
       syncDocs() {
         const isDefault = folder => defaultFolders.some(definition => normalizedFolderTitle(definition.title) === normalizedFolderTitle(folder.title));
@@ -1866,6 +2034,9 @@
         });
         const custom = data.folders.filter(folder => !isDefault(folder)).map(folder => folder.title).sort();
         docs.push({ id: "__folders__", kind: "meta", title: "Mappen", folder_title: null, json: JSON.stringify({ folders: custom }) });
+        for (const item of data.library || []) {
+          docs.push({ id: `pdf-${item.id}`, kind: "meta", title: item.name.slice(0, 120), folder_title: item.folderTitle, json: JSON.stringify({ type: "pdf", ...item }) });
+        }
         return docs;
       },
       // Wijzigingen van een ander apparaat toepassen. Geeft per id terug: applied | busy | invalid.
@@ -1884,6 +2055,22 @@
           return folder ? folder.id : null;
         };
         for (const row of rows) {
+          if (row.kind === "meta" && (String(row.id).startsWith("pdf-") || (row.data && row.data.type === "pdf"))) {
+            data.library = data.library || [];
+            const pdfId = String(row.id).replace(/^pdf-/, "");
+            const at = data.library.findIndex(item => item.id === pdfId);
+            if (row.deleted) { if (at >= 0) data.library.splice(at, 1); }
+            else if (row.data && typeof row.data.name === "string") {
+              const entry = { id: pdfId, name: row.data.name.slice(0, 255), pages: Math.min(300, Math.max(0, Number(row.data.pages) || 0)),
+                size: Math.max(0, Number(row.data.size) || 0), folderTitle: typeof row.data.folderTitle === "string" ? row.data.folderTitle.slice(0, 120) : null,
+                addedAt: Number(row.data.addedAt) || Date.now() };
+              if (at >= 0) data.library[at] = entry; else data.library.push(entry);
+            }
+            result[row.id] = "applied";
+            changed = true;
+            document.dispatchEvent(new CustomEvent("library-changed"));
+            continue;
+          }
           if (row.kind === "meta") {
             for (const title of (row.data && Array.isArray(row.data.folders) ? row.data.folders : [])) {
               if (typeof title === "string" && title.trim()) folderFor(title);
@@ -2152,83 +2339,45 @@
         render();
       }
     };
-    async function refreshPdfLibrary() {
-      try {
-        const files = await window.WorkplacePdf.list();
-        const options = files.map(file => {
-          const option = document.createElement("option");
-          option.value = file.id;
-          option.textContent = `${file.name} (${file.pages} pagina${file.pages === 1 ? "" : "'s"})`;
-          return option;
-        });
-        if (!options.length) {
-          const option = document.createElement("option");
-          option.value = "";
-          option.textContent = "Nog geen PDF-bestanden";
-          options.push(option);
-        }
-        $("pdf-library-list").replaceChildren(...options);
-        $("pdf-library-open").disabled = !files.length;
-        $("pdf-library-download").disabled = !files.length;
-        $("pdf-library-status").textContent = files.length
-          ? `${files.length} lokaal opgeslagen PDF-bestand${files.length === 1 ? "" : "en"}.`
-          : "Voeg eerst een PDF toe met Achtergrond of Nieuw bord.";
-      } catch (error) {
-        $("pdf-library-status").textContent = error.message;
-        $("pdf-library-open").disabled = true;
-        $("pdf-library-download").disabled = true;
-      }
-    }
+    // Oude PDF-lijst is vervangen door de PDF-bibliotheek (library.js).
+    async function refreshPdfLibrary() { document.dispatchEvent(new CustomEvent("library-changed")); }
 
-    $("pdf-library-open").addEventListener("click", async () => {
-      try {
-        finish();
-        const reference = await window.WorkplacePdf.reference($("pdf-library-list").value);
-        const doc = M.createDocument("board", crypto.randomUUID());
-        doc.title = reference.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
-        doc.folderId = active().folderId || null;
-        doc.pdf = reference;
-        data.documents.push(doc);
-        data.activeId = doc.id;
-        if (!persist()) throw new Error("PDF-bord kon niet lokaal worden opgeslagen.");
-        selectDocument();
-      } catch (error) { report(error); }
-    });
-    $("pdf-library-download").addEventListener("click", async () => {
-      try { await window.WorkplacePdf.original($("pdf-library-list").value); }
-      catch (error) { report(error); }
-    });
-    refreshPdfLibrary();
-
-    async function importPdfInput(input, createBoard) {
+    // PDF openen als schrift of whiteboard (één of meer tegelijk), in de gekozen map.
+    async function openPdfs(files, kind) {
       finish();
-      const files = [...input.files];
       if (!files.length) return;
       const original = active();
-      if (!createBoard && (original.kind !== "board" || original.pdf || isMeasurement(original))) {
-        $("pdf-status").textContent = "Maak of open een whiteboard zonder PDF om dit bestand toe te voegen.";
-        input.value = "";
-        return;
-      }
-      input.disabled = true;
+      const chosen = $("content-folder").value;
+      const folderId = chosen === noFolderValue ? null
+        : (chosen && data.folders.some(folder => folder.id === chosen) ? chosen : original.folderId || null);
+      const reusable = !isMeasurement(original) && original.kind === kind && !original.pdf &&
+        !original.strokes.length && !(original.textBlocks || []).length && (original.folderId || null) === folderId;
       let added = 0, lastDoc = null;
       const failed = [];
+      $("pdf-open").disabled = true;
       try {
-        for (const [index, file] of (createBoard ? files : files.slice(0, 1)).entries()) {
-          $("pdf-status").textContent = files.length > 1 ? `PDF ${index + 1} van ${files.length} verwerken: ${file.name}` : "PDF verwerken...";
+        for (const [index, file] of files.entries()) {
+          notify(files.length > 1 ? `PDF ${index + 1} van ${files.length} openen: ${file.name}…` : `PDF openen: ${file.name}…`, "", null, 60000);
           try {
-            const reference = await window.WorkplacePdf.importFile(file);
-            let doc = original;
-            if (createBoard) {
-              doc = M.createDocument("board", crypto.randomUUID());
-              doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "Werkbeschrijving";
-              doc.folderId = original.folderId || null;
+            const reference = await window.WorkplacePdf.importFile(file, null, (number, total) => {
+              if (total > 5 && (number === 1 || number % 5 === 0)) notify(`${files.length > 1 ? `PDF ${index + 1} van ${files.length}: ` : ""}pagina ${number} van ${total} verwerken…`, "", null, 60000);
+            });
+            let doc;
+            if (index === 0 && reusable) doc = original;
+            else {
+              doc = M.createDocument(kind, crypto.randomUUID());
+              doc.folderId = folderId;
               data.documents.push(doc);
             }
+            if (doc.title === "Nieuw schriftblad" || doc.title === "Nieuw whiteboard" || !doc.title) {
+              doc.title = file.name.replace(/\.pdf$/i, "").slice(0, 120) || "PDF";
+            }
             doc.pdf = reference;
+            addToLibrary(reference, file.size, folderId);
+            if (kind === "page") doc.pages = Math.min(400, Math.max(doc.pages || 1, reference.pages.length));
             if (!persist()) {
-              if (createBoard) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
-              throw new Error("lokale opslag vol");
+              if (doc !== original) data.documents = data.documents.filter(item => item.id !== doc.id); else delete doc.pdf;
+              throw new Error("opslag vol");
             }
             added++;
             lastDoc = doc;
@@ -2237,18 +2386,18 @@
             failed.push(`${file.name}: ${error.message}`);
           }
         }
-        if (lastDoc && createBoard) { data.activeId = lastDoc.id; persist(); selectDocument(); }
-        else if (lastDoc) await loadPdf();
+        if (lastDoc) { data.activeId = lastDoc.id; persist(); selectDocument(); }
         await refreshPdfLibrary();
-        const folderName = folderTitle(original.folderId);
-        notify(`${added} PDF${added === 1 ? "" : "'s"} toegevoegd in ${folderName}${failed.length ? `. Niet gelukt: ${failed.join("; ")}` : ". Ze staan ook in de cloud en op je andere apparaten."}`, "", null, 9000);
-        if (failed.length) report(new Error(`Niet alle PDF's toegevoegd: ${failed.join("; ")}`));
-      } finally { input.disabled = false; input.value = ""; }
+        const soort = kind === "page" ? "schrift" : "whiteboard";
+        if (failed.length) notify(`Niet gelukt: ${failed.join("; ")}`, "", null, 12000);
+        else notify(`${added === 1 ? "PDF geopend" : `${added} PDF's geopend`} als ${soort} in ${folderTitle(folderId)}. Schrijf er gewoon op.`, "", null, 6000);
+      } finally { $("pdf-open").disabled = false; }
     }
-    $("pdf-file").addEventListener("change", () => importPdfInput($("pdf-file"), false));
-    $("work-pdf-file").addEventListener("change", () => importPdfInput($("work-pdf-file"), true));
+    // PDF-knop opent de PDF-bibliotheek (library.js).
+    $("pdf-open").addEventListener("click", () => { if (window.WorkplaceLibrary) window.WorkplaceLibrary.open(); });
+    window.WorkplacePdfOpen = openPdfs;
     $("pdf-original").addEventListener("click", async () => {
-      try { if (active().pdf) await window.WorkplacePdf.original(active().pdf.id); }
+      try { if (active().pdf) await window.WorkplaceLibrary.read({ id: active().pdf.id, name: active().pdf.name }); }
       catch (error) { report(error); }
     });
     $("width").addEventListener("input", () => { $("width-value").textContent = $("width").value; });
@@ -2647,7 +2796,8 @@
         // Pen en fineliner krijgen dikte per punt; begint iets dunner, zoals een echte pen die neerkomt.
         const steady = Number($("steady").value) || 0;
         if (!$("shape").value && steady > 0 && gesture.stroke.brush !== "highlighter") {
-          gesture.steady = { x: point.x, y: point.y, radius: steady * 1.5 / active().view.scale };
+          // One-euro-filter: langzaam = meer gladgestreken, snel = vrijwel direct. Geen dode zone, dus korte streepjes blijven heel.
+          gesture.steady = { x: point.x, y: point.y, dx: 0, dy: 0, t: event.timeStamp, minCutoff: 20 / steady, beta: .15 * active().view.scale };
         }
         if (fountainInk && !$("shape").value && ["pen", "fineliner"].includes(gesture.stroke.brush)) {
           point.w = .85;
@@ -2884,6 +3034,30 @@
   }
   })().catch(report);
 
+  // Stabilisator ("Rustig"): one-euro-filter. Bij langzaam tekenen wordt trillen weggefilterd,
+  // bij snel schrijven gaat de lijn direct mee. Er wordt nooit een stuk lijn ingeslikt.
+  function steadyStep(s, raw, time) {
+    const dt = Math.min(.05, Math.max(1 / 480, ((time || 0) - s.t) / 1000 || 1 / 240));
+    s.t = time || s.t + dt * 1000;
+    const alpha = cutoff => { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); };
+    const ad = alpha(1.5);
+    s.dx += ad * ((raw.x - s.x) / dt - s.dx);
+    s.dy += ad * ((raw.y - s.y) / dt - s.dy);
+    const a = alpha(s.minCutoff + s.beta * Math.hypot(s.dx, s.dy));
+    s.x += a * (raw.x - s.x);
+    s.y += a * (raw.y - s.y);
+    return { x: s.x, y: s.y };
+  }
+
+  // Bij loslaten: laat het gefilterde punt in een vloeiende boog bijtrekken naar waar de pen echt was.
+  function steadySettle(s, tip, points) {
+    const last = points[points.length - 1];
+    for (let i = 0; i < 40 && Math.hypot(tip.x - s.x, tip.y - s.y) > .3; i++) {
+      const p = steadyStep(s, tip, s.t + 1000 / 240);
+      points.push(last.w === undefined ? { x: p.x, y: p.y } : { x: p.x, y: p.y, w: last.w });
+    }
+  }
+
   function addSamples(events) {
     const rect = $("drawing").getBoundingClientRect();
     for (const sample of events) {
@@ -2891,14 +3065,9 @@
       const point = M.point(sample.clientX, sample.clientY, rect, active().view);
       const last = gesture.stroke.points[gesture.stroke.points.length - 1];
       if (gesture.steady) {
-        // Stabilisator ("touwtje"): het lijnpunt komt pas mee als de pen verder dan de straal weg is.
-        // Kleine trillingen binnen de straal verdwijnen; snelle bewegingen blijven gewoon direct.
-        const s = gesture.steady, dx = point.x - s.x, dy = point.y - s.y, d = Math.hypot(dx, dy);
-        if (d <= s.radius) continue;
-        s.x += dx * (d - s.radius) / d;
-        s.y += dy * (d - s.radius) / d;
-        point.x = s.x;
-        point.y = s.y;
+        const smooth = steadyStep(gesture.steady, point, sample.timeStamp);
+        point.x = smooth.x;
+        point.y = smooth.y;
       }
       if (point.x === last.x && point.y === last.y) continue;
       if (gesture.ink) {

@@ -862,10 +862,46 @@ zijn nog niet geverifieerd.
 
 ## Versie 24.5
 
-- **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt als een touwtje: het lijnpunt komt pas mee als de pen verder dan een kleine straal weg is, dus trillen en bibberen verdwijnen terwijl snelle halen direct blijven. De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
+- **Stabilisator ("Rustig", 0–10, standaard 3)** naast Dikte en in het lang-drukken-menu. Werkt met een snelheidsfilter (one-euro): langzaam tekenen wordt gladgestreken, snel schrijven gaat direct mee, en korte streepjes worden nooit meer ingeslikt (v26.2; het oude "touwtje" maakte lijnen korter). De lijn eindigt altijd waar de pen echt van het scherm ging. Wordt per apparaat onthouden.
 - **📏 Recht** in het lasso-menu: zoekt de regels in je selectie, draait elke regel recht, maakt de lettergrootte gelijk (binnen 75–133%, het blijft jouw handschrift), zet ze op een schriftblad precies op de lijnen en op een bord op gelijke afstand, en lijnt de linkerkant uit (inspringingen blijven). Ongedaan zet het terug.
 
-## Versie 24.6
+## Versie 25
+
+- **WerkHub en AI Hub niet meer naast elkaar.** Op Vandaag kies je met een knoppenbalk **🔧 WerkHub**, **🧠 AI Hub** of **Allebei, onder elkaar**. Naast elkaar waren ze op de iPad allebei te smal. De keuze wordt per apparaat onthouden (`remy-ipad-hub-keuze`). WerkHub laadt altijd, want daar log je in; de AI Hub laadt pas als je hem kiest, dus Vandaag opent sneller. Bij de AI Hub staat een "↗ los openen"-link.
+- **Tab "AI Hub & projecten" is vervangen door 📅 Week.** Die tab had alleen een link naar de AI Hub. Nu: de komende 7 dagen, per dag je afspraken (Google-agenda's via `werkhub-agenda`, `?days=7`) en je WerkHub-taken met die datum, op tijd gesorteerd. Bovenaan wat te laat is, en een gele kaart **📌 Belangrijk, maar nog zonder datum** met een 📅 Plan-knop. Een subtaak met "wordt belangrijk op" staat op die dag in de week. Laadt pas als je de tab opent (`week.js`).
+- **Prioriteiten heten zoals in WerkHub v30:** 🔥 Urgent *zsm* en 📌 Belangrijk *ingepland*. Belangrijk betekent: staat al in je agenda.
+- **Subtaak met datum:** een WerkHub-subtaak met `belangrijk_vanaf` op of vóór vandaag staat op Vandaag onder Belangrijk in plaats van Wel doen. `openTasks()` haalt daarvoor ook `belangrijk_vanaf`, `herhaling` en `begin_tijd` op.
+- `agenda.js` heeft `fetchItems(days)` gekregen, gedeeld door Vandaag (2 dagen) en Week (7 dagen). `app.js` stuurt bij elke tabwissel een `werkplek-tab`-event.
+- Service worker `v34`, met `week.js` in de offline-lijst.
+
+## Versie 25.1
+
+- **Werkmap 📥 Uit de Dump.** Wat je in de WerkHub-dump (v31) als *notitie* sorteert, komt als schriftblad binnen in de map "📥 Uit de Dump", met je tekst als getypt blok erop. WerkHub schrijft een nieuwe rij in `werkplek_documents` met een eigen id; de Werkplek haalt hem bij de volgende sync binnen, controleert hem met `M.validate` en kan dus nooit een bestaand schrift overschrijven.
+- De map staat als vaste knop tussen de werkmappen. Die knop opent de **nieuwste** notitie uit de dump (geen vast notitieblad); is de map leeg, dan zegt hij dat en maakt hij niets aan.
+- Service worker `v35`.
+
+## Versie 25.2
+
+- PDF: de knoppen "PDF Achtergrond" en "PDF's erbij" en de uitlegtekst zijn weg. Eén knop **PDF Openen**: kies Schrift of Whiteboard en één of meer PDF's. Als schrift komt elke PDF-pagina op een eigen schriftpagina; als whiteboard staat de PDF als achtergrond. Komt in de gekozen map, gaat mee in de cloud.
+
+## Versie 25.3
+
+- PDF tot 300 pagina's en 80 MB. Pagina's worden pas geladen als ze in beeld komen (iPad blijft snel). Voortgang per pagina in de melding.
+
+## Versie 26
+
+- 📚 PDF-bibliotheek (knop PDF's in Werkmap): al je PDF's op één plek, op elk apparaat. Zoeken, filter op map, meerdere tegelijk toevoegen. Per PDF: 📓 openen als schrift, ⬜ als whiteboard, ⬇ downloaden, 🗑 uit de bibliotheek. De lijst synchroniseert mee (rijen pdf-<id> in werkplek_documents); het bestand komt pas binnen als je hem opent. PDF's die al in schriften/borden zaten staan er vanzelf in.
+
+## Versie 26.1
+
+- 👁 Lezen: PDF in een apart scherm bovenop alles (vanuit de bibliotheek of met de knop Lezen op een blad met PDF), zoom − / ＋, ✕ of Esc sluit.
+- Alle PDF's uit de bibliotheek worden op de achtergrond ook op elk apparaat gezet (offline en direct open).
+
+## v26.3
+- PDF op bord en in schrift scherp bij inzoomen: na even stilhouden wordt het stuk dat in beeld is opnieuw getekend vanuit de originele PDF op schermresolutie (max 4 pagina-stukken, nooit groter dan het scherm). Ook zonder inzoomen scherper op een retina-iPad.
+- Stabilisator 'Rustig' (v26.2) is nu een one-euro-filter: geen ingeslikte korte streepjes of kleine letters meer.
+
+## Versie 26.5
 
 - **Inkt standaard weer "gewoon":** strakke pen met vaste dikte, precies zoals vóór v24.4. De vulpen-inkt (glad, dunner bij snel schrijven) staat als vinkje **Vulpen** naast Rustig en in het lang-drukken-menu. Rustig staat op een nieuw apparaat standaard op 0.
 - **Kras weg** en **Schuif** zijn uit de werkbalk. Doorkrassen met de pen (krabbelen) werkt nog gewoon, en schuiven gaat met je vinger of met twee vingers.

@@ -21,11 +21,13 @@
   <script src="./ai.js" defer></script>
   <script src="./werkhub.js" defer></script>
   <script src="./sync.js" defer></script>
+  <script src="./library.js" defer></script>
   <script src="./dictate.js" defer></script>
   <script src="./agenda.js" defer></script>
   <script src="./slim.js" defer></script>
   <script src="./nu.js" defer></script>
   <script src="./woord.js" defer></script>
+  <script src="./week.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
 <body>
@@ -47,7 +49,7 @@
   <nav aria-label="Hoofdnavigatie">
     <button data-tab="today" aria-pressed="true">Vandaag</button>
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
-    <button data-tab="hubs" aria-pressed="false">AI Hub &amp; projecten</button>
+    <button data-tab="hubs" aria-pressed="false">📅 Week</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
     <button id="lmra-quick" type="button" class="lmra-quick" title="Laatste LMRA openen of een nieuwe maken">⚡ LMRA</button>
   </nav>
@@ -64,9 +66,10 @@
       <article id="nu-card" class="nu-card" aria-label="Prioriteiten">
         <div class="nu-head"><span class="eyebrow">WAT NU</span><span id="nu-status" role="status"></span><button id="nu-refresh" type="button" title="Ververs" aria-label="Ververs">↻</button></div>
         <div class="prio-grid">
-          <section class="prio prio-urgent"><h3>🔥 Urgent <small>moet zsm</small></h3><ul id="prio-urgent"></ul></section>
-          <section class="prio prio-belangrijk"><h3>📌 Belangrijk <small>inplannen in agenda</small></h3><ul id="prio-belangrijk"></ul></section>
-          <section class="prio prio-wel"><h3>🧩 Wel doen <small>niet urgent, tussendoor</small></h3><ul id="prio-wel"></ul></section>
+          <section class="prio prio-urgent"><h3>🔥 Doen <small>urgent + belangrijk: nu</small></h3><ul id="prio-urgent"></ul></section>
+          <section class="prio prio-belangrijk"><h3>📌 Plannen <small>belangrijk: geef het een moment</small></h3><ul id="prio-belangrijk"></ul></section>
+          <section class="prio prio-delegeren"><h3>🤝 Delegeren <small>urgent, niet belangrijk: niet per se jij</small></h3><ul id="prio-delegeren"></ul></section>
+          <section class="prio prio-wel"><h3>🧩 Rest <small>niet urgent, niet belangrijk: tussendoor</small></h3><ul id="prio-wel"></ul></section>
         </div>
         <p id="prio-wacht" class="prio-wacht" hidden></p>
       </article>
@@ -98,13 +101,18 @@
           </details>
         </article>
       </div>
+      <div class="hub-keuze" role="group" aria-label="Welke hub tonen">
+        <button type="button" data-hub="werkhub" aria-pressed="true">🔧 WerkHub</button>
+        <button type="button" data-hub="aihub" aria-pressed="false">🧠 AI Hub</button>
+        <button type="button" data-hub="beide" aria-pressed="false">Allebei, onder elkaar</button>
+      </div>
       <div class="hub-duo">
-        <article class="task-panel">
+        <article class="task-panel" id="hub-panel-werkhub">
           <h3>WerkHub</h3>
           <iframe id="workhub-frame" title="WerkHub" referrerpolicy="no-referrer"></iframe>
         </article>
-        <article class="task-panel">
-          <h3>AI Hub</h3>
+        <article class="task-panel" id="hub-panel-aihub" hidden>
+          <h3>AI Hub <a class="hub-open" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">↗ los openen</a></h3>
           <iframe id="hub-frame" title="Remy AI Hub" referrerpolicy="no-referrer"></iframe>
         </article>
       </div>
@@ -122,7 +130,7 @@
           <summary>Slim: AI-titels, zoeken in handschrift, taakvakjes</summary>
           <label class="finger-option"><input id="ai-notes-consent" type="checkbox"> AI (Gemini, buiten PWN) mag mijn handschrift lezen, zodat schriften vanzelf een titel krijgen en doorzoekbaar worden</label>
           <label class="finger-option"><input id="boxes-on" type="checkbox" checked> Taakvakjes: teken ☐ voor een regel → taak in WerkHub; vink het vakje af → klaar</label>
-          <label>Vakjes worden <select id="box-type"><option value="urgent">urgent</option><option value="belangrijk">belangrijk</option><option value="subtaak">wel doen / subtaak</option></select></label>
+          <label>Vakjes worden <select id="box-type"><option value="urgent">🔥 doen</option><option value="belangrijk">📌 plannen</option><option value="delegeren">🤝 delegeren</option><option value="subtaak">🧩 rest</option></select></label>
           <p id="smart-status" role="status">Tip: lang drukken met de pen → "☐ Taakvakje hier" zet een vakje voor je neer.</p>
           <h4>Open taakvakjes</h4>
           <div id="box-list"></div>
@@ -162,37 +170,27 @@
             <p id="drive-status" role="status">Eén tik: alles (ook meetstatussen en PDF's) gaat als één bestand naar de map "Remy iPad Werkplek" in je Drive.</p>
           </details>
           <div class="drive-actions">
+            <button id="sync-reset" type="button">Sync opnieuw (alles ophalen)</button>
             <button id="export">Download kopie</button>
             <button id="import-merge" type="button">Open kopie (toevoegen)</button>
             <button id="import-replace" type="button" hidden>Zet kopie terug</button>
           </div>
           <input id="import-file" type="file" accept=".json,application/json" hidden>
-          <details class="workmap-menu" id="pdf-library">
-            <summary>PDF-bibliotheek</summary>
-            <p>Alle lokaal toegevoegde PDF-bestanden. Open een PDF opnieuw als apart bord in de huidige map.</p>
-            <div class="pdf-library-actions">
-              <select id="pdf-library-list" aria-label="Kies een opgeslagen PDF"></select>
-              <button id="pdf-library-open" type="button">Open als nieuw bord</button>
-              <button id="pdf-library-download" type="button">Download origineel</button>
-            </div>
-            <p id="pdf-library-status" role="status">Bibliotheek laden...</p>
-          </details>
         </div>
       </details>
       <div class="compact-actions writing-actions" id="writing-actions" aria-label="Nieuw, toevoegen, schrijven en AI">
         <button id="new-page" title="Nieuw schriftblad" aria-label="Nieuw schriftblad"><span>＋</span><small>Schrift</small></button>
         <button id="new-board" title="Nieuw whiteboard" aria-label="Nieuw whiteboard"><span>□</span><small>Bord</small></button>
         <button id="new-folder" title="Nieuwe eigen map" aria-label="Nieuwe eigen map"><span>＋</span><small>Map</small></button>
-        <label class="circle-file" title="PDF als achtergrond op het huidige lege whiteboard"><span>PDF</span><small>Achtergrond</small><input id="pdf-file" type="file" accept="application/pdf,.pdf" aria-label="PDF als achtergrond op huidig leeg whiteboard"></label>
-        <label class="circle-file" title="PDF openen als nieuw bord in de huidige map"><span>PDF</span><small>PDF's erbij</small><input id="work-pdf-file" type="file" multiple accept="application/pdf,.pdf" aria-label="Eén of meer PDF's openen als nieuwe borden in de huidige map"></label>
+        <button id="pdf-open" type="button" title="PDF-bibliotheek: al je PDF's, op elk apparaat" aria-haspopup="dialog"><span>📚</span><small>PDF's</small></button>
         <button id="task-open" aria-haspopup="dialog" title="Taak aanmaken in WerkHub"><span>✓</span><small>Taak</small></button>
         <button id="writing-ai-open" aria-haspopup="dialog" title="Vraag aan AI"><span>AI</span><small>Vraag</small></button>
         <button id="dictate-sheet" title="Inspreken: tekst op het blad"><span>🎤</span><small>Inspreek</small></button>
         <button id="writing-ai-recognize" aria-haspopup="dialog" title="Herken handschrift"><span>⌁</span><small>Herken</small></button>
-        <button id="pdf-original" disabled title="Download originele PDF"><span>↓</span><small>PDF</small></button>
+        <button id="pdf-original" disabled title="PDF van dit blad lezen in een apart scherm"><span>👁</span><small>Lezen</small></button>
         <button id="focus" aria-pressed="false" title="Brede schrijfmodus" aria-label="Brede schrijfmodus"><span>↔</span><small>Breed</small></button>
       </div>
-      <p id="pdf-status" role="status">PDF Achtergrond gebruikt het huidige lege bord. PDF Nieuw bord maakt een apart bord in deze map. Maximaal 20 MB / 50 pagina's.</p>
+      <p id="pdf-status" role="status" hidden></p>
       <div class="workspace">
         <div class="editor">
           <div class="document-list" id="document-panel">
@@ -301,16 +299,18 @@
       </div>
     </section>
     <section id="hubs" hidden>
-      <h2>Je bestaande AI Hub</h2>
-      <p id="hub-panel-status" role="status">De AI Hub staat altijd open op Vandaag, naast WerkHub.</p>
-      <div class="cards">
-        <article>
-          <h3>Agents en projecten</h3>
-          <p>Gebruik je bestaande hub in een apart tabblad of binnen Werkplek. Geen nieuwe gedeelde project- of gespreksopslag.</p>
-          <a class="action" href="https://remyster.github.io/ai-hub-remy/" target="_blank" rel="noopener noreferrer">Open AI Hub</a>
-        </article>
+      <div class="section-heading">
+        <h2>Je week</h2>
+        <button id="week-refresh" type="button">↻ Ververs</button>
       </div>
-      <aside>Interne werknotities worden niet naar AI verstuurd. Een toekomstige koppeling vraagt eerst om toegestane verwerking en jouw bevestiging.</aside>
+      <p id="week-status" role="status">Week laden...</p>
+      <article class="week-ongepland" id="week-ongepland-kaart" hidden>
+        <h3>📌 Belangrijk, maar nog zonder datum</h3>
+        <p class="week-uitleg">Belangrijk betekent: staat in je agenda. Deze nog niet. Plan ze in, of zet ze terug naar Urgent of Wel doen.</p>
+        <ul id="week-ongepland"></ul>
+      </article>
+      <div id="week-list" aria-live="polite"></div>
+      <aside>Afspraken komen uit je Google-agenda's (via WerkHub), taken uit WerkHub. Je ziet de komende 7 dagen. Afvinken en wijzigen doe je in WerkHub of op Vandaag.</aside>
     </section>
     <section id="ai" hidden>
       <h2>AI binnen Werkplek</h2>
@@ -364,6 +364,30 @@
     <button id="writing-ai-task" type="button" disabled>Maak taak in WerkHub van dit antwoord</button>
     <p class="dialog-help">AI-voorstel: controleer het antwoord. Toevoegen bewaart tekst lokaal; Ongedaan verwijdert de toevoeging.</p>
   </dialog>
+  <div id="pdf-reader" class="pdf-reader" role="dialog" aria-modal="true" aria-labelledby="pdf-reader-title" hidden>
+    <div class="pdf-reader-bar">
+      <strong id="pdf-reader-title"></strong><small id="pdf-reader-count"></small>
+      <button id="pdf-reader-out" type="button" aria-label="Uitzoomen">−</button>
+      <button id="pdf-reader-in" type="button" aria-label="Inzoomen">＋</button>
+      <button id="pdf-reader-close" type="button" class="pdf-reader-close" aria-label="Sluiten">✕</button>
+    </div>
+    <div id="pdf-reader-pages" class="pdf-reader-pages"></div>
+  </div>
+  <dialog id="library-dialog" aria-labelledby="library-heading">
+    <div class="section-heading">
+      <h2 id="library-heading">📚 PDF-bibliotheek</h2>
+      <button id="library-close" type="button">Sluiten</button>
+    </div>
+    <p class="smart-empty">Al je PDF's, op elk apparaat. Tik op 📓 of ⬜ om erop te schrijven.</p>
+    <div class="library-bar">
+      <input id="library-search" type="search" placeholder="🔎 Zoek PDF…" autocomplete="off" aria-label="Zoek in je PDF's">
+      <select id="library-folder" aria-label="Map"></select>
+      <button id="library-add" type="button" class="nu-primary">＋ PDF's toevoegen</button>
+      <input id="library-file" type="file" multiple accept="application/pdf,.pdf" hidden>
+    </div>
+    <p id="library-status" role="status"></p>
+    <ul id="library-list"></ul>
+  </dialog>
   <dialog id="task-dialog" aria-labelledby="task-heading">
     <div class="section-heading">
       <h2 id="task-heading">Taak in WerkHub</h2>
@@ -376,7 +400,7 @@
       <button id="task-read" type="button" hidden>Lees handschrift met AI</button>
       <label class="finger-option"><input id="task-split" type="checkbox"> Elke regel wordt een aparte taak</label>
       <label for="task-type">Soort</label>
-      <select id="task-type"><option value="urgent">🔥 Urgent (moet zsm)</option><option value="belangrijk" selected>📌 Belangrijk (inplannen)</option><option value="subtaak">🧩 Wel doen / subtaak (tussendoor, geen datum)</option></select>
+      <select id="task-type"><option value="urgent">🔥 Doen (urgent + belangrijk: nu)</option><option value="belangrijk" selected>📌 Plannen (belangrijk, geef het een moment)</option><option value="delegeren">🤝 Delegeren (urgent, niet belangrijk)</option><option value="subtaak">🧩 Rest (tussendoor, geen datum)</option></select>
       <label for="task-deadline">Deadline (optioneel, voor regels zonder eigen | datum)</label>
       <input id="task-deadline" type="date">
       <button id="task-send" type="submit">Maak taak in WerkHub</button>

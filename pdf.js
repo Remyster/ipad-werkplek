@@ -52,8 +52,8 @@
     };
   }
 
-  async function importFile(file, fixedId = null) {
-    if (!(file instanceof Blob) || file.size > 20 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 20 MB.");
+  async function importFile(file, fixedId = null, onProgress = null) {
+    if (!(file instanceof Blob) || file.size > 80 * 1024 * 1024) throw new Error("Kies een PDF van maximaal 80 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (!new TextDecoder().decode(bytes.slice(0, 5)).startsWith("%PDF-")) throw new Error("Dit bestand is geen PDF.");
     const pdfjs = await import("./vendor/package/legacy/build/pdf.mjs");
@@ -64,12 +64,14 @@
       iccUrl: "./vendor/package/iccs/", useSystemFonts: true
     });
     let pdf;
+    const timeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error("PDF openen duurde te lang (meer dan 2 minuten). Probeer een kleinere PDF.")), 120000));
     try {
-      pdf = await task.promise;
-      if (pdf.numPages > 50) throw new Error("Deze PDF-versie ondersteunt maximaal 50 pagina's per bestand.");
+      pdf = await Promise.race([task.promise, timeout]);
+      if (pdf.numPages > 300) throw new Error("Deze PDF heeft meer dan 300 pagina's. Splits hem in delen.");
       const pages = [];
       let top = 0;
       for (let number = 1; number <= pdf.numPages; number++) {
+        if (onProgress) onProgress(number, pdf.numPages);
         const page = await pdf.getPage(number);
         const original = page.getViewport({ scale: 1 });
         if (!Number.isFinite(original.width) || original.width <= 0 || original.height / original.width > 5) throw new Error("PDF-pagina heeft een niet-ondersteund formaat.");
@@ -132,6 +134,8 @@
     return count;
   }
 
+  // Geeft de pagina's terug zonder ze allemaal te decoderen: het blad laadt alleen wat in beeld is
+  // (anders loopt een iPad vol bij PDF's van honderden pagina's).
   async function images(id, name) {
     let file = await get(id);
     if (!file) {
@@ -139,17 +143,45 @@
       file = await get(id);
     }
     if (!file) throw new Error("PDF-bestand ontbreekt in deze browser. De penstreken blijven bewaard.");
-    const result = [];
-    for (const page of file.pages) {
-      const url = URL.createObjectURL(page.image);
-      try {
-        const image = new Image();
-        image.src = url;
-        await image.decode();
-        result.push({ image, width: page.width, height: page.height, top: page.top });
-      } finally { URL.revokeObjectURL(url); }
-    }
-    return result;
+    return file.pages.map(page => ({ blob: page.image, image: null, width: page.width, height: page.height, top: page.top }));
+  }
+
+  // ---- Scherp bij inzoomen: alleen het stuk dat in beeld is opnieuw tekenen vanuit de originele PDF ----
+  // Eén PDF tegelijk open houden; het beeld is nooit groter dan het scherm, dus het geheugen blijft klein.
+  let openDoc = null;
+  async function pdfDocument(id) {
+    if (openDoc && openDoc.id === id) return openDoc.promise;
+    if (openDoc) { const old = openDoc; openDoc = null; old.promise.then(() => old.task.destroy()).catch(() => {}); }
+    const file = await get(id);
+    if (!file || !file.original) throw new Error("PDF-origineel ontbreekt op dit apparaat.");
+    const pdfjs = await import("./vendor/package/legacy/build/pdf.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = "./vendor/package/legacy/build/pdf.worker.mjs";
+    const task = pdfjs.getDocument({
+      data: new Uint8Array(await file.original.arrayBuffer()), isEvalSupported: false, cMapUrl: "./vendor/package/cmaps/", cMapPacked: true,
+      standardFontDataUrl: "./vendor/package/standard_fonts/", wasmUrl: "./vendor/package/wasm/", iccUrl: "./vendor/package/iccs/", useSystemFonts: true
+    });
+    const entry = { id, task, promise: task.promise };
+    openDoc = entry;
+    entry.promise.catch(() => { if (openDoc === entry) openDoc = null; });
+    return entry.promise;
+  }
+
+  // region = stuk van de pagina in "logische" eenheden (pagina is logicalWidth breed), pixelScale = schermpixels per eenheid.
+  async function renderRegion(id, pageIndex, region, logicalWidth, pixelScale) {
+    const pdf = await pdfDocument(id);
+    const page = await pdf.getPage(pageIndex + 1);
+    const base = page.getViewport({ scale: 1 });
+    const width = Math.max(1, Math.round(region.width * pixelScale)), height = Math.max(1, Math.round(region.height * pixelScale));
+    if (width * height > 16e6) throw new Error("Te groot om scherp te tekenen.");
+    const viewport = page.getViewport({ scale: logicalWidth / base.width * pixelScale, offsetX: -region.left * pixelScale, offsetY: -region.top * pixelScale });
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas;
   }
 
   function download(blob, name) {
@@ -228,5 +260,5 @@
     }
     return snapshot;
   }
-  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference, cloudUpload, cloudFetch, uploadPending };
+  window.WorkplacePdf = { importFile, images, original, backup, restore, remove, download, list, reference, cloudUpload, cloudFetch, uploadPending, renderRegion };
 })();
