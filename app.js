@@ -1047,11 +1047,34 @@
       ["3", "3 · belangrijk, EHBO/arts"], ["1", "1 · gering, schrammetje"]]
   };
   function kinneyClass(r) {
-    if (r > 400) return { label: "Zeer hoog: werk stoppen", tone: "k5" };
-    if (r > 200) return { label: "Hoog: direct maatregelen", tone: "k4" };
-    if (r > 70) return { label: "Aanzienlijk: maatregel nodig", tone: "k3" };
-    if (r > 20) return { label: "Mogelijk: aandacht", tone: "k2" };
-    return { label: "Aanvaardbaar", tone: "k1" };
+    if (r > 400) return { label: "Zeer hoog: werk stoppen", tone: "k5", emoji: "⛔" };
+    if (r > 200) return { label: "Hoog: direct maatregelen", tone: "k4", emoji: "🔴" };
+    if (r > 70) return { label: "Aanzienlijk: maatregel nodig", tone: "k3", emoji: "🟠" };
+    if (r > 20) return { label: "Mogelijk: aandacht", tone: "k2", emoji: "🟡" };
+    return { label: "Aanvaardbaar", tone: "k1", emoji: "🟢" };
+  }
+  // Kleur per gekozen factorwaarde: hoe zwaarder, hoe roder. Zo zie je in één oogopslag wat het risico opdrijft.
+  const FACTOR_TONE = {
+    w: { 10: "k5", 6: "k4", 3: "k3", 1: "k2", .5: "k1", .2: "k1", .1: "k1" },
+    b: { 10: "k5", 6: "k4", 3: "k3", 2: "k2", 1: "k1", .5: "k1" },
+    e: { 100: "k5", 40: "k5", 15: "k4", 7: "k3", 3: "k2", 1: "k1" }
+  };
+  const RISK_ROWS = [["> 400", "Zeer hoog", "Werk stoppen, niet beginnen", "k5", "⛔"], ["200 – 400", "Hoog", "Direct maatregelen nemen", "k4", "🔴"],
+    ["70 – 200", "Aanzienlijk", "Maatregel nodig vóór start", "k3", "🟠"], ["20 – 70", "Mogelijk", "Aandacht, maatregel overwegen", "k2", "🟡"],
+    ["≤ 20", "Aanvaardbaar", "Doorgaan, alert blijven", "k1", "🟢"]];
+  function kinneyLegend() {
+    const legend = document.createElement("div");
+    legend.className = "kinney-legend";
+    legend.setAttribute("aria-label", "Kleuren van de risicoklassen");
+    for (const [range, name, , tone, emoji] of RISK_ROWS.slice().reverse()) {
+      legend.append(Object.assign(document.createElement("span"), { className: "kinney-pill", textContent: `${emoji} ${name} ${range}` }));
+      legend.lastChild.dataset.tone = tone;
+    }
+    return legend;
+  }
+  function toneRows(wrapper, tones) {
+    wrapper.querySelectorAll("tbody tr").forEach((row, index) => { if (tones[index]) row.dataset.tone = tones[index]; });
+    return wrapper;
   }
   function kinneyScore(prefix) {
     const w = Number(fieldValue(`${prefix}.w`)), b = Number(fieldValue(`${prefix}.b`)), e = Number(fieldValue(`${prefix}.e`));
@@ -1064,6 +1087,7 @@
     select.append(Object.assign(document.createElement("option"), { value: "", textContent: label }));
     for (const [value, text] of options) select.append(Object.assign(document.createElement("option"), { value, textContent: text }));
     select.value = String(fieldValue(key));
+    select.dataset.kfactor = options === KINNEY.w ? "w" : options === KINNEY.b ? "b" : "e";
     return select;
   }
   function kinneyResult(prefix) {
@@ -1077,8 +1101,17 @@
       const r = kinneyScore(span.dataset.kinney);
       if (r === null) { span.textContent = "–"; span.dataset.tone = ""; return; }
       const cls = kinneyClass(r);
-      span.textContent = `${String(r).replace(".", ",")} · ${cls.label}`;
+      span.textContent = `${cls.emoji} ${String(r).replace(".", ",")} · ${cls.label}`;
       span.dataset.tone = cls.tone;
+    });
+    document.querySelectorAll("#measurement-editor select[data-kfactor]").forEach(select => {
+      select.dataset.tone = select.value ? FACTOR_TONE[select.dataset.kfactor][Number(select.value)] || "" : "";
+    });
+    // TRA: de hele regel krijgt de kleur van het risico ná de maatregel (of ervoor als dat nog leeg is).
+    document.querySelectorAll("#measurement-editor [data-kinney$='.after']").forEach(span => {
+      const row = span.closest("tr");
+      const before = row && row.querySelector(`[data-kinney='${span.dataset.kinney.replace(/\.after$/, "")}']`);
+      if (row) row.dataset.tone = span.dataset.tone || before?.dataset.tone || "";
     });
   }
   function kinneyHelp() {
@@ -1087,11 +1120,10 @@
     const summary = document.createElement("summary");
     summary.textContent = "ℹ️ Uitleg Fine & Kinney: Risico = W × B × E";
     details.append(summary,
-      table(["W · Waarschijnlijkheid", "Betekenis"], KINNEY.w.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
-      table(["B · Blootstelling", "Betekenis"], KINNEY.b.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])),
-      table(["E · Effect", "Betekenis"], KINNEY.e.map(([v, t]) => [v, t.split(" · ")[1]])),
-      table(["Risico (R)", "Klasse", "Wat doen"], [["> 400", "Zeer hoog", "Werk stoppen, niet beginnen"], ["200 – 400", "Hoog", "Direct maatregelen nemen"],
-        ["70 – 200", "Aanzienlijk", "Maatregel nodig vóór start"], ["20 – 70", "Mogelijk", "Aandacht, maatregel overwegen"], ["≤ 20", "Aanvaardbaar", "Doorgaan, alert blijven"]]));
+      toneRows(table(["Risico (R)", "Klasse", "Wat doen"], RISK_ROWS.map(([range, name, todo, , emoji]) => [range, `${emoji} ${name}`, todo])), RISK_ROWS.map(row => row[3])),
+      toneRows(table(["W · Waarschijnlijkheid", "Betekenis"], KINNEY.w.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])), KINNEY.w.map(([v]) => FACTOR_TONE.w[Number(v)])),
+      toneRows(table(["B · Blootstelling", "Betekenis"], KINNEY.b.map(([v, t]) => [v.replace(".", ","), t.split(" · ")[1]])), KINNEY.b.map(([v]) => FACTOR_TONE.b[Number(v)])),
+      toneRows(table(["E · Effect", "Betekenis"], KINNEY.e.map(([v, t]) => [v, t.split(" · ")[1]])), KINNEY.e.map(([v]) => FACTOR_TONE.e[Number(v)])));
     return details;
   }
 
@@ -1133,17 +1165,16 @@
   function renderLmra(container) {
     const visit = document.createElement("div");
     visit.className = "measure-grid";
-    visit.append(measurementInput("visit.date", "Datum", "date"), measurementInput("visit.start", "Tijd", "time"),
-      measurementInput("lmra.location", "Locatie"), measurementInput("lmra.task", "Werkzaamheden"),
+    visit.append(measurementInput("lmra.task", "Werkzaamheden"), measurementInput("lmra.location", "Locatie"),
+      measurementInput("visit.date", "Datum", "date"), measurementInput("visit.start", "Tijd", "time"),
       measurementInput("lmra.who", "Uitvoerder(s)"), measurementInput("lmra.permit", "Werkvergunning nr."));
     const outcome = document.createElement("p");
     outcome.className = "lmra-outcome";
     outcome.id = "lmra-outcome";
-    container.append(heading("Laatste Minuut Risico Analyse"), visit, outcome, heading("Vóór je begint"));
-    const questions = table(["Vraag", "Antwoord"], LMRA_QUESTIONS.map(([key, text]) => [text, answerSelect(`q.${key}`)]));
-    questions.classList.add("lmra-questions");
-    container.append(questions);
-    container.append(heading("Extra gevaren en maatregelen"), textBox("lmra.measures", "Wat zie je nog en wat doe je eraan?"));
+    container.append(visit, outcome);
+    const doc = active();
+    container.append(lmraButtons(doc, () => { persist(); refreshSafetyForm(); }));
+    container.append(textBox("lmra.measures", "Extra gevaren en wat je eraan doet"));
     const quick = document.createElement("details");
     quick.className = "kinney-quick";
     const summary = document.createElement("summary");
@@ -1151,7 +1182,7 @@
     const row = document.createElement("div");
     row.className = "kinney-row";
     row.append(kinneySelect("lmra.k.w", KINNEY.w, "W"), kinneySelect("lmra.k.b", KINNEY.b, "B"), kinneySelect("lmra.k.e", KINNEY.e, "E"), kinneyResult("lmra.k"));
-    quick.append(summary, row, kinneyHelp());
+    quick.append(summary, kinneyLegend(), row, kinneyHelp());
     const sign = document.createElement("div");
     sign.className = "check-row";
     sign.append(checkbox("lmra.ok", "Ik begin pas als alles veilig is, en stop als de situatie verandert"));
@@ -1175,7 +1206,7 @@
         measurementCell(`${p}.measure`),
         kinneySelect(`${p}.after.w`, KINNEY.w, "W"), kinneySelect(`${p}.after.b`, KINNEY.b, "B"), kinneySelect(`${p}.after.e`, KINNEY.e, "E"), kinneyResult(`${p}.after`)]);
     }
-    container.append(heading("Stappen, gevaren en maatregelen"),
+    container.append(heading("Stappen, gevaren en maatregelen"), kinneyLegend(),
       table(["#", "Taakstap", "Gevaar", "W", "B", "E", "Risico", "Maatregel", "W na", "B na", "E na", "Risico na"], rows));
     if (shown < TRA_ROWS) {
       const more = Object.assign(document.createElement("button"), { type: "button", textContent: "+ Stap erbij" });
@@ -1193,11 +1224,17 @@
     document.querySelectorAll("#measurement-editor select[data-measure-field^='q.']").forEach(select => { select.dataset.answer = select.value; });
     const outcome = $("lmra-outcome");
     if (outcome) { const result = lmraOutcome(); outcome.textContent = result.label; outcome.dataset.tone = result.tone; }
+    refreshTitleOf(doc);
+    renderLmraCard();
+  }
+  function refreshTitleOf(doc) {
     const date = doc.formData["visit.date"] ? new Date(`${doc.formData["visit.date"]}T12:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "";
     const what = doc.formType === "lmra" ? doc.formData["lmra.task"] : doc.formData["tra.job"];
     const title = [date, doc.formType === "lmra" ? doc.formData["visit.start"] : "", what].filter(Boolean).join(" · ").slice(0, 110) || (doc.formType === "lmra" ? "LMRA" : "TRA");
-    if (doc.title !== title) { doc.title = title; $("title").value = title; list(doc.folderId || null); }
-    renderLmraCard();
+    if (doc.title === title) return;
+    doc.title = title;
+    if (active() === doc) $("title").value = title;
+    list(active().folderId || null);
   }
 
   const isoToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -1206,7 +1243,7 @@
     const key = doc => `${doc.formData["visit.date"] || ""}T${doc.formData["visit.start"] || ""}|${doc.formData["meta.created"] || ""}`;
     return docs.sort((a, b) => key(b).localeCompare(key(a)))[0] || null;
   }
-  function newSafetyForm(type) {
+  function newSafetyForm(type, navigate = true) {
     finish();
     const definition = defaultFolders.find(item => item.forms);
     const folder = definition && fixedFolder(definition);
@@ -1219,10 +1256,16 @@
     if (previous && type === "lmra") for (const field of ["lmra.location", "lmra.who"]) if (previous.formData[field]) doc.formData[field] = previous.formData[field];
     doc.folderId = folder ? folder.id : null;
     data.documents.push(doc);
+    if (!navigate) {
+      if (!persist()) throw new Error("Nieuwe LMRA niet aangemaakt: opslag mislukt.");
+      list(active().folderId || null);
+      return doc;
+    }
     data.activeId = doc.id;
     if (!persist()) throw new Error("Nieuwe lijst niet aangemaakt: opslag mislukt.");
     tab("writing");
     selectDocument();
+    return doc;
   }
   function openSafety(type) {
     const doc = latestSafety(type);
@@ -1232,6 +1275,65 @@
     persist();
     tab("writing");
     selectDocument();
+  }
+
+  // ---- ⚡ Snelle LMRA: opent waar je bent, korte vragen, één tik per antwoord ----
+  const LMRA_SHORT = { task: "Ik weet wat ik ga doen", skill: "Bevoegd en opgeleid", permit: "Vergunning + LOTO geregeld",
+    ppe: "Juiste PBM, in orde", tools: "Gereedschap gekeurd", place: "Werkplek veilig", chem: "Gevaarlijke stoffen beheerst",
+    special: "Besloten ruimte / hoogte / alleen: geregeld", inform: "Controlekamer weet ervan", emergency: "Ik weet wat te doen bij nood" };
+
+  // Eén rij per vraag met drie knoppen. Werkt voor het snelle venster én het formulier in de Werkmap.
+  function lmraButtons(doc, onChange) {
+    const list = document.createElement("div");
+    list.className = "lmra-quicklist";
+    for (const [key, text] of LMRA_QUESTIONS) {
+      const row = document.createElement("div");
+      row.className = "lmra-q";
+      row.title = text;
+      const label = Object.assign(document.createElement("span"), { textContent: LMRA_SHORT[key] || text });
+      const group = document.createElement("div");
+      group.className = "lmra-seg";
+      for (const [value, caption] of [["ja", "Ja"], ["nee", "Nee"], ["nvt", "n.v.t."]]) {
+        const button = Object.assign(document.createElement("button"), { type: "button", textContent: caption });
+        button.dataset.value = value;
+        button.setAttribute("aria-pressed", String(doc.formData[`q.${key}`] === value));
+        button.addEventListener("click", () => {
+          doc.formData[`q.${key}`] = doc.formData[`q.${key}`] === value ? "" : value;
+          group.querySelectorAll("button").forEach(item => item.setAttribute("aria-pressed", String(doc.formData[`q.${key}`] === item.dataset.value)));
+          row.dataset.answer = doc.formData[`q.${key}`];
+          onChange();
+        });
+        group.append(button);
+      }
+      row.dataset.answer = doc.formData[`q.${key}`] || "";
+      row.append(label, group);
+      list.append(row);
+    }
+    return list;
+  }
+
+  let quickDoc = null;
+  function quickLmraChanged() {
+    if (!quickDoc) return;
+    persistSoon();
+    const result = lmraOutcome(quickDoc.formData);
+    const badge = $("lmra-dialog-outcome");
+    badge.textContent = result.label;
+    badge.dataset.tone = result.tone;
+    $("lmra-dialog-measures-row").hidden = result.tone !== "stop" && !quickDoc.formData["lmra.measures"];
+    renderLmraCard();
+    if (active() === quickDoc) { renderMeasurementForm(); refreshSafetyForm(); }
+  }
+  function openQuickLmra(fresh = false) {
+    let doc = latestSafety("lmra");
+    if (fresh || !doc || doc.formData["visit.date"] !== isoToday()) doc = newSafetyForm("lmra", false);
+    quickDoc = doc;
+    $("lmra-dialog-when").textContent = `${doc.formData["visit.date"] === isoToday() ? "vandaag" : doc.formData["visit.date"]} ${doc.formData["visit.start"] || ""}`;
+    for (const [id, field] of [["lmra-dialog-task", "lmra.task"], ["lmra-dialog-location", "lmra.location"], ["lmra-dialog-measures", "lmra.measures"]]) $(id).value = doc.formData[field] || "";
+    $("lmra-dialog-list").replaceChildren(lmraButtons(doc, quickLmraChanged));
+    quickLmraChanged();
+    const dialog = $("lmra-dialog");
+    if (!dialog.open) dialog.showModal();
   }
 
   // Op Vandaag en in de bovenbalk: de laatste LMRA in één oogopslag.
@@ -1972,9 +2074,29 @@
 
   if (!blocked) {
     renderLmraCard();
-    $("lmra-quick").addEventListener("click", () => { try { openSafety("lmra"); } catch (error) { report(error); } });
-    $("lmra-card-open").addEventListener("click", () => { try { openSafety("lmra"); } catch (error) { report(error); } });
-    $("lmra-card-new").addEventListener("click", () => { try { newSafetyForm("lmra"); } catch (error) { report(error); } });
+    $("lmra-quick").addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
+    $("lmra-card-open").addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
+    $("lmra-card-new").addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
+    for (const [id, field] of [["lmra-dialog-task", "lmra.task"], ["lmra-dialog-location", "lmra.location"], ["lmra-dialog-measures", "lmra.measures"]]) {
+      $(id).addEventListener("input", () => { if (!quickDoc) return; quickDoc.formData[field] = $(id).value; refreshTitleOf(quickDoc); quickLmraChanged(); });
+    }
+    $("lmra-dialog-alles").addEventListener("click", () => {
+      if (!quickDoc) return;
+      for (const [key] of LMRA_QUESTIONS) if (!quickDoc.formData[`q.${key}`]) quickDoc.formData[`q.${key}`] = "ja";
+      $("lmra-dialog-list").replaceChildren(lmraButtons(quickDoc, quickLmraChanged));
+      quickLmraChanged();
+    });
+    $("lmra-dialog-close").addEventListener("click", () => { persist(); $("lmra-dialog").close(); });
+    $("lmra-dialog-new").addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
+    $("lmra-dialog-full").addEventListener("click", () => {
+      const doc = quickDoc;
+      $("lmra-dialog").close();
+      finish();
+      data.activeId = doc.id;
+      persist();
+      tab("writing");
+      selectDocument();
+    });
     $("tra-card-open").addEventListener("click", () => { try { openSafety("tra"); } catch (error) { report(error); } });
   }
   $("today-date").textContent = new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });

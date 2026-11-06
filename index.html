@@ -388,6 +388,14 @@
     <p id="library-status" role="status"></p>
     <ul id="library-list"></ul>
   </dialog>
+  <dialog id="lmra-dialog" class="lmra-dialog" aria-labelledby="lmra-dialog-heading">
+    <div class="lmra-dialog-head"><h2 id="lmra-dialog-heading">⚡ LMRA <small id="lmra-dialog-when"></small></h2><button id="lmra-dialog-close" type="button">Klaar</button></div>
+    <p id="lmra-dialog-outcome" class="lmra-outcome"></p>
+    <div class="lmra-dialog-fields"><input id="lmra-dialog-task" type="text" placeholder="Wat ga je doen?" autocapitalize="sentences"><input id="lmra-dialog-location" type="text" placeholder="Waar?"></div>
+    <div id="lmra-dialog-list"></div>
+    <div id="lmra-dialog-measures-row" hidden><textarea id="lmra-dialog-measures" rows="2" placeholder="Wat is er niet in orde en wat doe je eraan?"></textarea></div>
+    <div class="lmra-dialog-actions"><button id="lmra-dialog-alles" type="button" title="Zet alle open vragen op Ja. Klopt er één niet, tik dan op Nee.">Rest op Ja</button><button id="lmra-dialog-new" type="button">+ Nieuwe</button><button id="lmra-dialog-full" type="button">Volledig formulier</button></div>
+  </dialog>
   <dialog id="task-dialog" aria-labelledby="task-heading">
     <div class="section-heading">
       <h2 id="task-heading">Taak in WerkHub</h2>

@@ -913,3 +913,8 @@ zijn nog niet geverifieerd.
   - **Snel te zien:** knop **⚡ LMRA** in de bovenbalk (met ✅ / ⛔ voor vandaag) en een LMRA-balk bovenaan Vandaag met de laatste LMRA, **Nieuwe LMRA**, **Laatste openen** en **TRA**.
   - Gaat mee in de cloud-sync, net als de andere formulieren.
   - De methode heet in de app voluit **Fine & Kinney** (naar William Fine en G.F. Kinney), zoals in de PWN-formulieren.
+
+## Versie 26.6
+
+- **⚡ Snelle LMRA:** de knop ⚡ LMRA (bovenbalk en Vandaag) opent nu een venster waar je bent, in plaats van naar de Werkmap te springen. Korte vragen met grote knoppen **Ja / Nee / n.v.t.**, werk en plek in één regel, uitkomst bovenaan. Bij een Nee verschijnt een vak voor wat er niet klopt. **Rest op Ja** vult alleen de vragen die nog open staan. De LMRA van vandaag wordt hergebruikt; **+ Nieuwe** start een volgende, **Volledig formulier** opent hem in de Werkmap. Het formulier in de Werkmap gebruikt dezelfde knoppen.
+- **Fine & Kinney in kleur:** 🟢 aanvaardbaar, 🟡 mogelijk, 🟠 aanzienlijk, 🔴 hoog, ⛔ zeer hoog. Kleurlegenda boven de TRA-stappen, gekozen W/B/E-waarden kleuren mee, elke TRA-regel krijgt de kleur van het risico ná de maatregel, en de uitlegtabellen zijn per rij gekleurd.

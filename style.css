@@ -391,3 +391,63 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .pdf-reader-pages img { display: block; width: calc(min(100%, 900px) * var(--zoom, 1)); max-width: none; background: #fff; box-shadow: 0 4px 16px rgb(0 0 0 / 35%); }
 body.reading { overflow: hidden; }
 .library-actions .library-read { background: #173c39; color: #fff; border-color: #173c39; }
+
+/* Fine & Kinney in kleur: groen goed, geel let op, oranje maatregel, rood direct, donkerrood stop */
+:root { --k1: #2e8b57; --k1-bg: #e3f4ea; --k2: #b38600; --k2-bg: #fff3c4; --k3: #d9730d; --k3-bg: #ffe2c2; --k4: #d33b32; --k4-bg: #fbd6d2; --k5: #8f1d17; --k5-bg: #f4b8b3; }
+.kinney-r { font-size: .85rem; padding: 7px 10px; border: 2px solid transparent; white-space: normal; }
+.kinney-r[data-tone="k1"] { background: var(--k1-bg); border-color: var(--k1); color: #1f6b43; }
+.kinney-r[data-tone="k2"] { background: var(--k2-bg); border-color: var(--k2); color: #6b5000; }
+.kinney-r[data-tone="k3"] { background: var(--k3-bg); border-color: var(--k3); color: #7a3e00; }
+.kinney-r[data-tone="k4"] { background: var(--k4); border-color: var(--k4); color: #fff; }
+.kinney-r[data-tone="k5"] { background: var(--k5); border-color: var(--k5); color: #fff; }
+.measurement-sheet select[data-tone="k1"] { background: var(--k1-bg); border-color: var(--k1); }
+.measurement-sheet select[data-tone="k2"] { background: var(--k2-bg); border-color: var(--k2); }
+.measurement-sheet select[data-tone="k3"] { background: var(--k3-bg); border-color: var(--k3); }
+.measurement-sheet select[data-tone="k4"] { background: var(--k4-bg); border-color: var(--k4); font-weight: 700; }
+.measurement-sheet select[data-tone="k5"] { background: var(--k5-bg); border-color: var(--k5); font-weight: 700; }
+.measurement-sheet tr[data-tone] td:first-child { color: #fff; }
+.measurement-sheet tr[data-tone="k1"] td:first-child { background: var(--k1); }
+.measurement-sheet tr[data-tone="k2"] td:first-child { background: var(--k2); }
+.measurement-sheet tr[data-tone="k3"] td:first-child { background: var(--k3); }
+.measurement-sheet tr[data-tone="k4"] td:first-child { background: var(--k4); }
+.measurement-sheet tr[data-tone="k5"] td:first-child { background: var(--k5); }
+.kinney-help tr[data-tone="k1"] td { background: var(--k1-bg); }
+.kinney-help tr[data-tone="k2"] td { background: var(--k2-bg); }
+.kinney-help tr[data-tone="k3"] td { background: var(--k3-bg); }
+.kinney-help tr[data-tone="k4"] td { background: var(--k4-bg); }
+.kinney-help tr[data-tone="k5"] td { background: var(--k5-bg); }
+.kinney-help tr[data-tone] td:first-child { color: #fff; font-weight: 800; text-align: center; }
+.kinney-help .measurement-table-wrap { margin-top: 10px; }
+.kinney-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.kinney-pill { padding: 5px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; border: 2px solid; }
+.kinney-pill[data-tone="k1"] { background: var(--k1-bg); border-color: var(--k1); color: #1f6b43; }
+.kinney-pill[data-tone="k2"] { background: var(--k2-bg); border-color: var(--k2); color: #6b5000; }
+.kinney-pill[data-tone="k3"] { background: var(--k3-bg); border-color: var(--k3); color: #7a3e00; }
+.kinney-pill[data-tone="k4"] { background: var(--k4); border-color: var(--k4); color: #fff; }
+.kinney-pill[data-tone="k5"] { background: var(--k5); border-color: var(--k5); color: #fff; }
+
+/* ⚡ Snelle LMRA */
+.lmra-dialog { width: min(560px, calc(100vw - 20px)); max-height: 92dvh; border: 0; border-radius: 18px; padding: 14px 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 30%); }
+.lmra-dialog::backdrop { background: rgb(23 60 57 / 35%); }
+.lmra-dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lmra-dialog-head h2 { margin: 0; font-size: 1.2rem; }
+.lmra-dialog-head small { font-weight: 500; color: #50645c; font-size: .85rem; }
+.lmra-dialog-head button { min-height: 44px; padding: 6px 18px; font-weight: 700; background: #173c39; color: #fff; border-radius: 12px; }
+.lmra-dialog .lmra-outcome { margin: 8px 0; padding: 6px 10px; font-size: .95rem; }
+.lmra-dialog-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 6px; margin-bottom: 6px; }
+.lmra-dialog-fields input, #lmra-dialog-measures { min-height: 40px; padding: 6px 8px; border: 1px solid #b4c4b9; border-radius: 8px; width: 100%; font-size: 1rem; }
+.lmra-quicklist { display: grid; gap: 4px; margin: 6px 0; }
+.lmra-q { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 10px; border-radius: 10px; background: #f6f8f7; border-left: 4px solid #c9d2d8; }
+.lmra-q span { font-size: .95rem; }
+.lmra-q[data-answer="ja"] { border-left-color: var(--k1, #2e8b57); }
+.lmra-q[data-answer="nvt"] { border-left-color: #8ca49d; }
+.lmra-q[data-answer="nee"] { border-left-color: var(--k4, #d33b32); background: #fdeeed; }
+.lmra-seg { display: flex; flex-shrink: 0; }
+.lmra-seg button { min-height: 40px; min-width: 52px; padding: 4px 10px; border-radius: 0; margin: 0; border: 1px solid #b4c4b9; background: #fff; font-weight: 600; }
+.lmra-seg button:first-child { border-radius: 10px 0 0 10px; }
+.lmra-seg button:last-child { border-radius: 0 10px 10px 0; font-weight: 500; font-size: .85rem; }
+.lmra-seg button[data-value="ja"][aria-pressed="true"] { background: var(--k1, #2e8b57); color: #fff; border-color: var(--k1, #2e8b57); }
+.lmra-seg button[data-value="nee"][aria-pressed="true"] { background: var(--k4, #d33b32); color: #fff; border-color: var(--k4, #d33b32); }
+.lmra-seg button[data-value="nvt"][aria-pressed="true"] { background: #65706f; color: #fff; border-color: #65706f; }
+.lmra-dialog-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.lmra-dialog-actions button { min-height: 44px; padding: 6px 14px; border-radius: 12px; }
