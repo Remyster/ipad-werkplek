@@ -928,3 +928,7 @@ zijn nog niet geverifieerd.
 ## Versie 26.8
 
 - **📘 Werkbeschrijvingen**: eigen tabblad in de bovenbalk (op de plek waar ⚡ LMRA stond). **＋ PDF toevoegen** zet PDF's in de map *Werkbeschrijvingen* van de PDF-bibliotheek, dus ze staan vanzelf op je andere apparaten. Tik op een kaart om te lezen (apart scherm, zoom − / +, ✕ sluit), ✏️ opent hem als schrift om erop te schrijven. Zoekveld, laatst gelezen bovenaan, en een vinkje om ook je andere PDF's te tonen.
+
+## Versie 26.9
+
+- Reparatie: "Cannot read properties of null (reading 'addEventListener')". Kwam voor als de app geladen werd terwijl GitHub Pages nog half de oude en half de nieuwe versie uitleverde. Ontbreekt nu een knop of scherm, dan slaat de app dat over in plaats van de hele opstart te stoppen. Getest met een oude `index.html` naast de nieuwe code.

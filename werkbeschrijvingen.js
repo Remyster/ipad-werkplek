@@ -73,10 +73,10 @@
     } finally { $("wb-add").disabled = false; }
   }
 
-  $("wb-add").addEventListener("click", () => { $("wb-file").value = ""; $("wb-file").click(); });
-  $("wb-file").addEventListener("change", () => { const files = [...$("wb-file").files]; $("wb-file").value = ""; add(files).catch(error => say(error.message)); });
-  $("wb-search").addEventListener("input", render);
-  $("wb-all").addEventListener("change", render);
+  $("wb-add")?.addEventListener("click", () => { $("wb-file").value = ""; $("wb-file").click(); });
+  $("wb-file")?.addEventListener("change", () => { const files = [...$("wb-file").files]; $("wb-file").value = ""; add(files).catch(error => say(error.message)); });
+  $("wb-search")?.addEventListener("input", render);
+  $("wb-all")?.addEventListener("change", render);
   document.addEventListener("library-changed", render);
   document.addEventListener("werkplek-tab", event => { if (event.detail === "werk") { say(""); render(); } });
   window.WorkplaceWerkbeschrijvingen = { render, add };

@@ -1959,7 +1959,7 @@
     touches.clear();
     document.body.classList.remove("writing-focus");
     setFocusLabel(false);
-    for (const section of ["today", "writing", "hubs", "werk", "ai"]) $(section).hidden = section !== name;
+    for (const section of ["today", "writing", "hubs", "werk", "ai"]) { const element = $(section); if (element) element.hidden = section !== name; }
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
     document.dispatchEvent(new CustomEvent("werkplek-tab", { detail: name }));
@@ -2120,21 +2120,21 @@
 
   if (!blocked) {
     renderLmraCard();
-    $("lmra-card-archive").addEventListener("click", () => { try { openQuickLmra(false, null, true); } catch (error) { report(error); } });
-    $("lmra-card-open").addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
-    $("lmra-card-new").addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
+    $("lmra-card-archive")?.addEventListener("click", () => { try { openQuickLmra(false, null, true); } catch (error) { report(error); } });
+    $("lmra-card-open")?.addEventListener("click", () => { try { openQuickLmra(); } catch (error) { report(error); } });
+    $("lmra-card-new")?.addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
     for (const [id, field] of [["lmra-dialog-task", "lmra.task"], ["lmra-dialog-location", "lmra.location"], ["lmra-dialog-measures", "lmra.measures"]]) {
       $(id).addEventListener("input", () => { if (!quickDoc) return; quickDoc.formData[field] = $(id).value; refreshTitleOf(quickDoc); quickLmraChanged(); });
     }
-    $("lmra-dialog-alles").addEventListener("click", () => {
+    $("lmra-dialog-alles")?.addEventListener("click", () => {
       if (!quickDoc) return;
       for (const [key] of LMRA_QUESTIONS) if (!quickDoc.formData[`q.${key}`]) quickDoc.formData[`q.${key}`] = "ja";
       $("lmra-dialog-list").replaceChildren(lmraButtons(quickDoc, quickLmraChanged));
       quickLmraChanged();
     });
-    $("lmra-dialog-close").addEventListener("click", () => { persist(); $("lmra-dialog").close(); });
-    $("lmra-dialog-new").addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
-    $("lmra-dialog-full").addEventListener("click", () => {
+    $("lmra-dialog-close")?.addEventListener("click", () => { persist(); $("lmra-dialog").close(); });
+    $("lmra-dialog-new")?.addEventListener("click", () => { try { openQuickLmra(true); } catch (error) { report(error); } });
+    $("lmra-dialog-full")?.addEventListener("click", () => {
       const doc = quickDoc;
       $("lmra-dialog").close();
       finish();
@@ -2143,7 +2143,7 @@
       tab("writing");
       selectDocument();
     });
-    $("tra-card-open").addEventListener("click", () => { try { openSafety("tra"); } catch (error) { report(error); } });
+    $("tra-card-open")?.addEventListener("click", () => { try { openSafety("tra"); } catch (error) { report(error); } });
   }
   $("today-date").textContent = new Date().toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => tab(button.dataset.tab)));
@@ -2573,44 +2573,44 @@
       } finally { $("pdf-open").disabled = false; }
     }
     // PDF-knop opent de PDF-bibliotheek (library.js).
-    $("pdf-open").addEventListener("click", () => { if (window.WorkplaceLibrary) window.WorkplaceLibrary.open(); });
+    $("pdf-open")?.addEventListener("click", () => { if (window.WorkplaceLibrary) window.WorkplaceLibrary.open(); });
     window.WorkplacePdfOpen = openPdfs;
-    $("pdf-original").addEventListener("click", async () => {
+    $("pdf-original")?.addEventListener("click", async () => {
       try { if (active().pdf) await window.WorkplaceLibrary.read({ id: active().pdf.id, name: active().pdf.name }); }
       catch (error) { report(error); }
     });
-    $("width").addEventListener("input", () => { $("width-value").textContent = $("width").value; });
-    $("reset-diagnostics").addEventListener("click", () => {
+    $("width")?.addEventListener("input", () => { $("width-value").textContent = $("width").value; });
+    $("reset-diagnostics")?.addEventListener("click", () => {
       finish();
       diagnostics = emptyDiagnostics();
       updateDiagnostics();
     });
-    $("focus").addEventListener("click", () => {
+    $("focus")?.addEventListener("click", () => {
       finish();
       const on = document.body.classList.toggle("writing-focus");
       setFocusLabel(on);
       $("content-backup").open = false;
       render();
     });
-    $("save-now").addEventListener("click", () => {
+    $("save-now")?.addEventListener("click", () => {
       finish();
       if (persist()) $("save-status").textContent = `Nu opgeslagen om ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}.`;
     });
     selectDocument();
-    $("content-folder").addEventListener("change", () => {
+    $("content-folder")?.addEventListener("change", () => {
       list($("content-folder").value === noFolderValue ? null : $("content-folder").value);
     });
-    $("documents").addEventListener("change", () => {
+    $("documents")?.addEventListener("change", () => {
       if (!$("documents").value) return;
       finish();
       data.activeId = $("documents").value;
       selectDocument();
       persist();
     });
-    $("delete-document").addEventListener("click", () => {
+    $("delete-document")?.addEventListener("click", () => {
       deleteActiveDocument().catch(report);
     });
-    $("new-folder").addEventListener("click", () => {
+    $("new-folder")?.addEventListener("click", () => {
       finish();
       const title = window.prompt("Naam van de nieuwe map:", "");
       if (title === null) return;
@@ -2651,14 +2651,14 @@
         persist();
       });
     }
-    $("measurement-editor").addEventListener("input", event => {
+    $("measurement-editor")?.addEventListener("input", event => {
       const field = event.target.dataset.measureField;
       if (!field || !isMeasurement()) return;
       active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
       persist();
       refreshSafetyForm();
     });
-    $("measurement-editor").addEventListener("change", event => {
+    $("measurement-editor")?.addEventListener("change", event => {
       const field = event.target.dataset.measureField;
       if (!field || !isMeasurement()) return;
       active().formData[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -2710,11 +2710,11 @@
       syncColorSwatches();
       activateTool("pen");
     };
-    $("pen").addEventListener("click", () => activateBrush("pen"));
-    $("marker-tool").addEventListener("click", () => activateBrush("marker"));
-    $("highlighter-tool").addEventListener("click", () => activateBrush("highlighter"));
+    $("pen")?.addEventListener("click", () => activateBrush("pen"));
+    $("marker-tool")?.addEventListener("click", () => activateBrush("marker"));
+    $("highlighter-tool")?.addEventListener("click", () => activateBrush("highlighter"));
     for (const name of ["move", "eraser", "scratch-eraser", "select-ink"]) $(name).addEventListener("click", () => activateTool(name));
-    $("text-tool").addEventListener("click", () => {
+    $("text-tool")?.addEventListener("click", () => {
       activateTool("text");
       notify("Tekst: tik op het blad waar je wilt typen. Tik op bestaande tekst om hem aan te passen.", "", null, 4000);
     });
@@ -2726,12 +2726,12 @@
     });
     textEditor.addEventListener("blur", () => closeTextEditor(true));
     // iOS opent het toetsenbord soms pas bij de "click" na het tikken.
-    $("drawing").addEventListener("click", () => { if (textEdit && document.activeElement !== textEditor) textEditor.focus(); });
+    $("drawing")?.addEventListener("click", () => { if (textEdit && document.activeElement !== textEditor) textEditor.focus(); });
     textEditor.addEventListener("keydown", event => {
       if (event.key === "Escape") { event.preventDefault(); closeTextEditor(false); }
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); textEditor.blur(); }
     });
-    $("shape-tool").addEventListener("click", () => {
+    $("shape-tool")?.addEventListener("click", () => {
       const palette = $("shape-palette");
       palette.hidden = !palette.hidden;
       $("shape-tool").setAttribute("aria-expanded", String(!palette.hidden));
@@ -2747,13 +2747,13 @@
       rememberBrushSettings();
       syncColorSwatches();
     }));
-    $("color").addEventListener("input", () => { rememberBrushSettings(); syncColorSwatches(); });
-    $("width").addEventListener("input", rememberBrushSettings);
+    $("color")?.addEventListener("input", () => { rememberBrushSettings(); syncColorSwatches(); });
+    $("width")?.addEventListener("input", rememberBrushSettings);
     syncColorSwatches();
-    $("selection-copy").addEventListener("click", () => copySelection(false));
-    $("selection-cut").addEventListener("click", () => copySelection(true));
-    $("selection-paste").addEventListener("click", pasteSelection);
-    $("undo").addEventListener("click", () => {
+    $("selection-copy")?.addEventListener("click", () => copySelection(false));
+    $("selection-cut")?.addEventListener("click", () => copySelection(true));
+    $("selection-paste")?.addEventListener("click", pasteSelection);
+    $("undo")?.addEventListener("click", () => {
       finish();
       selection = null;
       updateSelectionButtons();
@@ -2767,7 +2767,7 @@
       persist();
       render();
     });
-    $("redo").addEventListener("click", () => {
+    $("redo")?.addEventListener("click", () => {
       finish();
       selection = null;
       updateSelectionButtons();
@@ -2785,18 +2785,18 @@
       persist();
       render();
     });
-    $("reset").addEventListener("click", () => {
+    $("reset")?.addEventListener("click", () => {
       finish();
       active().view = { x: 0, y: 0, scale: 1 };
       persist();
       render();
     });
-    $("finger").addEventListener("change", () => { finish(); });
+    $("finger")?.addEventListener("change", () => { finish(); });
     $("auto-scratch").checked = autoScratchEnabled();
-    $("auto-scratch").addEventListener("change", () => {
+    $("auto-scratch")?.addEventListener("change", () => {
       try { localStorage.setItem("remy-ipad-auto-scratch", $("auto-scratch").checked ? "1" : "0"); } catch (error) { /* voorkeur blijft alleen in dit venster */ }
     });
-    $("clear-page").addEventListener("click", () => {
+    $("clear-page")?.addEventListener("click", () => {
       finish();
       const doc = active();
       const page = Math.min((doc.pages || 1) - 1, Math.max(0, Math.floor((doc.view.y + 24) / 1144)));
@@ -2862,11 +2862,11 @@
     }));
     const selectionMenu = $("selection-menu");
     selectionMenu.addEventListener("pointerdown", event => event.stopPropagation());
-    selectionMenu.querySelector("[data-sel='copy']").addEventListener("click", () => copySelection(false));
-    selectionMenu.querySelector("[data-sel='cut']").addEventListener("click", () => copySelection(true));
-    selectionMenu.querySelector("[data-sel='tidy']").addEventListener("click", tidySelection);
-    selectionMenu.querySelector("[data-sel='straighten']").addEventListener("click", straightenSelection);
-    $("text-tidy").addEventListener("click", tidyNotes);
+    selectionMenu.querySelector("[data-sel='copy']")?.addEventListener("click", () => copySelection(false));
+    selectionMenu.querySelector("[data-sel='cut']")?.addEventListener("click", () => copySelection(true));
+    selectionMenu.querySelector("[data-sel='tidy']")?.addEventListener("click", tidySelection);
+    selectionMenu.querySelector("[data-sel='straighten']")?.addEventListener("click", straightenSelection);
+    $("text-tidy")?.addEventListener("click", tidyNotes);
     selectionMenu.querySelectorAll("[data-sel-task]").forEach(button => button.addEventListener("click", () => {
       // Zit er precies één taakvakje in de lasso, dan wordt de selectie de taak van dat vakje.
       if (window.WorkplaceSmart?.boxFromSelection()) return;
@@ -2876,27 +2876,28 @@
       activateTool("eraser");
       hideQuickTools();
     });
-    $("quick-color").addEventListener("input", () => { $("color").value = $("quick-color").value; rememberBrushSettings(); syncColorSwatches(); });
+    $("quick-color")?.addEventListener("input", () => { $("color").value = $("quick-color").value; rememberBrushSettings(); syncColorSwatches(); });
     // Stabilisator: één waarde, twee schuiven (werkbalk en lang-drukken-menu), onthouden per apparaat.
     const STEADY_KEY = "remy-ipad-steady";
     const setSteady = value => {
       const v = String(Math.max(0, Math.min(10, Number(value) || 0)));
-      $("steady").value = $("quick-steady").value = $("steady-value").textContent = v;
+      for (const id of ["steady", "quick-steady"]) if ($(id)) $(id).value = v;
+      if ($("steady-value")) $("steady-value").textContent = v;
       try { localStorage.setItem(STEADY_KEY, v); } catch (error) { /* alleen gemak */ }
     };
     try { const saved = localStorage.getItem(STEADY_KEY); if (saved !== null) setSteady(saved); } catch (error) { /* standaard 3 */ }
-    $("steady").addEventListener("input", () => setSteady($("steady").value));
+    $("steady")?.addEventListener("input", () => setSteady($("steady").value));
     const setInk = on => {
       fountainInk = !!on;
-      $("fountain").checked = $("quick-fountain").checked = fountainInk;
+      for (const id of ["fountain", "quick-fountain"]) if ($(id)) $(id).checked = fountainInk;
       try { localStorage.setItem(INK_KEY, fountainInk ? "vulpen" : "gewoon"); } catch (error) { /* alleen gemak */ }
       render();
     };
-    $("fountain").checked = $("quick-fountain").checked = fountainInk;
-    $("fountain").addEventListener("change", () => setInk($("fountain").checked));
-    $("quick-fountain").addEventListener("change", () => setInk($("quick-fountain").checked));
-    $("quick-steady").addEventListener("input", () => setSteady($("quick-steady").value));
-    $("quick-width").addEventListener("input", () => {
+    for (const id of ["fountain", "quick-fountain"]) if ($(id)) $(id).checked = fountainInk;
+    $("fountain")?.addEventListener("change", () => setInk($("fountain").checked));
+    $("quick-fountain")?.addEventListener("change", () => setInk($("quick-fountain").checked));
+    $("quick-steady")?.addEventListener("input", () => setSteady($("quick-steady").value));
+    $("quick-width")?.addEventListener("input", () => {
       $("width").value = $("quick-width").value;
       $("width-value").textContent = $("width").value;
       rememberBrushSettings();
@@ -2913,7 +2914,7 @@
       }
       pinch = { a, b, view: { ...active().view } };
     };
-    $("writing").addEventListener("selectstart", event => {
+    $("writing")?.addEventListener("selectstart", event => {
       if (event.target instanceof Element && !event.target.closest("input, textarea, select")) event.preventDefault();
     });
     canvas.addEventListener("touchstart", event => event.preventDefault(), { passive: false });
@@ -3180,9 +3181,9 @@
       reader.onerror = () => reject(new Error("Bestand lezen mislukt."));
       reader.readAsText(file);
     });
-    $("import-merge").addEventListener("click", () => { importMode = "merge"; $("import-file").value = ""; $("import-file").click(); });
-    $("import-replace").addEventListener("click", () => { importMode = "replace"; $("import-file").value = ""; $("import-file").click(); });
-    $("import-file").addEventListener("change", async () => {
+    $("import-merge")?.addEventListener("click", () => { importMode = "merge"; $("import-file").value = ""; $("import-file").click(); });
+    $("import-replace")?.addEventListener("click", () => { importMode = "replace"; $("import-file").value = ""; $("import-file").click(); });
+    $("import-file")?.addEventListener("change", async () => {
       const file = $("import-file").files[0];
       if (!file) return;
       try {
@@ -3198,7 +3199,7 @@
         $("save-status").textContent = `Back-up geopend: ${result.added} nieuw, ${result.replaced} bijgewerkt. Niets anders is weggehaald.`;
       } catch (error) { report(error); }
     });
-    $("export").addEventListener("click", async () => {
+    $("export")?.addEventListener("click", async () => {
       finish();
       $("export").disabled = true;
       try {

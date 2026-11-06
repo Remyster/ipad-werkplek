@@ -95,11 +95,11 @@
   function close() { panel.hidden = true; fab.setAttribute("aria-expanded", "false"); }
 
   fab.addEventListener("click", () => (panel.hidden ? open() : close()));
-  $("word-close").addEventListener("click", close);
-  $("word-go").addEventListener("click", explain);
+  $("word-close")?.addEventListener("click", close);
+  $("word-go")?.addEventListener("click", explain);
   input.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); explain(); } if (event.key === "Escape") close(); });
   for (const type of ["pointerdown", "touchstart"]) panel.addEventListener(type, event => event.stopPropagation());
-  $("word-clear").addEventListener("click", () => { if (window.confirm("Je hele woordenlijst wissen?")) { save([]); renderList(); } });
+  $("word-clear")?.addEventListener("click", () => { if (window.confirm("Je hele woordenlijst wissen?")) { save([]); renderList(); } });
 
   window.WorkplaceWord = { open, close, prompt };
 })();

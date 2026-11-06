@@ -475,12 +475,12 @@
     boxType.value = ["urgent", "belangrijk", "delegeren", "subtaak"].includes(savedType) ? savedType : "belangrijk";
     boxType.addEventListener("change", () => write("remy-ipad-box-type", boxType.value));
     $("box-list").closest("details").addEventListener("toggle", event => { if (event.target.open) renderBoxList(); });
-    $("vangnet").addEventListener("toggle", event => {
+    $("vangnet")?.addEventListener("toggle", event => {
       if (!event.target.open) return;
       renderTrash();
       versionTick(true).then(renderVersions).catch(error => W().notify(error.message));
     });
-    $("version-restore").addEventListener("click", () => restoreSelectedVersion().catch(error => W().notify(error.message || String(error))));
+    $("version-restore")?.addEventListener("click", () => restoreSelectedVersion().catch(error => W().notify(error.message || String(error))));
     setInterval(() => versionTick(false), 60000);
     setInterval(transcribeTick, 90000);
     setTimeout(transcribeTick, 20000);

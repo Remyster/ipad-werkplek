@@ -210,15 +210,15 @@
     render();
   }
 
-  $("library-close").addEventListener("click", () => dialog.close());
-  $("library-search").addEventListener("input", render);
-  $("library-folder").addEventListener("change", render);
-  $("library-add").addEventListener("click", () => { $("library-file").value = ""; $("library-file").click(); });
-  $("library-file").addEventListener("change", () => { const files = [...$("library-file").files]; $("library-file").value = ""; add(files).catch(error => say(error.message)); });
+  $("library-close")?.addEventListener("click", () => dialog.close());
+  $("library-search")?.addEventListener("input", render);
+  $("library-folder")?.addEventListener("change", render);
+  $("library-add")?.addEventListener("click", () => { $("library-file").value = ""; $("library-file").click(); });
+  $("library-file")?.addEventListener("change", () => { const files = [...$("library-file").files]; $("library-file").value = ""; add(files).catch(error => say(error.message)); });
   document.addEventListener("library-changed", () => { if (dialog.open) { renderFolders(); render(); } setTimeout(downloadAll, 3000); });
-  $("pdf-reader-close").addEventListener("click", closeReader);
-  $("pdf-reader-in").addEventListener("click", () => zoom(.25));
-  $("pdf-reader-out").addEventListener("click", () => zoom(-.25));
+  $("pdf-reader-close")?.addEventListener("click", closeReader);
+  $("pdf-reader-in")?.addEventListener("click", () => zoom(.25));
+  $("pdf-reader-out")?.addEventListener("click", () => zoom(-.25));
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("pdf-reader").hidden) closeReader(); });
   setTimeout(downloadAll, 15000);
   setInterval(downloadAll, 10 * 60000);
