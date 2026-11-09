@@ -472,3 +472,5 @@ body.reading { overflow: hidden; }
 .wb-open small { color: #5d736d; }
 .wb-icon { font-size: 1.8rem; }
 .wb-notes { border: 0; border-left: 1px solid #e0e6e3; border-radius: 0; min-width: 56px; background: #f6f8f7; font-size: 1.2rem; }
+
+.prio-sub { list-style: none; margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed rgb(255 255 255 / 25%); font-size: .8rem; font-weight: 700; opacity: .85; }

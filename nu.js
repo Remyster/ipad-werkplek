@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   // Wat nu: je WerkHub-taken in drie bakken (Eisenhower).
-  // Eisenhower: Doen (urgent+belangrijk), Plannen (belangrijk), Delegeren (urgent, niet belangrijk), Rest (tussendoor).
+  // Eisenhower: Doen (urgent+belangrijk), Gepland (belangrijk; zonder datum: Plannen), Delegeren (urgent, niet belangrijk), Rest (tussendoor).
   // Vinkje = klaar in WerkHub en weg uit de lijst. Geen timer.
   const $ = id => document.getElementById(id);
   const card = $("nu-card");
@@ -62,10 +62,18 @@
     const open = tasks.filter(task => task.status !== "wacht_op");
     for (const key of ["urgent", "belangrijk", "delegeren", "wel"]) {
       const list = $(`prio-${key}`);
-      const items = open.filter(task => bucket(task) === key).sort(order);
+      let items = open.filter(task => bucket(task) === key).sort(order);
+      // Gepland: wat al een datum heeft eerst; daaronder "Plannen" = nog zonder datum.
+      const unplanned = key === "belangrijk" ? items.filter(task => !task.deadline) : [];
+      if (unplanned.length) items = [...items.filter(task => task.deadline), ...unplanned];
       // Maximaal 5 per bak (eerstvolgende datum eerst). Vink je er een af, dan schuift de volgende omhoog.
       const shown = expanded.has(key) ? items : items.slice(0, MAX_SHOWN);
       const rows = shown.map(row);
+      const firstUnplanned = shown.findIndex(task => unplanned.includes(task));
+      if (firstUnplanned >= 0) {
+        const head = Object.assign(document.createElement("li"), { className: "prio-sub", textContent: `🗓️ Plannen · nog zonder datum (${unplanned.length})` });
+        rows.splice(firstUnplanned, 0, head);
+      }
       if (items.length > MAX_SHOWN) {
         const more = Object.assign(document.createElement("button"), { type: "button", className: "prio-more",
           textContent: expanded.has(key) ? "Minder tonen" : `+ ${items.length - MAX_SHOWN} meer` });
@@ -76,7 +84,7 @@
         rows.push(li);
       }
       list.replaceChildren(...(items.length ? rows : [Object.assign(document.createElement("li"), {
-        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks te plannen." : key === "delegeren" ? "Niks om door te geven." : "Geen klusjes voor tussendoor."
+        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks gepland." : key === "delegeren" ? "Niks om door te geven." : "Geen klusjes voor tussendoor."
       })]));
     }
     const waiting = tasks.filter(task => task.status === "wacht_op");

@@ -49,7 +49,7 @@
 
   // Een regel mag eindigen op "| 2026-10-20": dat wordt de deadline van die taak (zo levert de AI ze aan).
   // Regel: "taak | 2026-10-20 | urgent" (datum en soort mogen ontbreken).
-  const KINDS = { urgent: "urgent", u: "urgent", doen: "urgent", belangrijk: "belangrijk", b: "belangrijk", plannen: "belangrijk", delegeren: "delegeren", d: "delegeren", rest: "subtaak", subtaak: "subtaak", wel: "subtaak", "wel doen": "subtaak", s: "subtaak" };
+  const KINDS = { urgent: "urgent", u: "urgent", doen: "urgent", belangrijk: "belangrijk", b: "belangrijk", plannen: "belangrijk", gepland: "belangrijk", delegeren: "delegeren", d: "delegeren", rest: "subtaak", subtaak: "subtaak", wel: "subtaak", "wel doen": "subtaak", s: "subtaak" };
   function splitDeadline(line) {
     const match = line.match(/^(.*?)\s*\|\s*(\d{4}-\d{2}-\d{2})?\s*(?:\|\s*([a-z ]+?))?\s*$/i);
     if (!match) return { titel: line, deadline: "", kind: "" };
@@ -71,7 +71,7 @@
     return [{ titel: lines[0].slice(0, 200), notitie: [lines[0].length > 200 ? lines[0] : "", rest].filter(Boolean).join("\n").slice(0, 4000), deadline: first.deadline, kind: first.kind }];
   }
 
-  // type: urgent (Doen) | belangrijk (Plannen) | delegeren | subtaak (Rest). "taak" = belangrijk, voor oude aanroepen.
+  // type: urgent (Doen) | belangrijk (Gepland) | delegeren | subtaak (Rest). "taak" = belangrijk, voor oude aanroepen.
   // Delegeren is een subtaak met prioriteit "delegeren".
   const isSub = kind => kind === "subtaak" || kind === "delegeren";
   async function createTasks(text, { split = false, type = "belangrijk", deadline = "" } = {}) {
@@ -131,7 +131,7 @@
     return "Haal de taken of actiepunten uit dit handschrift. Vandaag is " + day + " " + iso + ". " +
       "Geef alleen regels in de vorm: taak | JJJJ-MM-DD | soort. Zet een datum alleen als er een datum, dag of termijn in het handschrift staat " +
       "(reken die om naar een echte datum), anders laat je de datum leeg. Soort is precies één woord: urgent (moet zo snel mogelijk, vandaag of morgen), " +
-      "urgent = Doen: urgent én belangrijk, nu; belangrijk = Plannen: belangrijk, niet urgent, krijgt een moment; " +
+      "urgent = Doen: urgent én belangrijk, nu; belangrijk = Gepland: belangrijk, niet urgent, krijgt een moment; " +
       "delegeren: moet snel maar niet belangrijk voor Remy zelf, kan iemand anders doen; subtaak = Rest: niet urgent en niet belangrijk, tussendoor. " +
       "Eén regel per taak, geen uitleg, geen opsommingstekens, geen Markdown. " +
       "Staat er maar één ding, geef één regel. Onleesbare woorden: [onleesbaar].";
