@@ -945,3 +945,7 @@ zijn nog niet geverifieerd.
 ## Versie 27.2
 
 - Vaste taken in Wat nu: afvinken schuift hem door naar de volgende keer, **gerekend vanaf vandaag** (eerder zette de Werkplek hem per ongeluk op klaar, waardoor hij verdween). Staat een vaste taak vandaag of te laat bij Doen, dan staan eronder **+1** (morgen), **+2** (overmorgen) en **⏭ Overslaan** (deze keer niet, eerstvolgende keer in het ritme). Alles met Ongedaan.
+
+## Versie 27.3
+
+- Vaste taken houden hun ritme. **+1 dag / +2 dagen** vraagt: *alleen deze keer* (volgende keer weer op de vaste dag, bv. LWS weer op woensdag) of *vanaf nu* (ritme schuift mee). Afvinken op een andere dag dan gepland vraagt: *in het ritme* of *vanaf vandaag*. Op de geplande dag zelf wordt niks gevraagd. Gebruikt de nieuwe kolom `ritme_datum` in `work_tasks` (zie WerkHub, TAKEN-RITME-MIGRATIE.sql). Knoppen compacter onder de taak.

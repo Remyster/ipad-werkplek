@@ -413,6 +413,11 @@
     <div class="lmra-dialog-actions"><button id="lmra-dialog-alles" type="button" title="Zet alle open vragen op Ja. Klopt er één niet, tik dan op Nee.">Rest op Ja</button><button id="lmra-dialog-new" type="button">+ Nieuwe</button><button id="lmra-dialog-full" type="button">Volledig formulier</button></div>
     <div id="lmra-dialog-archive" class="safety-archive"></div>
   </dialog>
+  <dialog id="choice-dialog" class="choice-dialog" aria-labelledby="choice-title">
+    <div class="choice-head"><h2 id="choice-title"></h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Annuleren">✕</button></div>
+    <p id="choice-text"></p>
+    <div id="choice-options"></div>
+  </dialog>
   <dialog id="task-dialog" aria-labelledby="task-heading">
     <div class="section-heading">
       <h2 id="task-heading">Taak in WerkHub</h2>

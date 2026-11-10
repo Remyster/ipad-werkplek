@@ -35,22 +35,77 @@
   }
   const plusDays = n => iso(new Date(Date.now() + n * 864e5));
   const shortDate = value => new Date(value + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
-  // Overslaan = deze keer niet, eerstvolgende keer volgens het ritme (altijd na vandaag).
-  function skipDate(task) {
+  // Zelfde regels als WerkHub v35: ritme_datum onthoudt de vaste dag als je "alleen deze keer" uitstelt.
+  const rhythmDay = task => task.ritme_datum || task.deadline || iso(new Date());
+  function nextInRhythm(task) {
     const today = iso(new Date());
-    let d = nextDate(task.deadline || today, task.herhaling);
+    let d = nextDate(rhythmDay(task), task.herhaling);
     for (let i = 0; i < 400 && d <= today; i++) d = nextDate(d, task.herhaling);
     return d;
   }
-  async function moveFixed(task, li, deadline, label) {
+  const longDate = value => new Date(value + "T12:00:00").toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
+  const weekday = value => new Date(value + "T12:00:00").toLocaleDateString("nl-NL", { weekday: "long" });
+
+  // Keuzevenster: geeft de waarde van de gekozen knop terug, of null bij annuleren.
+  function choose(title, text, options) {
+    const dialog = $("choice-dialog");
+    $("choice-title").textContent = title;
+    $("choice-text").textContent = text;
+    return new Promise(resolve => {
+      let picked = null;
+      $("choice-options").replaceChildren(...options.map((option, index) => {
+        const button = Object.assign(document.createElement("button"), { type: "button", className: index === 0 ? "choice-main" : "" });
+        button.append(Object.assign(document.createElement("b"), { textContent: option.label }), Object.assign(document.createElement("small"), { textContent: option.sub }));
+        button.addEventListener("click", () => { picked = option.value; dialog.close(); });
+        return button;
+      }));
+      dialog.addEventListener("close", () => resolve(picked), { once: true });
+      dialog.showModal();
+    });
+  }
+
+  async function saveFixed(task, li, deadline, ritme, status, message) {
     li.classList.add("gone");
     try {
-      await H().setTaskDeadline(task.id, deadline);
+      await H().setTaskDeadline(task.id, deadline, status, ritme);
       setTimeout(() => load(), 250);
-      notify(`${label} ${shortDate(deadline)}: ${task.titel}`, "Ongedaan", async () => {
-        try { await H().setTaskDeadline(task.id, task.deadline); await load(); } catch (error) { notify(error.message || String(error)); }
+      notify(`${message}: ${task.titel}`, "Ongedaan", async () => {
+        try { await H().setTaskDeadline(task.id, task.deadline || deadline, task.status, task.ritme_datum || null); await load(); } catch (error) { notify(error.message || String(error)); }
       });
-    } catch (error) { li.classList.remove("gone"); say(`Verzetten mislukt: ${error.message || error}`); }
+    } catch (error) { li.classList.remove("gone"); say(`Opslaan mislukt: ${error.message || error}`); }
+  }
+
+  async function postpone(task, li, days) {
+    const target = plusDays(days);
+    let once = true;
+    if (task.herhaling !== "dagelijks") {
+      const after = nextInRhythm({ ...task, deadline: target, ritme_datum: rhythmDay(task) });
+      const answer = await choose(`${task.titel} naar ${longDate(target)}`, "Is dit alleen deze keer, of voortaan?", [
+        { label: "Alleen deze keer", sub: `Volgende keer weer in het ritme: ${longDate(after)}.`, value: "once" },
+        { label: "Vanaf nu", sub: `Het ritme schuift mee: voortaan op ${weekday(target)}.`, value: "always" }
+      ]);
+      if (!answer) return;
+      once = answer === "once";
+    }
+    saveFixed(task, li, target, once ? rhythmDay(task) : null, null, `⏩ ${once ? "Deze keer" : "Voortaan"} ${shortDate(target)}`);
+  }
+
+  async function skip(task, li) {
+    const next = nextInRhythm(task);
+    saveFixed(task, li, next, null, null, `⏭ Overgeslagen, volgende keer ${shortDate(next)}`);
+  }
+
+  async function fixedDone(task, li) {
+    const inRhythm = nextInRhythm(task), fromToday = nextDate(iso(new Date()), task.herhaling);
+    let next = inRhythm;
+    if (iso(new Date()) !== rhythmDay(task) && inRhythm !== fromToday) {
+      next = await choose("Gedaan! Wanneer de volgende keer?", `${task.titel} stond voor ${longDate(rhythmDay(task))}.`, [
+        { label: `🔁 In het ritme: ${longDate(inRhythm)}`, sub: "Het vaste ritme blijft zoals het was.", value: inRhythm },
+        { label: `📅 Vanaf vandaag: ${longDate(fromToday)}`, sub: "Het ritme schuift mee met vandaag.", value: fromToday }
+      ]);
+      if (!next) return;
+    }
+    saveFixed(task, li, next, null, "backlog", `✓ Gedaan, volgende keer ${shortDate(next)}`);
   }
 
   function deadlineText(deadline) {
@@ -76,16 +131,15 @@
     const check = Object.assign(document.createElement("button"), { type: "button", className: "prio-check", title: "Klaar", ariaLabel: `Klaar: ${task.titel}` });
     check.addEventListener("click", () => done(task, li));
     const title = Object.assign(document.createElement("span"), { className: "prio-title", textContent: task.titel });
-    const when = deadlineText(task.deadline);
+    const when = deadlineText(task.deadline) + (task.ritme_datum && task.ritme_datum !== task.deadline ? " · verzet" : "");
     if (when) title.append(Object.assign(document.createElement("small"), { textContent: when }));
     li.append(check, title);
     if (isFixed(task) && bucket(task) === "urgent") {
       const actions = document.createElement("span");
       actions.className = "prio-fixed";
-      for (const [label, deadline, toast] of [["+1", () => plusDays(1), "⏩ Verzet naar"], ["+2", () => plusDays(2), "⏩ Verzet naar"], ["⏭", () => skipDate(task), "⏭ Overgeslagen, volgende keer"]]) {
-        const button = Object.assign(document.createElement("button"), { type: "button", textContent: label,
-          title: label === "⏭" ? "Overslaan: deze keer niet" : `${label} ${label === "+1" ? "dag" : "dagen"}` });
-        button.addEventListener("click", () => moveFixed(task, li, deadline(), toast));
+      for (const [label, title, run] of [["+1 dag", "Een dag later", () => postpone(task, li, 1)], ["+2 dagen", "Twee dagen later", () => postpone(task, li, 2)], ["⏭ Overslaan", "Deze keer niet", () => skip(task, li)]]) {
+        const button = Object.assign(document.createElement("button"), { type: "button", textContent: label, title });
+        button.addEventListener("click", run);
         actions.append(button);
       }
       li.append(actions);
@@ -136,18 +190,8 @@
 
   async function done(task, li) {
     li.classList.add("gone");
-    // Vaste taak: niet op klaar, maar door naar de volgende keer, gerekend vanaf vandaag.
-    if (isFixed(task)) {
-      const next = nextDate(iso(new Date()), task.herhaling);
-      try {
-        await H().setTaskDeadline(task.id, next, "backlog");
-        setTimeout(() => load(), 250);
-        notify(`✓ Gedaan, volgende keer ${shortDate(next)}: ${task.titel}`, "Ongedaan", async () => {
-          try { await H().setTaskDeadline(task.id, task.deadline || next, task.status); await load(); } catch (error) { notify(error.message || String(error)); }
-        });
-      } catch (error) { li.classList.remove("gone"); say(`Afvinken mislukt: ${error.message || error}`); }
-      return;
-    }
+    // Vaste taak: niet op klaar, maar door naar de volgende keer (bij twijfel vragen we het ritme).
+    if (isFixed(task)) { li.classList.remove("gone"); fixedDone(task, li); return; }
     try {
       await H().setTaskStatus(task.id, "klaar");
       setTimeout(() => { tasks = tasks.filter(item => item.id !== task.id); render(); }, 250);

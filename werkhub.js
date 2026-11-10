@@ -267,15 +267,17 @@
   }
 
   // Datum (en eventueel status) van een taak zetten; voor vaste taken die doorschuiven.
-  async function setTaskDeadline(id, deadline, status = null) {
+  // ritme: undefined = laten staan, null = wissen, datum = oorspronkelijke ritmedag (eenmalig verzet).
+  async function setTaskDeadline(id, deadline, status = null, ritme = undefined) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(deadline || ""))) throw new Error("Ongeldige datum.");
     const body = { deadline, updated_at: new Date().toISOString() };
     if (status) body.status = status;
+    if (ritme !== undefined) body.ritme_datum = ritme;
     await call(`work_tasks?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(body) });
   }
 
   async function openTasks() {
-    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,belangrijk_vanaf,herhaling,begin_tijd,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
+    const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,belangrijk_vanaf,herhaling,ritme_datum,begin_tijd,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
     return Array.isArray(rows) ? rows : [];
   }
 

@@ -475,6 +475,18 @@ body.reading { overflow: hidden; }
 
 .prio-sub { list-style: none; margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed rgb(255 255 255 / 25%); font-size: .8rem; font-weight: 700; opacity: .85; }
 
-.prio-fixed { display: flex; gap: 6px; flex-basis: 100%; padding-left: 44px; margin-top: 2px; }
+.prio-fixed { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; min-width: 0; padding-left: 40px; margin-top: 4px; }
 li:has(> .prio-fixed) { flex-wrap: wrap; }
-.prio-fixed button { min-height: 34px; min-width: 38px; padding: 2px 8px; border-radius: 999px; font-size: .8rem; font-weight: 700; background: rgb(255 255 255 / 14%); color: inherit; border: 1px solid rgb(255 255 255 / 25%); }
+.prio-fixed button { min-height: 30px; min-width: 0; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; background: rgb(255 255 255 / 14%); color: inherit; border: 1px solid rgb(255 255 255 / 25%); }
+
+/* Keuzevenster (vaste taken: alleen deze keer / vanaf nu) */
+.choice-dialog { width: min(460px, calc(100vw - 24px)); border: 0; border-radius: 18px; padding: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 30%); }
+.choice-dialog::backdrop { background: rgb(23 60 57 / 35%); }
+.choice-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.choice-head h2 { margin: 0; font-size: 1.1rem; }
+.choice-head button { min-height: 40px; min-width: 40px; }
+#choice-text { color: #50645c; margin: 6px 0 12px; }
+#choice-options { display: grid; gap: 8px; }
+#choice-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 14px; min-height: 56px; border-radius: 12px; }
+#choice-options button small { font-weight: 500; opacity: .8; }
+#choice-options button.choice-main { background: #173c39; color: #fff; border-color: #173c39; }
