@@ -941,3 +941,7 @@ zijn nog niet geverifieerd.
 ## Versie 27.1
 
 - Wat nu: **📌 Plannen** heet nu **📌 Gepland** (belangrijk, staat in je agenda). Daaronder een subsectie **🗓️ Plannen** voor belangrijke taken die nog geen datum hebben. Ook in de taakkeuze en bij taakvakjes heet het Gepland.
+
+## Versie 27.2
+
+- Vaste taken in Wat nu: afvinken schuift hem door naar de volgende keer, **gerekend vanaf vandaag** (eerder zette de Werkplek hem per ongeluk op klaar, waardoor hij verdween). Staat een vaste taak vandaag of te laat bij Doen, dan staan eronder **+1** (morgen), **+2** (overmorgen) en **⏭ Overslaan** (deze keer niet, eerstvolgende keer in het ritme). Alles met Ongedaan.

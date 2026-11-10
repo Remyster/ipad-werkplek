@@ -22,6 +22,37 @@
     return task.deadline && task.deadline <= soon ? "urgent" : "belangrijk";
   }
 
+  // Vaste taken: zelfde regels als WerkHub v35.
+  const isFixed = task => !!task.herhaling && task.herhaling !== "eenmalig";
+  function nextDate(from, rhythm) {
+    const d = new Date(from + "T12:00:00");
+    if (rhythm === "dagelijks") d.setDate(d.getDate() + 1);
+    else if (rhythm === "wekelijks") d.setDate(d.getDate() + 7);
+    else if (rhythm === "tweewekelijks") d.setDate(d.getDate() + 14);
+    else if (rhythm === "maandelijks") d.setMonth(d.getMonth() + 1);
+    else return from;
+    return iso(d);
+  }
+  const plusDays = n => iso(new Date(Date.now() + n * 864e5));
+  const shortDate = value => new Date(value + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  // Overslaan = deze keer niet, eerstvolgende keer volgens het ritme (altijd na vandaag).
+  function skipDate(task) {
+    const today = iso(new Date());
+    let d = nextDate(task.deadline || today, task.herhaling);
+    for (let i = 0; i < 400 && d <= today; i++) d = nextDate(d, task.herhaling);
+    return d;
+  }
+  async function moveFixed(task, li, deadline, label) {
+    li.classList.add("gone");
+    try {
+      await H().setTaskDeadline(task.id, deadline);
+      setTimeout(() => load(), 250);
+      notify(`${label} ${shortDate(deadline)}: ${task.titel}`, "Ongedaan", async () => {
+        try { await H().setTaskDeadline(task.id, task.deadline); await load(); } catch (error) { notify(error.message || String(error)); }
+      });
+    } catch (error) { li.classList.remove("gone"); say(`Verzetten mislukt: ${error.message || error}`); }
+  }
+
   function deadlineText(deadline) {
     if (!deadline) return "";
     const days = Math.round((new Date(deadline + "T12:00:00") - new Date(iso(new Date()) + "T12:00:00")) / 864e5);
@@ -48,6 +79,17 @@
     const when = deadlineText(task.deadline);
     if (when) title.append(Object.assign(document.createElement("small"), { textContent: when }));
     li.append(check, title);
+    if (isFixed(task) && bucket(task) === "urgent") {
+      const actions = document.createElement("span");
+      actions.className = "prio-fixed";
+      for (const [label, deadline, toast] of [["+1", () => plusDays(1), "⏩ Verzet naar"], ["+2", () => plusDays(2), "⏩ Verzet naar"], ["⏭", () => skipDate(task), "⏭ Overgeslagen, volgende keer"]]) {
+        const button = Object.assign(document.createElement("button"), { type: "button", textContent: label,
+          title: label === "⏭" ? "Overslaan: deze keer niet" : `${label} ${label === "+1" ? "dag" : "dagen"}` });
+        button.addEventListener("click", () => moveFixed(task, li, deadline(), toast));
+        actions.append(button);
+      }
+      li.append(actions);
+    }
     if (bucket(task) === "belangrijk") {
       li.append(Object.assign(document.createElement("a"), { className: "prio-plan", href: calendarLink(task), target: "_blank", rel: "noopener noreferrer", textContent: "📅 Plan" }));
     }
@@ -94,6 +136,18 @@
 
   async function done(task, li) {
     li.classList.add("gone");
+    // Vaste taak: niet op klaar, maar door naar de volgende keer, gerekend vanaf vandaag.
+    if (isFixed(task)) {
+      const next = nextDate(iso(new Date()), task.herhaling);
+      try {
+        await H().setTaskDeadline(task.id, next, "backlog");
+        setTimeout(() => load(), 250);
+        notify(`✓ Gedaan, volgende keer ${shortDate(next)}: ${task.titel}`, "Ongedaan", async () => {
+          try { await H().setTaskDeadline(task.id, task.deadline || next, task.status); await load(); } catch (error) { notify(error.message || String(error)); }
+        });
+      } catch (error) { li.classList.remove("gone"); say(`Afvinken mislukt: ${error.message || error}`); }
+      return;
+    }
     try {
       await H().setTaskStatus(task.id, "klaar");
       setTimeout(() => { tasks = tasks.filter(item => item.id !== task.id); render(); }, 250);

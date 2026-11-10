@@ -266,6 +266,14 @@
       body: JSON.stringify({ status, updated_at: new Date().toISOString() }) });
   }
 
+  // Datum (en eventueel status) van een taak zetten; voor vaste taken die doorschuiven.
+  async function setTaskDeadline(id, deadline, status = null) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(deadline || ""))) throw new Error("Ongeldige datum.");
+    const body = { deadline, updated_at: new Date().toISOString() };
+    if (status) body.status = status;
+    await call(`work_tasks?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(body) });
+  }
+
   async function openTasks() {
     const rows = await call("work_tasks?select=id,titel,status,deadline,taaktype,prioriteit,belangrijk_vanaf,herhaling,begin_tijd,project,team_id&project=eq.pwn&status=neq.klaar&order=deadline.asc.nullslast&limit=80");
     return Array.isArray(rows) ? rows : [];
@@ -274,5 +282,5 @@
   function hasAiConsent() { return aiConsent(); }
   function giveAiConsent() { try { localStorage.setItem(CONSENT_KEY, "1"); } catch (error) { /* alleen gemak */ } }
 
-  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline, createOne, updateOne, setTaskStatus, openTasks, hasAiConsent, giveAiConsent, call };
+  window.WorkplaceWerkhub = { parseTasks, createTasks, openTask, taskFromInk, splitDeadline, createOne, updateOne, setTaskStatus, setTaskDeadline, openTasks, hasAiConsent, giveAiConsent, call };
 })();
