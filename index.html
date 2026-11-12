@@ -248,6 +248,7 @@
               <label class="width-tool">Dikte <input id="width" type="range" min="1" max="40" step="1" value="4"><output id="width-value">4</output></label>
               <label class="width-tool" title="Stabilisator: hoe hoger, hoe rustiger en strakker je lijnen (trillen wordt weggefilterd)">Rustig <input id="steady" type="range" min="0" max="10" step="1" value="0"><output id="steady-value">0</output></label>
               <label class="width-tool" title="Vulpen: lijnen worden glad en dunner als je snel schrijft. Uit = strakke pen met vaste dikte."><input id="fountain" type="checkbox"> Vulpen</label>
+              <label class="width-tool" title="Teken een lijn, cirkel of rechthoek en houd de pen even stil: dan wordt hij strak. Daarna kun je nog slepen om de grootte aan te passen."><input id="snap-shapes" type="checkbox" checked> Vorm bij vasthouden</label>
               <label class="eraser-tool">Gum <select id="eraser-size"><option value="6">Klein</option><option value="12" selected>Normaal</option><option value="24">Groot</option><option value="40">Extra groot</option></select></label>
               <select id="brush" class="visually-hidden" aria-label="Pensoort"><option value="pen">Ronde pen</option><option value="fineliner">Fineliner</option><option value="dashed">Stippellijn</option><option value="marker">Stift</option><option value="highlighter">Markeerstift</option></select>
               <select id="shape" class="visually-hidden" aria-label="Vorm of pictogram"><option value="">Vrij tekenen</option><option value="line">Lijn</option><option value="arrow">Pijl</option><option value="rectangle">Vierkant/rechthoek</option><option value="ellipse">Cirkel/ovaal</option><option value="check">Vinkje</option><option value="warning">Waarschuwing</option><option value="star">Ster</option></select>
@@ -281,6 +282,7 @@
               <label>Dikte <input id="quick-width" type="range" min="1" max="40" value="4"></label>
               <label title="Stabilisator: hoger = rustiger lijnen">Rustig <input id="quick-steady" type="range" min="0" max="10" value="0"></label>
               <label><input id="quick-fountain" type="checkbox"> Vulpen-inkt</label>
+              <label><input id="quick-snap" type="checkbox" checked> Vorm bij vasthouden</label>
             </div>
             <textarea id="text-editor" hidden rows="1" maxlength="20000" aria-label="Typ op het blad" placeholder="Typ hier…" autocapitalize="sentences" lang="nl" spellcheck="true" autocorrect="on"></textarea>
             <div id="selection-menu" role="toolbar" aria-label="Selectie" hidden>

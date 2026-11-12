@@ -953,3 +953,7 @@ zijn nog niet geverifieerd.
 ## Versie 27.4
 
 - Taakvakje krijgt een **rechthoek met stippellijn** om alles wat bij de taak hoort. Net getekend: een lege strook over de regel (daar schrijf je). Met tekst: de rechthoek sluit om je tekst en groeit mee per regel; wat erbuiten valt hoort er niet bij. Blauw = wacht op lezen, groen = staat in WerkHub. Vervangt het oude groene haakje.
+
+## Versie 27.5
+
+- **Vorm bij vasthouden:** teken een lijn, cirkel/ovaal of rechthoek/vierkant en houd de pen ± een halve seconde stil aan het eind: hij wordt strak. Bijna horizontaal/verticaal wordt precies recht, bijna rond/vierkant wordt een echte cirkel/vierkant. Daarna nog slepen = groter/kleiner (recht blijft recht, vierkant blijft vierkant), loslaten = vast. Handschrift en golvende lijnen worden niet herkend. Uit te zetten met het vinkje **Vorm bij vasthouden** (werkbalk en lang-drukken-menu). Herkenning: `recognizeShape()` in model.js.

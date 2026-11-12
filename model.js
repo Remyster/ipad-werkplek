@@ -268,6 +268,62 @@
     });
   }
 
+  // Pen even vasthouden aan het eind van een streek: is het (bijna) een rechte lijn, cirkel/ovaal of
+  // rechthoek/vierkant? Geeft { shape, a, b } terug (a = vast hoekpunt, b = punt onder de pen) of null.
+  function recognizeShape(points) {
+    if (!Array.isArray(points) || points.length < 4) return null;
+    const first = points[0], last = points[points.length - 1];
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity, length = 0;
+    points.forEach((p, i) => {
+      left = Math.min(left, p.x); right = Math.max(right, p.x); top = Math.min(top, p.y); bottom = Math.max(bottom, p.y);
+      if (i) length += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y);
+    });
+    const w = right - left, h = bottom - top, size = Math.max(w, h);
+    if (size < 14) return null;
+    const chord = Math.hypot(last.x - first.x, last.y - first.y);
+    // Rechte lijn: geen punt ver van de lijn tussen begin en eind, en niet heen en weer gegaan.
+    if (chord > .6 * size && length < chord * 1.25) {
+      const dx = last.x - first.x, dy = last.y - first.y;
+      let worst = 0;
+      for (const p of points) worst = Math.max(worst, Math.abs((p.x - first.x) * dy - (p.y - first.y) * dx) / chord);
+      if (worst < Math.max(4, chord * .07)) {
+        // Bijna horizontaal of verticaal? Dan precies recht trekken.
+        const b = { x: last.x, y: last.y }, angle = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+        if (angle < 6 || angle > 174) b.y = first.y;
+        else if (Math.abs(angle - 90) < 6) b.x = first.x;
+        return { shape: "line", a: { x: first.x, y: first.y }, b };
+      }
+      return null;
+    }
+    // Gesloten vorm: eind dicht bij het begin, en ongeveer één keer rond.
+    if (chord > .3 * size || length < 2.2 * size || length > 5.5 * size) return null;
+    const square = Math.min(w, h) / size > .85;
+    const cx = (left + right) / 2, cy = (top + bottom) / 2, rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
+    let ellipseError = 0;
+    for (const p of points) ellipseError += Math.abs(Math.hypot((p.x - cx) / rx, (p.y - cy) / ry) - 1);
+    ellipseError /= points.length;
+    let edge = 0;
+    for (const p of points) edge += Math.min(p.x - left, right - p.x, p.y - top, bottom - p.y);
+    const rectError = edge / points.length / size;
+    let corners = 0;
+    for (const [qx, qy] of [[left, top], [right, top], [right, bottom], [left, bottom]]) {
+      let nearest = Infinity;
+      for (const p of points) nearest = Math.min(nearest, Math.hypot(p.x - qx, p.y - qy));
+      if (nearest / size < .14) corners++;
+    }
+    let shape = null;
+    if (corners >= 3 && rectError < .06) shape = "rectangle";
+    else if (ellipseError < .16) shape = "ellipse";
+    if (!shape) return null;
+    // Bijna even breed als hoog: maak er een echt vierkant of een echte cirkel van.
+    let r = right, bo = bottom;
+    if (square) { const s = (w + h) / 2; r = left + s; bo = top + s; }
+    // Het hoekpunt het verst van de pen blijft vast, zodat je na het herkennen nog kunt slepen.
+    const corner = [[left, top, r, bo], [r, top, left, bo], [left, bo, r, top], [r, bo, left, top]]
+      .reduce((best, c) => Math.hypot(last.x - c[2], last.y - c[3]) < Math.hypot(last.x - best[2], last.y - best[3]) ? c : best);
+    return { shape, a: { x: corner[0], y: corner[1] }, b: { x: corner[2], y: corner[3] } };
+  }
+
   function simplifyPoints(points, tolerance = .75) {
     if (!Array.isArray(points) || points.length <= 2) return points ? points.slice() : [];
     const squareTolerance = tolerance * tolerance;
@@ -450,6 +506,6 @@
 
   window.IpadModel = {
     KEY, createDocument, createMeasurementDocument, validate, load, save, point, zoom,
-    hitStroke, erase, clearPage, scribbleInfo, scribbleErase, pinch, simplifyPoints, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon, strokeInsideFraction
+    hitStroke, erase, clearPage, scribbleInfo, scribbleErase, pinch, simplifyPoints, recognizeShape, strokeBounds, intersectsBounds, pointInPolygon, strokeInPolygon, strokeInsideFraction
   };
 })();

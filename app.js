@@ -1644,7 +1644,12 @@
   function finish(event, reason = "bediening") {
     if (!gesture || (event && gesture.id !== event.pointerId)) return;
     const old = gesture;
-    if (event && event.type === "pointerup" && old.stroke) {
+    clearTimeout(old.holdTimer);
+    if (event && event.type === "pointerup" && old.stroke && old.stroke.shape) {
+      // Herkende of gekozen vorm: het laatste penpunt bepaalt de grootte.
+      const end = old.snapped ? snappedPoint(event) : M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view);
+      if (end) old.stroke.points[1] = end;
+    } else if (event && event.type === "pointerup" && old.stroke) {
       addSamples([event]);
       if (old.steady && !old.stroke.shape) {
         // Het filter loopt een fractie achter: laat de lijn eindigen waar de pen echt van het scherm ging.
@@ -2917,6 +2922,14 @@
     };
     for (const id of ["fountain", "quick-fountain"]) if ($(id)) $(id).checked = fountainInk;
     $("fountain")?.addEventListener("change", () => setInk($("fountain").checked));
+    const setSnap = on => {
+      snapShapes = !!on;
+      for (const id of ["snap-shapes", "quick-snap"]) if ($(id)) $(id).checked = snapShapes;
+      try { localStorage.setItem("remy-ipad-snap", snapShapes ? "1" : "0"); } catch (error) { /* alleen gemak */ }
+    };
+    setSnap(snapShapes);
+    $("snap-shapes")?.addEventListener("change", () => setSnap($("snap-shapes").checked));
+    $("quick-snap")?.addEventListener("change", () => setSnap($("quick-snap").checked));
     $("quick-fountain")?.addEventListener("change", () => setInk($("quick-fountain").checked));
     $("quick-steady")?.addEventListener("input", () => setSteady($("quick-steady").value));
     $("quick-width")?.addEventListener("input", () => {
@@ -3080,7 +3093,9 @@
       if (gesture.stroke) {
         if (gesture.stroke.shape) {
           gesture.metrics.samples++;
-          gesture.stroke.points[1] = M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+          const moved = gesture.snapped ? snappedPoint(event) : M.point(event.clientX, event.clientY, canvas.getBoundingClientRect(), active().view);
+          if (!moved) return;
+          gesture.stroke.points[1] = moved;
           clear("drawing");
           livePoints = 0;
           drawStroke(worldContext("drawing"), gesture.stroke);
@@ -3091,6 +3106,16 @@
         const lastSample = events[events.length - 1];
         if (lastSample && (lastSample.clientX !== event.clientX || lastSample.clientY !== event.clientY)) addSamples([event]);
         drawLive();
+        // Pen stilhouden aan het eind (± een halve seconde): vorm herkennen. Kleine trillingen tellen niet als bewegen.
+        if (snapShapes && gesture.stroke.brush !== "highlighter") {
+          const hold = gesture.hold;
+          if (!hold || Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > 4) {
+            clearTimeout(gesture.holdTimer);
+            gesture.hold = { x: event.clientX, y: event.clientY };
+            const current = gesture;
+            gesture.holdTimer = setTimeout(() => snapShape(current), 450);
+          }
+        }
       } else if (gesture.tool === "eraser") {
         const events = event.getCoalescedEvents ? event.getCoalescedEvents() : [];
         for (const sample of [...events, event]) {
@@ -3258,6 +3283,43 @@
       const p = steadyStep(s, tip, s.t + 1000 / 240);
       points.push(last.w === undefined ? { x: p.x, y: p.y } : { x: p.x, y: p.y, w: last.w });
     }
+  }
+
+  // Vorm herkennen tijdens het vasthouden. Daarna mag je nog slepen om de vorm groter/kleiner te maken
+  // (dat doet de bestaande vormen-code), bij loslaten ligt hij vast. Ongedaan zet je eigen lijn niet terug,
+  // maar haalt de hele vorm weg, net als bij een gewone streek.
+  let snapShapes = (() => { try { return localStorage.getItem("remy-ipad-snap") !== "0"; } catch (error) { return true; } })();
+  function snapShape(owner) {
+    if (!gesture || gesture !== owner || !gesture.stroke || gesture.stroke.shape) return;
+    const found = M.recognizeShape(gesture.stroke.points);
+    if (!found) return;
+    gesture.stroke.shape = found.shape;
+    gesture.stroke.points = [found.a, found.b];
+    const dx = Math.abs(found.b.x - found.a.x), dy = Math.abs(found.b.y - found.a.y);
+    gesture.snapped = found.shape === "line" ? (dy === 0 ? "h" : dx === 0 ? "v" : "free") : Math.abs(dx - dy) < .5 ? "square" : "free";
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+    longPressOrigin = null;
+    clear("drawing");
+    livePoints = 0;
+    drawStroke(worldContext("drawing"), gesture.stroke);
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (error) { /* geen trilling */ }
+  }
+
+  // Na het herkennen: slepen past de grootte aan, maar recht blijft recht en vierkant blijft vierkant.
+  // Binnen 10 px van waar je stilhield gebeurt niks (trillen bij loslaten).
+  function snappedPoint(event) {
+    const g = gesture, a = g.stroke.points[0];
+    if (g.hold && Math.hypot(event.clientX - g.hold.x, event.clientY - g.hold.y) < 10) return null;
+    const p = M.point(event.clientX, event.clientY, $("drawing").getBoundingClientRect(), active().view);
+    if (g.snapped === "h") p.y = a.y;
+    else if (g.snapped === "v") p.x = a.x;
+    else if (g.snapped === "square") {
+      const size = Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y));
+      p.x = a.x + Math.sign(p.x - a.x || 1) * size;
+      p.y = a.y + Math.sign(p.y - a.y || 1) * size;
+    }
+    return p;
   }
 
   function addSamples(events) {
