@@ -256,6 +256,7 @@
     // Ook ná het aanmaken: schrijf je verder onder de taak, dan wordt hij bijgewerkt.
     const owner = doc.strokes.find(box => box.box && !box.box.done && regionStrokes(doc, box).includes(stroke));
     if (!owner) return;
+    W().refresh?.(); // de rechthoek om het vakje meteen laten meegroeien
     scheduleBoxes(doc);
     // Eén keer per vakje: wil je niet wachten, dan meteen lezen.
     if (!owner.box.taskId && !offered.has(owner.box.id)) {

@@ -949,3 +949,7 @@ zijn nog niet geverifieerd.
 ## Versie 27.3
 
 - Vaste taken houden hun ritme. **+1 dag / +2 dagen** vraagt: *alleen deze keer* (volgende keer weer op de vaste dag, bv. LWS weer op woensdag) of *vanaf nu* (ritme schuift mee). Afvinken op een andere dag dan gepland vraagt: *in het ritme* of *vanaf vandaag*. Op de geplande dag zelf wordt niks gevraagd. Gebruikt de nieuwe kolom `ritme_datum` in `work_tasks` (zie WerkHub, TAKEN-RITME-MIGRATIE.sql). Knoppen compacter onder de taak.
+
+## Versie 27.4
+
+- Taakvakje krijgt een **rechthoek met stippellijn** om alles wat bij de taak hoort. Net getekend: een lege strook over de regel (daar schrijf je). Met tekst: de rechthoek sluit om je tekst en groeit mee per regel; wat erbuiten valt hoort er niet bij. Blauw = wacht op lezen, groen = staat in WerkHub. Vervangt het oude groene haakje.

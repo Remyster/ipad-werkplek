@@ -593,6 +593,38 @@
   }
 
   // Taakvakje: klein bolletje rechtsboven. Grijs = wacht op tekst, groen = taak in WerkHub, met vinkje = klaar.
+  // Taakvakje: een rechthoek met stippellijn om alles wat bij de taak hoort. Zonder tekst nog
+  // een lege strook van één regel, zodat je ziet waar je moet schrijven.
+  function drawBoxFrame(ctx, doc, stroke) {
+    if (stroke.box.done) return;
+    const b = strokeBounds(stroke);
+    const h = Math.max(20, b.bottom - b.top);
+    let ink = [];
+    try { ink = window.WorkplaceSmart?.regionStrokes ? window.WorkplaceSmart.regionStrokes(doc, stroke) : []; } catch (error) { ink = []; }
+    let right, top = b.top, bottom = b.bottom;
+    if (ink.length) {
+      right = Math.max(...ink.map(item => strokeBounds(item).right));
+      top = Math.min(top, ...ink.map(item => strokeBounds(item).top));
+      bottom = Math.max(bottom, ...ink.map(item => strokeBounds(item).bottom));
+    } else {
+      right = doc.kind === "page" ? Math.max(b.right + 120, 790) : b.right + 480;
+      top = b.top - h * .25;
+      bottom = b.bottom + h * .25;
+    }
+    const pad = 6, left = b.left - pad;
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = stroke.box.taskId ? "rgb(46 125 79 / 70%)" : "rgb(36 91 135 / 55%)";
+    ctx.fillStyle = stroke.box.taskId ? "rgb(58 157 106 / 6%)" : "rgb(36 91 135 / 5%)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(left, top - pad, right + pad - left, bottom - top + pad * 2, 8);
+    else ctx.rect(left, top - pad, right + pad - left, bottom - top + pad * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawBoxBadge(ctx, stroke) {
     const bounds = strokeBounds(stroke);
     const r = 7;
@@ -606,19 +638,6 @@
     ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
-    // Loopt de taak over meer regels, dan een dun groen haakje links ervan: dit hoort erbij.
-    const area = stroke.box.area;
-    if (area && !stroke.box.done && area.bottom > bounds.bottom + 12) {
-      ctx.strokeStyle = "rgb(58 157 106 / 45%)";
-      ctx.lineWidth = 2;
-      const hx = Math.min(bounds.left, area.left) - 6;
-      ctx.beginPath();
-      ctx.moveTo(hx + 4, bounds.bottom + 3);
-      ctx.lineTo(hx, bounds.bottom + 3);
-      ctx.lineTo(hx, area.bottom);
-      ctx.lineTo(hx + 4, area.bottom);
-      ctx.stroke();
-    }
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -689,6 +708,8 @@
         ctx.drawImage(tile.canvas, tile.rect.left, tile.rect.top, tile.rect.right - tile.rect.left, tile.rect.bottom - tile.rect.top);
       }
     }
+    // Eerst de rechthoeken van taakvakjes, zodat de inkt eroverheen valt.
+    for (const stroke of doc.strokes) if (stroke.box && !stroke.box.done) drawBoxFrame(ctx, doc, stroke);
     for (const stroke of doc.strokes) {
       if (M.intersectsBounds(strokeBounds(stroke), viewport)) drawStroke(ctx, stroke);
     }
@@ -2399,6 +2420,7 @@
       },
       strokeBounds,
       changed() { persist(); render(); },
+      refresh() { render(); },
       importFromSync(row) {
         finish();
         if (!row || typeof row.id !== "string" || !row.data || typeof row.data !== "object") throw new Error("WerkHub gaf een ongeldig document.");
