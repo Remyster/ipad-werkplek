@@ -957,3 +957,7 @@ zijn nog niet geverifieerd.
 ## Versie 27.5
 
 - **Vorm bij vasthouden:** teken een lijn, cirkel/ovaal of rechthoek/vierkant en houd de pen ± een halve seconde stil aan het eind: hij wordt strak. Bijna horizontaal/verticaal wordt precies recht, bijna rond/vierkant wordt een echte cirkel/vierkant. Daarna nog slepen = groter/kleiner (recht blijft recht, vierkant blijft vierkant), loslaten = vast. Handschrift en golvende lijnen worden niet herkend. Uit te zetten met het vinkje **Vorm bij vasthouden** (werkbalk en lang-drukken-menu). Herkenning: `recognizeShape()` in model.js.
+
+## Versie 28
+
+- Nieuw tabblad **🔐 Kluis** voor wachtwoorden die echt geheim blijven. Alles wordt **op het apparaat** versleuteld (AES-256-GCM, sleutel uit je code via PBKDF2-SHA256 met 600.000 rondes). In de cloud (`werkplek_kluis_meta`, `werkplek_kluis_items`, alleen leesbaar voor jouw WerkHub-account) staat alleen onleesbare tekst, ook de namen. Code minstens 8 tekens; bij het maken krijg je één keer een **herstelcode** die de kluis ook opent. Op slot na 5 min niks doen, bij ander tabblad en als de app een minuut weg is. Gekopieerde wachtwoorden gaan na 30 s van het klembord. Wachtwoordmaker, zoeken, bewerken. Geen 🎤, geen AI, geen sync van de inhoud naar elders. Los van de Kluis in de AI Hub. Tabellen: WERKPLEK-KLUIS-MIGRATIE.sql.

@@ -28,6 +28,7 @@
   <script src="./nu.js" defer></script>
   <script src="./woord.js" defer></script>
   <script src="./werkbeschrijvingen.js" defer></script>
+  <script src="./kluis.js" defer></script>
   <script src="./week.js" defer></script>
   <script src="./lock.js" defer></script>
 </head>
@@ -52,6 +53,7 @@
     <button data-tab="writing" aria-pressed="false">Werkmap</button>
     <button data-tab="hubs" aria-pressed="false">📅 Week</button>
     <button data-tab="werk" aria-pressed="false">📘 Werkbeschrijvingen</button>
+    <button data-tab="kluis" aria-pressed="false">🔐 Kluis</button>
     <button data-tab="ai" aria-pressed="false">Claude &amp; Gemini</button>
   </nav>
   <div id="error" role="alert" hidden></div>
@@ -328,6 +330,61 @@
       <p id="wb-status" role="status"></p>
       <div id="wb-list" class="wb-list"></div>
       <aside>Tik op een werkbeschrijving om hem te lezen; ✏️ opent een PDF als schrift om erop te schrijven. PowerPoint, Word en Excel openen in de app van je iPad of telefoon (PowerPoint, Keynote of voorvertoning). Alles staat vanzelf op je andere apparaten en werkt ook offline zodra hij een keer geopend is.</aside>
+    </section>
+    <section id="kluis" hidden>
+      <div class="section-heading"><h2>🔐 Kluis</h2></div>
+      <p id="kluis-status" role="status"></p>
+      <div id="kluis-login">
+        <p id="kluis-login-text">Even kijken…</p>
+        <form id="kluis-unlock-form" class="kluis-form" hidden>
+          <label for="kluis-code">Code of herstelcode</label>
+          <input id="kluis-code" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button id="kluis-unlock" type="submit" class="nu-primary">🔓 Openen</button>
+        </form>
+      </div>
+      <div id="kluis-setup" hidden>
+        <p>Nieuwe kluis. Kies een code die je onthoudt: <b>minstens 8 tekens</b>, liefst een paar woorden (bv. <i>blauwe-pomp-zwaag</i>). Niemand kan hem terugzetten, ook ik niet. Daarom krijg je hierna een herstelcode.</p>
+        <form id="kluis-setup-form" class="kluis-form">
+          <label for="kluis-new-code">Code</label>
+          <input id="kluis-new-code" type="password" minlength="8" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <label for="kluis-new-code2">Nog een keer</label>
+          <input id="kluis-new-code2" type="password" minlength="8" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button type="submit" class="nu-primary">Verder</button>
+        </form>
+      </div>
+      <div id="kluis-recovery" hidden>
+        <p><b>Je herstelcode.</b> Schrijf hem op papier en leg hem ergens veilig. Hij komt maar één keer in beeld. Code kwijt? Dan opent deze herstelcode de kluis.</p>
+        <p class="kluis-recovery-code"><code id="kluis-recovery-code"></code></p>
+        <div class="panel-actions"><button id="kluis-recovery-copy" type="button">📋 Kopiëren</button></div>
+        <label class="finger-option"><input id="kluis-recovery-ok" type="checkbox"> Ik heb hem opgeschreven</label>
+        <button id="kluis-recovery-done" type="button" class="nu-primary">Kluis maken</button>
+      </div>
+      <div id="kluis-open" hidden>
+        <div class="library-bar">
+          <input id="kluis-search" type="search" placeholder="🔎 Zoek…" aria-label="Zoek in kluis" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button id="kluis-new" type="button" class="nu-primary">＋ Nieuw</button>
+          <button id="kluis-lock" type="button">🔒 Op slot</button>
+        </div>
+        <small id="kluis-count"></small>
+        <article id="kluis-edit" class="kluis-edit" hidden>
+          <h3 id="kluis-edit-title">Nieuw wachtwoord</h3>
+          <form id="kluis-edit-form" class="kluis-form">
+            <label for="kluis-f-naam">Naam (website of systeem)</label>
+            <input id="kluis-f-naam" type="text" maxlength="200" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <label for="kluis-f-gebruiker">Gebruikersnaam / mail</label>
+            <input id="kluis-f-gebruiker" type="text" maxlength="300" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <label for="kluis-f-wachtwoord">Wachtwoord</label>
+            <div class="kluis-pw"><input id="kluis-f-wachtwoord" type="password" maxlength="1000" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="kluis-reveal" type="button" title="Laten zien">👁</button><button id="kluis-generate" type="button" title="Sterk wachtwoord maken">🎲 Maak</button></div>
+            <label for="kluis-f-url">Website (mag leeg)</label>
+            <input id="kluis-f-url" type="text" maxlength="500" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <label for="kluis-f-notitie">Notitie (mag leeg, ook versleuteld)</label>
+            <textarea id="kluis-f-notitie" rows="3" maxlength="5000" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+            <div class="panel-actions"><button id="kluis-save" type="submit" class="nu-primary">🔐 Opslaan</button><button id="kluis-cancel" type="button">Annuleren</button></div>
+          </form>
+        </article>
+        <div id="kluis-list" class="kluis-list"></div>
+      </div>
+      <aside>Alles wordt op dit apparaat versleuteld (AES-256) met een sleutel uit je code. In de cloud staat alleen onleesbare tekst, ook de namen. Je code gaat nergens heen. Gaat vanzelf op slot na 5 minuten niks doen, als je naar een ander tabblad gaat of de app een minuut wegklikt. Gekopieerde wachtwoorden haal ik na 30 seconden weer van het klembord. Los van de Kluis in de AI Hub.</aside>
     </section>
     <section id="ai" hidden>
       <h2>AI binnen Werkplek</h2>

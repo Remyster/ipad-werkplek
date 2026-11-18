@@ -490,3 +490,24 @@ li:has(> .prio-fixed) { flex-wrap: wrap; }
 #choice-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 14px; min-height: 56px; border-radius: 12px; }
 #choice-options button small { font-weight: 500; opacity: .8; }
 #choice-options button.choice-main { background: #173c39; color: #fff; border-color: #173c39; }
+
+/* 🔐 Kluis */
+#kluis-status:empty { display: none; }
+#kluis-status[data-tone="error"] { color: #b42318; }
+#kluis-status[data-tone="ok"] { color: #157347; }
+.kluis-form { display: grid; gap: 6px; max-width: 480px; }
+.kluis-form label { font-size: .85rem; color: #4a5d58; margin-top: 4px; }
+.kluis-pw { display: flex; gap: 6px; }
+.kluis-pw input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
+.kluis-recovery-code code { display: inline-block; font-size: 1.35rem; letter-spacing: .08em; padding: 10px 14px; background: #fff7e0; border: 2px dashed #e0a800; border-radius: 10px; user-select: all; word-break: break-all; }
+.kluis-edit { border: 1px solid #d5e2de; border-radius: 14px; padding: 12px 14px; margin: 10px 0; background: #fbfdfc; }
+.kluis-edit h3 { margin: 0 0 6px; }
+.kluis-list { display: grid; gap: 8px; margin-top: 10px; }
+.kluis-item { border: 1px solid #d5e2de; border-radius: 12px; padding: 10px 12px; background: #fff; display: grid; gap: 6px; }
+.kluis-item-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.kluis-item-head small { color: #5d736d; overflow-wrap: anywhere; }
+.kluis-secret { font-family: ui-monospace, monospace; overflow-wrap: anywhere; color: #23332f; }
+.kluis-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.kluis-actions button { padding: 4px 10px; font-size: .85rem; }
+.kluis-note { margin: 0; font-size: .85rem; color: #4a5d58; white-space: pre-wrap; }
+#kluis-count { color: #5d736d; }

@@ -1985,7 +1985,7 @@
     touches.clear();
     document.body.classList.remove("writing-focus");
     setFocusLabel(false);
-    for (const section of ["today", "writing", "hubs", "werk", "ai"]) { const element = $(section); if (element) element.hidden = section !== name; }
+    for (const section of ["today", "writing", "hubs", "werk", "kluis", "ai"]) { const element = $(section); if (element) element.hidden = section !== name; }
     document.querySelectorAll("[data-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.tab === name)));
     if (name === "writing" && !blocked) render();
     document.dispatchEvent(new CustomEvent("werkplek-tab", { detail: name }));
