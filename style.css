@@ -511,5 +511,7 @@ li:has(> .prio-fixed) { flex-wrap: wrap; }
 .kluis-actions button { padding: 4px 10px; font-size: .85rem; }
 .kluis-note { margin: 0; font-size: .85rem; color: #4a5d58; white-space: pre-wrap; }
 #kluis-count { color: #5d736d; }
+.slot-knoppen { display: flex; gap: 6px; }
+.slot-knoppen button { padding: 4px 10px; font-size: .8rem; min-height: 32px; }
 
 #word-list { max-height: 30vh; overflow-y: auto; }

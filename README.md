@@ -962,6 +962,6 @@ zijn nog niet geverifieerd.
 
 - Nieuw tabblad **🔐 Kluis** voor wachtwoorden die echt geheim blijven. Alles wordt **op het apparaat** versleuteld (AES-256-GCM, sleutel uit je code via PBKDF2-SHA256 met 600.000 rondes). In de cloud (`werkplek_kluis_meta`, `werkplek_kluis_items`, alleen leesbaar voor jouw WerkHub-account) staat alleen onleesbare tekst, ook de namen. Code minstens 8 tekens; bij het maken krijg je één keer een **herstelcode** die de kluis ook opent. Op slot na 5 min niks doen, bij ander tabblad en als de app een minuut weg is. Gekopieerde wachtwoorden gaan na 30 s van het klembord. Wachtwoordmaker, zoeken, bewerken. Geen 🎤, geen AI, geen sync van de inhoud naar elders. Los van de Kluis in de AI Hub. Tabellen: WERKPLEK-KLUIS-MIGRATIE.sql.
 
-## Versie 28.1
+## Versie 28.2
 
 - **Moeilijke-woordenlijst staat nu ook in de cloud** (`werkplek_woorden`, zie WERKPLEK-WOORDEN-MIGRATIE.sql) en wordt nooit meer gewist: geen limiet van 60 meer, de knop **wis** is weg. Bij openen van 📖 worden dit apparaat en de cloud samengevoegd, dus op iPad en telefoon zie je dezelfde lijst. Alle woorden staan in de lijst (scrollen), met het aantal erbij.
