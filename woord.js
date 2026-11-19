@@ -1,11 +1,38 @@
 (function () {
   "use strict";
   // 📖 Woordhulp: zwevende knop. Tik, typ (of lasso eerst het woord) en krijg in gewone taal
-  // uitgelegd wat het is. Uitgelegde woorden worden bewaard als eigen woordenlijst (op dit apparaat).
+  // uitgelegd wat het is. Uitgelegde woorden worden bewaard als eigen woordenlijst (op dit apparaat én in de cloud, wordt nooit gewist).
   const $ = id => document.getElementById(id);
   const LIST_KEY = "remy-ipad-woorden";
   const read = () => { try { const list = JSON.parse(localStorage.getItem(LIST_KEY) || "[]"); return Array.isArray(list) ? list : []; } catch (error) { return []; } };
-  const save = list => { try { localStorage.setItem(LIST_KEY, JSON.stringify(list.slice(0, 60))); } catch (error) { /* alleen gemak */ } };
+  // Geen limiet en geen "wis alles": de lijst groeit alleen. Elk woord gaat ook naar de cloud
+  // (werkplek_woorden), zodat hij niet verdwijnt als het apparaat zijn opslag leegmaakt.
+  const save = list => { try { localStorage.setItem(LIST_KEY, JSON.stringify(list)); } catch (error) { /* cloud heeft hem ook */ } };
+  const keyOf = word => String(word || "").trim().toLowerCase().slice(0, 80);
+  const row = item => ({ woord_key: keyOf(item.woord), woord: String(item.woord).slice(0, 80), uitleg: String(item.uitleg || "").slice(0, 2000), updated_at: new Date().toISOString() });
+  async function cloudPut(items) {
+    const hub = window.WorkplaceWerkhub;
+    if (!hub || !items.length) return;
+    await hub.call("werkplek_woorden?on_conflict=woord_key", { method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(items.map(row)) });
+  }
+  // Cloud en dit apparaat samenvoegen: wat alleen lokaal staat gaat omhoog, wat alleen in de cloud staat komt erbij.
+  let synced = false;
+  async function syncCloud() {
+    const hub = window.WorkplaceWerkhub;
+    if (!hub) return;
+    try {
+      const cloud = await hub.call("werkplek_woorden?select=woord,uitleg,updated_at&order=updated_at.desc") || [];
+      const local = read();
+      const known = new Set(cloud.map(item => keyOf(item.woord)));
+      const onlyLocal = local.filter(item => item && item.woord && !known.has(keyOf(item.woord)));
+      if (onlyLocal.length) await cloudPut(onlyLocal);
+      const merged = [...onlyLocal, ...cloud.map(item => ({ woord: item.woord, uitleg: item.uitleg }))];
+      save(merged);
+      synced = true;
+      renderList();
+    } catch (error) { /* offline of niet ingelogd: lokale lijst blijft gewoon staan */ }
+  }
 
   const fab = $("word-fab"), panel = $("word-panel"), input = $("word-input"), answer = $("word-answer"), status = $("word-status");
   if (!fab || !panel) return;
@@ -27,7 +54,8 @@
   function renderList() {
     const list = read();
     const box = $("word-list");
-    box.replaceChildren(...list.slice(0, 20).map(item => {
+    $("word-list-head").textContent = `Mijn woordenlijst (${list.length})${synced ? " ☁️" : ""}`;
+    box.replaceChildren(...list.map(item => {
       const chip = Object.assign(document.createElement("button"), { type: "button", className: "word-chip", textContent: item.woord });
       chip.addEventListener("click", () => { input.value = item.woord; show(item.woord, item.uitleg); status.textContent = "Uit je woordenlijst (geen AI nodig)."; });
       return chip;
@@ -52,9 +80,12 @@
       const text = String(await window.AiChat.sendPrompt("gemini", prompt(word))).replace(/```[a-z]*\n?|```/gi, "").replace(/^#+\s*/gm, "").trim();
       if (!text) throw new Error("AI gaf geen uitleg terug.");
       show(word, text);
-      save([{ woord: word, uitleg: text.slice(0, 2000) }, ...read().filter(item => item.woord.toLowerCase() !== word.toLowerCase())]);
+      const item = { woord: word, uitleg: text.slice(0, 2000) };
+      save([item, ...read().filter(entry => keyOf(entry.woord) !== keyOf(word))]);
       renderList();
       status.textContent = "Bewaard in je woordenlijst.";
+      cloudPut([item]).then(() => { status.textContent = "Bewaard in je woordenlijst (ook in de cloud)."; },
+        () => { status.textContent = "Bewaard op dit apparaat. Gaat naar de cloud zodra je weer online/ingelogd bent."; });
     } catch (error) {
       status.textContent = `Opzoeken mislukt: ${error.message || error}`;
     } finally {
@@ -88,6 +119,7 @@
     status.textContent = "";
     $("word-consent-row").hidden = true;
     renderList();
+    syncCloud();
     input.value = "";
     fromSelection();
     input.focus();
@@ -99,7 +131,7 @@
   $("word-go")?.addEventListener("click", explain);
   input.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); explain(); } if (event.key === "Escape") close(); });
   for (const type of ["pointerdown", "touchstart"]) panel.addEventListener(type, event => event.stopPropagation());
-  $("word-clear")?.addEventListener("click", () => { if (window.confirm("Je hele woordenlijst wissen?")) { save([]); renderList(); } });
 
-  window.WorkplaceWord = { open, close, prompt };
+  setTimeout(syncCloud, 4000);
+  window.WorkplaceWord = { open, close, prompt, syncCloud };
 })();
