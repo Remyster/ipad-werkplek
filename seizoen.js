@@ -54,10 +54,7 @@
   css.textContent = `
 html[data-seizoen]::before{content:"";position:fixed;left:0;right:0;top:0;height:4px;z-index:10000;pointer-events:none;
   background:linear-gradient(90deg,rgb(var(--s1)),rgb(var(--s2)),rgb(var(--s3)),rgb(var(--s4)),rgb(var(--s5)),rgb(var(--s6)))}
-html[data-seizoen] body{background-image:
-  radial-gradient(900px 500px at 0% 0%,rgba(var(--s1),.10),transparent 60%),
-  radial-gradient(800px 480px at 100% 10%,rgba(var(--s3),.09),transparent 60%),
-  radial-gradient(900px 600px at 50% 100%,rgba(var(--s4),.07),transparent 65%);background-attachment:fixed}
+html[data-seizoen] body{background-attachment:fixed}
 .seizoen-teken{display:inline-block;margin-left:.35em;font-size:.9em;cursor:pointer;background:none;border:0;padding:0;line-height:1;min-height:0}
 .seizoen-chip{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:3px 10px;border-radius:999px;cursor:pointer;
   font:600 12px/1.3 system-ui,-apple-system,sans-serif;letter-spacing:0;text-transform:none;white-space:nowrap;vertical-align:middle;min-height:0;
@@ -74,6 +71,47 @@ html[data-seizoen] body{background-image:
 #seizoen-paneel .stip{width:14px;height:14px;border-radius:50%;flex:none}
 #seizoen-paneel label{display:flex;gap:8px;align-items:center;margin:10px 0 12px}
 #seizoen-paneel .sp-dicht{width:100%;padding:10px;border-radius:10px;border:0;background:#1a2733;color:#fff;font:inherit;cursor:pointer}`;
+  // Gemengde tinten van de hoofdkleur: donker genoeg voor witte tekst, licht genoeg als achtergrond.
+  const TINTEN = `html[data-seizoen]{
+  --sz-d:color-mix(in srgb,rgb(var(--s1)) 55%,#0b1620);--sz-dd:color-mix(in srgb,rgb(var(--s1)) 40%,#0b1620);
+  --sz-d4:color-mix(in srgb,rgb(var(--s4)) 50%,#0b1620);--sz-d3:color-mix(in srgb,rgb(var(--s3)) 50%,#0b1620);
+  --sz-l:color-mix(in srgb,rgb(var(--s1)) 14%,#fff)}
+html[data-seizoen] body{background-image:
+  radial-gradient(900px 520px at 0% 0%,rgba(var(--s1),.20),transparent 60%),
+  radial-gradient(800px 480px at 100% 8%,rgba(var(--s3),.18),transparent 60%),
+  radial-gradient(700px 500px at 0% 70%,rgba(var(--s5),.12),transparent 65%),
+  radial-gradient(900px 600px at 100% 100%,rgba(var(--s4),.15),transparent 65%)}`;
+  // Kaarten rouleren door de zes kleuren: gekleurde rand links en een tintje, net als in de AI Hub.
+  const rouleer = sel => [1, 2, 3, 4, 5, 6].map(i => `${sel}:nth-of-type(6n+${i}){border-left:5px solid rgb(var(--s${i}));background-image:linear-gradient(90deg,rgba(var(--s${i}),.09),rgba(var(--s${i}),.02) 40%,transparent)}`).join("\n");
+  const PER_APP = {
+    // WerkHub werkt met --blue: die wisselt mee, dus kop, knoppen, tabbalk en widget kleuren in één keer om.
+    werkhub: `html[data-seizoen]{--blue:var(--sz-d);--blue-dark:var(--sz-dd);--blue-light:var(--sz-l)}
+html[data-seizoen] header.top{background:linear-gradient(90deg,rgba(var(--s1),.16),rgba(var(--s3),.12),rgba(var(--s4),.14)),rgba(255,255,255,.9)}
+html[data-seizoen] .widget{background:linear-gradient(135deg,var(--sz-dd),var(--sz-d) 45%,var(--sz-d4))}
+html[data-seizoen] nav.tabs{border-top:3px solid transparent;border-image:linear-gradient(90deg,rgb(var(--s1)),rgb(var(--s2)),rgb(var(--s3)),rgb(var(--s4)),rgb(var(--s5)),rgb(var(--s6))) 1}
+html[data-seizoen] nav.tabs button.active{color:var(--sz-dd)}
+html[data-seizoen] nav.tabs button.active span.emoji{filter:drop-shadow(0 2px 4px rgba(var(--s1),.6))}
+html[data-seizoen] .ritregels h3{color:var(--sz-dd)}
+html[data-seizoen] .ritregels blockquote{border-left-color:var(--sz-dd);background:rgba(var(--s1),.08)}
+${rouleer("html[data-seizoen] main .card")}`,
+    // Werkplek heeft zijn donkergroen vast in de CSS: hier per plek overschreven.
+    werkplek: `html[data-seizoen] h1{background:linear-gradient(90deg,var(--sz-dd),var(--sz-d4));-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-seizoen] h1 .seizoen-teken,html[data-seizoen] h1 .seizoen-chip{-webkit-text-fill-color:initial}
+html[data-seizoen] h1 .seizoen-chip{color:var(--sz-dd)}
+html[data-seizoen] button[aria-pressed="true"],html[data-seizoen] .action,html[data-seizoen] .quick-task,html[data-seizoen] .nu-primary,
+html[data-seizoen] .library-bar .nu-primary,html[data-seizoen] .library-actions .library-read,html[data-seizoen] .hub-keuze button[aria-pressed="true"],
+html[data-seizoen] #choice-options button.choice-main,html[data-seizoen] .lmra-dialog-head button,html[data-seizoen] #focus-pill,html[data-seizoen] #word-fab[aria-expanded="true"]{background:var(--sz-d);border-color:var(--sz-d);color:#fff}
+html[data-seizoen] nav button[aria-pressed="true"]{background:linear-gradient(135deg,var(--sz-dd),var(--sz-d));box-shadow:0 4px 12px rgba(var(--s1),.35)}
+html[data-seizoen] .nu-card{background:linear-gradient(135deg,var(--sz-dd),var(--sz-d) 50%,var(--sz-d4));box-shadow:0 10px 28px rgba(var(--s1),.30)}
+html[data-seizoen] .pdf-reader-bar,html[data-seizoen] .app-lock{background:var(--sz-dd)}
+html[data-seizoen] .agenda-item time,html[data-seizoen] .week-item time,html[data-seizoen] .week-dag.vandaag h4,html[data-seizoen] .measurement-sheet h3,html[data-seizoen] .eyebrow{color:var(--sz-dd)}
+html[data-seizoen] .nu-card .eyebrow{color:rgba(255,255,255,.8)}
+html[data-seizoen] .safety-row[aria-current="true"]{border-color:var(--sz-d);background:var(--sz-l)}
+html[data-seizoen] .color-swatches button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--sz-d)}
+html[data-seizoen] button:focus-visible,html[data-seizoen] a:focus-visible,html[data-seizoen] input:focus-visible,html[data-seizoen] select:focus-visible,html[data-seizoen] textarea:focus-visible{outline-color:rgb(var(--s2))}
+${rouleer("html[data-seizoen] main article:not(.nu-card)")}`
+  };
+  css.textContent += "\n" + TINTEN + "\n" + (PER_APP[APP] || "");
   document.head.appendChild(css);
 
   function pasToe() {
