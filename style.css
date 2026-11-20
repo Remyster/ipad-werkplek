@@ -278,7 +278,7 @@ body.writing-focus { padding: max(8px, env(safe-area-inset-top)) max(8px, env(sa
 .prio-urgent { box-shadow: inset 4px 0 0 #ff8a65; }
 .prio-belangrijk { box-shadow: inset 4px 0 0 #f4c96b; }
 .prio-wel { box-shadow: inset 4px 0 0 #8fd3b0; }
-.prio-delegeren { box-shadow: inset 4px 0 0 #c49bf4; }
+.prio-ontleden { box-shadow: inset 4px 0 0 #c49bf4; }
 .prio ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .prio li { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 6px; border-radius: 10px; background: rgb(0 0 0 / 12%); }
 .prio li.gone { opacity: 0; transform: translateX(16px); transition: opacity .25s, transform .25s; }
@@ -515,3 +515,28 @@ li:has(> .prio-fixed) { flex-wrap: wrap; }
 .slot-knoppen button { padding: 4px 10px; font-size: .8rem; min-height: 32px; }
 
 #word-list { max-height: 30vh; overflow-y: auto; }
+
+/* 🪓 Ontleden */
+.prio li { flex-wrap: wrap; }
+.prio-axe { min-height: 30px !important; min-width: 34px; padding: 2px 6px !important; font-size: .9rem !important; background: transparent !important; border-color: rgb(255 255 255 / 25%) !important; margin-left: auto; }
+.prio-stap { flex-basis: 100%; display: flex; align-items: center; gap: 6px; padding-left: 34px; font-size: .88rem; color: #f4c96b; }
+.prio-stap small { color: #cfe3da; }
+.prio-stap-check { width: 20px; height: 20px; min-height: 20px !important; padding: 0 !important; border-radius: 5px !important; background: transparent !important; border: 2px solid #f4c96b !important; flex: 0 0 auto; }
+.prio-link { background: none !important; border: none !important; color: inherit !important; text-align: left; padding: 0 !important; min-height: 0 !important; font: inherit; cursor: pointer; }
+.prio-link small { display: block; color: #cfe3da; }
+.ontleed-dialog { width: min(560px, calc(100vw - 32px)); border: none; border-radius: 18px; padding: 16px 18px; }
+.ontleed-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+.ontleed-dialog label { display: block; font-size: .85rem; color: #4a5d58; margin: 8px 0 4px; }
+.ontleed-dialog input[type=text], .ontleed-dialog textarea { width: 100%; box-sizing: border-box; }
+#ontleed-status:empty, #ontleed-tip:empty { display: none; }
+#ontleed-tip { color: #3c6e5f; font-style: italic; }
+.ontleed-stappen { padding-left: 0; list-style: none; counter-reset: stap; display: grid; gap: 6px; }
+.ontleed-stappen li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: #f3f7f5; counter-increment: stap; }
+.ontleed-stappen li::before { content: counter(stap); font-weight: 700; color: #5d736d; min-width: 1.2em; }
+.ontleed-stappen li.ontleed-nu { background: #fff7e0; box-shadow: inset 3px 0 0 #e0a800; }
+.ontleed-stappen input[type=text] { flex: 1; min-width: 0; border: none; background: transparent; font: inherit; }
+.ontleed-stappen input[type=checkbox] { width: 22px; height: 22px; flex: 0 0 auto; }
+.ontleed-stappen li:has(input:checked) input[type=text] { text-decoration: line-through; color: #8a9a95; }
+.ontleed-stappen small { color: #5d736d; white-space: nowrap; }
+.ontleed-stappen button { min-height: 30px; padding: 2px 8px; }
+.ontleed-weg { margin-left: auto; }

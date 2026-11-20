@@ -1,7 +1,8 @@
 (function () {
   "use strict";
   // Wat nu: je WerkHub-taken in drie bakken (Eisenhower).
-  // Eisenhower: Doen (urgent+belangrijk), Gepland (belangrijk; zonder datum: Plannen), Delegeren (urgent, niet belangrijk), Rest (tussendoor).
+  // Eisenhower: Doen (urgent+belangrijk), Gepland (belangrijk; zonder datum: Plannen), Rest (tussendoor). Delegeren bestaat niet meer: zulke taken staan bij Doen.
+  // Vierde bak: 🪓 Ontleden (ontleed.js) — grote klussen in kleine stappen.
   // Vinkje = klaar in WerkHub en weg uit de lijst. Geen timer.
   const $ = id => document.getElementById(id);
   const card = $("nu-card");
@@ -14,7 +15,7 @@
   // Zelfde regel als WerkHub: zonder gekozen prioriteit is een taak met deadline binnen 2 dagen urgent.
   function bucket(task) {
     // Een subtaak met belangrijk_vanaf schuift op die dag naar Belangrijk, net als in WerkHub (v30).
-    if (task.taaktype === "subtaak") return task.belangrijk_vanaf && task.belangrijk_vanaf <= iso(new Date()) ? "belangrijk" : task.prioriteit === "delegeren" ? "delegeren" : "wel";
+    if (task.taaktype === "subtaak") return task.belangrijk_vanaf && task.belangrijk_vanaf <= iso(new Date()) ? "belangrijk" : task.prioriteit === "delegeren" ? "urgent" : "wel";
     // Vaste taak (komt elke dag/week/maand terug): op de dag zelf of te laat bij Doen, anders niet in Wat nu.
     if (task.herhaling && task.herhaling !== "eenmalig") return task.deadline && task.deadline <= iso(new Date()) ? "urgent" : "vast";
     if (task.prioriteit === "urgent" || task.prioriteit === "belangrijk") return task.prioriteit;
@@ -134,6 +135,7 @@
     const when = deadlineText(task.deadline) + (task.ritme_datum && task.ritme_datum !== task.deadline ? " · verzet" : "");
     if (when) title.append(Object.assign(document.createElement("small"), { textContent: when }));
     li.append(check, title);
+    window.WorkplaceOntleed?.decorate(li, task);
     if (isFixed(task) && bucket(task) === "urgent") {
       const actions = document.createElement("span");
       actions.className = "prio-fixed";
@@ -156,7 +158,7 @@
   function render() {
     const order = (a, b) => (a.deadline || "9999") < (b.deadline || "9999") ? -1 : (a.deadline || "9999") > (b.deadline || "9999") ? 1 : 0;
     const open = tasks.filter(task => task.status !== "wacht_op");
-    for (const key of ["urgent", "belangrijk", "delegeren", "wel"]) {
+    for (const key of ["urgent", "belangrijk", "wel"]) {
       const list = $(`prio-${key}`);
       let items = open.filter(task => bucket(task) === key).sort(order);
       // Gepland: wat al een datum heeft eerst; daaronder "Plannen" = nog zonder datum.
@@ -180,9 +182,10 @@
         rows.push(li);
       }
       list.replaceChildren(...(items.length ? rows : [Object.assign(document.createElement("li"), {
-        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks gepland." : key === "delegeren" ? "Niks om door te geven." : "Geen klusjes voor tussendoor."
+        className: "prio-leeg", textContent: key === "urgent" ? "Niks urgents. Lekker." : key === "belangrijk" ? "Niks gepland." : "Geen klusjes voor tussendoor."
       })]));
     }
+    window.WorkplaceOntleed?.renderBox(open);
     const waiting = tasks.filter(task => task.status === "wacht_op");
     $("prio-wacht").hidden = !waiting.length;
     $("prio-wacht").textContent = waiting.length ? `⏳ Wacht op iemand: ${waiting.map(task => task.titel).join(" · ")}` : "";
@@ -222,5 +225,5 @@
   setInterval(load, 3 * 60000);
   render();
   setTimeout(load, 50);
-  window.WorkplaceNu = { load, bucket };
+  window.WorkplaceNu = { load, bucket, render, finish: task => done(task, document.createElement("li")) };
 })();

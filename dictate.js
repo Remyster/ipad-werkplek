@@ -140,7 +140,7 @@
 
   // ---- 🎤 bij tekstvelden ----
   // Alleen bij observaties en notities (meetstatus) en je getypte notities.
-  const SELECTOR = "#measurement-editor textarea, #text";
+  const SELECTOR = "#measurement-editor textarea, #text, #ontleed-tekst";
   function attach(field) {
     if (field.dataset.dictate === "1" || field.type === "hidden" || field.closest(".dictate-wrap")) return;
     field.dataset.dictate = "1";

@@ -965,3 +965,11 @@ zijn nog niet geverifieerd.
 ## Versie 28.2
 
 - **Moeilijke-woordenlijst staat nu ook in de cloud** (`werkplek_woorden`, zie WERKPLEK-WOORDEN-MIGRATIE.sql) en wordt nooit meer gewist: geen limiet van 60 meer, de knop **wis** is weg. Bij openen van 📖 worden dit apparaat en de cloud samengevoegd, dus op iPad en telefoon zie je dezelfde lijst. Alle woorden staan in de lijst (scrollen), met het aantal erbij.
+
+## Versie 29
+
+- **🤝 Delegeren is weg** uit Wat nu en uit de taakkeuze. Bestaande delegeer-taken staan nu bij **🔥 Doen** (die doe je toch meteen).
+- **🪓 Ontleden** komt op die plek. Achter elke taak staat een 🪓: tik erop, gooi eruit wat er moet gebeuren (typen of 🎤), en de AI (Gemini, na toestemming) maakt een kort stappenplan van 3 tot 8 stappen. Stap 1 is altijd belachelijk klein (onder 5 min). Stappen zijn aan te passen, weg te halen en aan te vullen.
+- Onder de taak in Wat nu staat daarna steeds **▶ de eerstvolgende stap** met een eigen vinkje en de voortgang (bv. 2/5). Laatste stap af: de app vraagt of de taak ook in WerkHub op klaar mag.
+- **Geheugen:** plannen staan in `werkplek_stappen` (zie WERKPLEK-STAPPEN-MIGRATIE.sql). Bij een nieuw plan krijgt de AI je laatste 8 plannen mee: hoe jij dingen opdeelt en bij welke stap je eerder bleef hangen (3+ dagen geen voortgang). Die stappen maakt hij dan kleiner. In de 🪓-bak staan ook taken die al 10+ dagen openstaan zonder plan, met de vraag of je ze wilt ontleden. Losse klussen zonder WerkHub-taak kan ook (＋ Iets anders ontleden).
+- In WerkHub zelf bestaat Delegeren nog; daar is niks veranderd.
