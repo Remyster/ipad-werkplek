@@ -984,8 +984,46 @@
     input.type = "text";
     input.dataset.measureField = key;
     input.value = String(fieldValue(key));
+    // Meetwaarden (pH, EGV, O2 …): meteen het cijfertoetsenbord. "/" (bv. O2 95/8,9), "," en ":"
+    // staan daar niet altijd op, dus die komen als knopjes boven het veld (cijferHulp).
+    if (/^measure\./.test(key) || /^meter\.\w+\.value$/.test(key)) {
+      input.inputMode = "decimal";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.enterKeyHint = "next";
+      input.classList.add("cijferveld");
+    }
     return input;
   }
+
+  // Knopjes boven een cijferveld: / , : -  (één balkje, verhuist mee naar het veld met focus).
+  const cijferHulp = (() => {
+    const bar = document.createElement("div");
+    bar.className = "cijfer-hulp";
+    bar.setAttribute("aria-label", "Extra tekens");
+    for (const teken of ["/", ",", ".", ":", "-"]) {
+      const knop = Object.assign(document.createElement("button"), { type: "button", textContent: teken, title: `Typ ${teken}` });
+      knop.addEventListener("pointerdown", event => event.preventDefault()); // focus en toetsenbord blijven
+      knop.addEventListener("click", () => {
+        const veld = bar.parentElement?.querySelector("input.cijferveld");
+        if (!veld) return;
+        const start = veld.selectionStart ?? veld.value.length, eind = veld.selectionEnd ?? veld.value.length;
+        veld.value = veld.value.slice(0, start) + teken + veld.value.slice(eind);
+        veld.setSelectionRange(start + 1, start + 1);
+        veld.dispatchEvent(new Event("input", { bubbles: true }));
+        veld.focus();
+      });
+      bar.append(knop);
+    }
+    document.addEventListener("focusin", event => {
+      const veld = event.target;
+      if (veld instanceof HTMLInputElement && veld.classList.contains("cijferveld")) { veld.parentElement.classList.add("cijfer-plek"); veld.parentElement.append(bar); }
+    });
+    document.addEventListener("focusout", event => {
+      setTimeout(() => { if (!document.activeElement?.classList?.contains("cijferveld")) bar.remove(); }, 150);
+    });
+    return bar;
+  })();
 
   function renderDwatAkf(container) {
     const visit = document.createElement("div");
@@ -1054,7 +1092,26 @@
     observations.dataset.measureField = "observations";
     observations.value = String(fieldValue("observations"));
     observations.placeholder = "Observaties / bijzonderheden";
-    container.append(round, heading("Observaties / bijzonderheden"), observations);
+    container.append(round);
+    // Opstelling: de buitenste filters zijn 3, richting de kast lopen ze af naar 1.
+    container.append(heading("Opstelling helofytenfilters"));
+    const opstelling = document.createElement("div");
+    opstelling.className = "lws-opstelling";
+    for (const naam of ["VF 3", "VF 2", "VF 1", "Kast", "HF 1", "HF 2", "HF 3"]) {
+      opstelling.append(Object.assign(document.createElement("span"), { className: naam === "Kast" ? "lws-kast" : "", textContent: naam === "Kast" ? "🗄️ Kast" : naam }));
+    }
+    const uitleg = Object.assign(document.createElement("p"), { className: "measurement-help",
+      textContent: "HF 3 en VF 3 zijn de buitenste helofytenfilters. Richting de kast lopen ze af tot 1: 3 · 2 · 1 · kast · 1 · 2 · 3." });
+    container.append(opstelling, uitleg);
+    // Meetronde in looproute-volgorde, per punt een vinkje.
+    const RONDE = ["LS 2-2", "PWN IJM Dijk", "LS 1-1", "LS 2-1", "LS 1-2", "INF Hello", "VF 3", "VF 2", "VF 1",
+      "HF 1", "HF 2", "HF 3", "LS 1-3", "LS 2-3", "LS 2-2 (eind)"];
+    const rondeRijen = RONDE.map((punt, index) => {
+      const vink = checkbox(`ronde.${index + 1}`, "gemeten");
+      return [String(index + 1), punt, vink];
+    });
+    container.append(heading("Meetronde (looproute)"), table(["#", "Punt", "✓"], rondeRijen));
+    container.append(heading("Observaties / bijzonderheden"), observations);
   }
 
   // ---- LMRA en TRA (v24.6) ----

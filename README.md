@@ -973,3 +973,8 @@ zijn nog niet geverifieerd.
 - Onder de taak in Wat nu staat daarna steeds **▶ de eerstvolgende stap** met een eigen vinkje en de voortgang (bv. 2/5). Laatste stap af: de app vraagt of de taak ook in WerkHub op klaar mag.
 - **Geheugen:** plannen staan in `werkplek_stappen` (zie WERKPLEK-STAPPEN-MIGRATIE.sql). Bij een nieuw plan krijgt de AI je laatste 8 plannen mee: hoe jij dingen opdeelt en bij welke stap je eerder bleef hangen (3+ dagen geen voortgang). Die stappen maakt hij dan kleiner. In de 🪓-bak staan ook taken die al 10+ dagen openstaan zonder plan, met de vraag of je ze wilt ontleden. Losse klussen zonder WerkHub-taak kan ook (＋ Iets anders ontleden).
 - In WerkHub zelf bestaat Delegeren nog; daar is niks veranderd.
+
+## Versie 29.1
+
+- **LWS:** nieuw blok **Opstelling helofytenfilters** (VF 3 · VF 2 · VF 1 · kast · HF 1 · HF 2 · HF 3: de buitenste zijn 3, richting de kast lopen ze af tot 1) en de **Meetronde** in looproute-volgorde met per punt een vinkje: LS 2-2, PWN IJM Dijk, LS 1-1, LS 2-1, LS 1-2, INF Hello, VF 3, VF 2, VF 1, HF 1, HF 2, HF 3, LS 1-3, LS 2-3, LS 2-2.
+- **AKF/DWAT:** de meetvelden (pH, O2, EGV, temperatuur, enz.) openen meteen het **cijfertoetsenbord**. Boven het veld waarin je typt staan knopjes **/ , . : -**, zodat de "/" altijd te typen is (bv. O2 95/8,9).

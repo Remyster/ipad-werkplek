@@ -540,3 +540,15 @@ li:has(> .prio-fixed) { flex-wrap: wrap; }
 .ontleed-stappen small { color: #5d736d; white-space: nowrap; }
 .ontleed-stappen button { min-height: 30px; padding: 2px 8px; }
 .ontleed-weg { margin-left: auto; }
+
+/* Cijfervelden in de meetstaat: knopjes / , . : - boven het veld met focus */
+.measurement-sheet td.cijfer-plek { position: relative; }
+.cijfer-hulp { position: absolute; left: 4px; bottom: calc(100% - 4px); z-index: 5; display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #173c39; box-shadow: 0 4px 14px rgb(0 0 0 / 25%); }
+.cijfer-hulp button { min-width: 38px; min-height: 36px; padding: 2px 8px; border-radius: 8px; border: 0; background: #f4c96b; color: #1d2b28; font-weight: 700; font-size: 1.1rem; }
+/* LWS: opstelling helofytenfilters */
+.lws-opstelling { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.lws-opstelling span { padding: 6px 10px; border-radius: 8px; background: #e7f0ec; border: 1px solid #b4c4b9; font-weight: 700; }
+.lws-opstelling .lws-kast { background: #245b87; color: #fff; border-color: #245b87; }
+.measurement-sheet table:has(td label input[data-measure-field^="ronde."]) { min-width: 0; }
+.measurement-sheet table td label { display: flex; align-items: center; gap: 8px; }
+.measurement-sheet table td label input[type="checkbox"] { width: 24px; height: 24px; min-width: 0; margin: 0; }
