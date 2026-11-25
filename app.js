@@ -1104,7 +1104,7 @@
       textContent: "HF 3 en VF 3 zijn de buitenste helofytenfilters. Richting de kast lopen ze af tot 1: 3 · 2 · 1 · kast · 1 · 2 · 3." });
     container.append(opstelling, uitleg);
     // Meetronde in looproute-volgorde, per punt een vinkje.
-    const RONDE = ["LS 2-2", "PWN IJM Dijk", "LS 1-1", "LS 2-1", "LS 1-2", "INF Hello", "VF 3", "VF 2", "VF 1",
+    const RONDE = ["LS 2-2", "PWN IJM Dijk", "LS 1-1", "LS 2-1", "LS 1-2", "INF Helo", "VF 3", "VF 2", "VF 1",
       "HF 1", "HF 2", "HF 3", "LS 1-3", "LS 2-3", "LS 2-2 (eind)"];
     const rondeRijen = RONDE.map((punt, index) => {
       const vink = checkbox(`ronde.${index + 1}`, "gemeten");
